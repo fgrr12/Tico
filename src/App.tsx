@@ -1,32 +1,68 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+
+import { Companion } from './companion/Companion'
+
+import { type Language, detectLanguage } from './data/companion'
+import type { PetRect, Settings } from './types'
+
+interface Boot extends Settings {
+	x: number
+}
 
 /**
- * M0 has no pet in it. What it has is proof that the strip exists, is the size it
- * should be, and is where Rust said it would be — which is the only thing that
- * can be wrong at this stage, and is invisible by definition on a transparent
- * window.
- *
- * The outline is dev-only. In a build this renders nothing at all, and the strip
- * is exactly as empty as it looks.
+ * The strip is one pet and nothing else. Everything the frontend cannot see for
+ * itself — the cursor, the settings, where he stood last time — comes across from
+ * Rust, and everything Rust cannot see — where he is standing now — goes back.
  */
 export default function App() {
-	const [readout, setReadout] = useState('')
+	const [language] = useState<Language>(detectLanguage)
+	const [boot, setBoot] = useState<Boot | null>(null)
+	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
 
 	useEffect(() => {
-		if (!import.meta.env.DEV) return
+		invoke<Boot>('boot').then(setBoot)
 
-		const window = getCurrentWindow()
+		const cursorMoved = listen<{ x: number; y: number }>('cursor', (event) =>
+			setCursor(event.payload)
+		)
+		const settingsChanged = listen<Boot>('settings', (event) =>
+			setBoot((current) => ({ ...(current ?? event.payload), ...event.payload }))
+		)
 
-		Promise.all([window.innerSize(), window.scaleFactor()]).then(([size, scale]) => {
-			setReadout(
-				`${size.width}×${size.height} physical · ${scale}x · ${Math.round(size.height / scale)} logical tall`
-			)
-		})
+		return () => {
+			cursorMoved.then((off) => off())
+			settingsChanged.then((off) => off())
+		}
 	}, [])
 
-	if (!import.meta.env.DEV) return null
+	const handleRect = useCallback((rect: PetRect) => {
+		invoke('set_pet_rect', { rect })
+	}, [])
 
-	return <div className="debug-strip">tico · m0 · {readout}</div>
+	const handleInteractive = useCallback((hold: boolean) => {
+		invoke('set_interactive', { hold })
+	}, [])
+
+	const handleMoved = useCallback((x: number) => {
+		invoke('set_pet_x', { x })
+	}, [])
+
+	// Nothing is drawn until Rust says where he was left, so he never appears in
+	// one place and jumps to another a frame later.
+	if (!boot) return null
+
+	return (
+		<Companion
+			language={language}
+			settings={{ chattiness: boot.chattiness, size: boot.size }}
+			cursor={cursor}
+			initialX={boot.x}
+			onRectChange={handleRect}
+			onInteractive={handleInteractive}
+			onMoved={handleMoved}
+		/>
+	)
 }
