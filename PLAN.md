@@ -196,6 +196,29 @@ because it changes what the installer has to do.
 - Global hotkey → input bubble → he answers where he stands.
 - **Done when:** the hotkey works offline on a plane.
 
+### Before M4 — being liveable · ✅ done
+
+Not a milestone in the original plan, and it should have been. Everything up to
+M3 gave him more reasons to speak; nothing gave him a reason to stop.
+
+- **Quiet** in the tray: 30 minutes, an hour, or until told otherwise. Suppresses
+  what he says unprompted and nothing else — ask him a direct question and he
+  still answers, because you started it.
+- **In a call**: detected by the microphone being live, not by trying to detect
+  screen sharing. Screen-share detection on macOS is a guess about window titles;
+  a hot mic is a documented CoreAudio property, needs no permission, and works
+  for Zoom, Meet, Teams, Discord and FaceTime alike. It also answers the better
+  question — he should not be talking during a call whether or not you are
+  sharing.
+- While in a call he **peeks** from the right edge, half off-screen, keeps his
+  gestures and waves now and then, and says nothing. `hide` and `ignore` are the
+  other two settings. The default is peek, because hiding is right for a client
+  demo and sad for a standup, and the app cannot tell which meeting you are in.
+
+The design rule underneath: **the speech bubble is the unprofessional part, not
+the pet.** A small creature moving at the edge of a shared screen is peripheral;
+words oblige everyone on the call to read them.
+
 ### M4 — Packaging · ~2–3 days
 
 - Apple notarization, Windows signing — the boring part that decides whether

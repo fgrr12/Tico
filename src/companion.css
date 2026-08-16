@@ -511,3 +511,41 @@ body,
 .companion-ask input::placeholder {
 	color: var(--fg-muted);
 }
+
+/* ── In a call ──────────────────────────────────────────────────────────── */
+
+/*
+ * Hiding is opacity rather than unmounting: he keeps his position, his mood and
+ * his timers, so when the call ends he is where he was rather than newly born.
+ */
+.companion[data-hidden="true"] {
+	opacity: 0;
+	pointer-events: none;
+	transition-property: transform, opacity;
+}
+
+/* A wave from the corner. The left hand is the one still on screen while he
+   peeks in from the right edge. */
+.companion[data-gesture="wave"] .companion-hand[data-side="left"] {
+	transform-origin: 50% 100%;
+	animation: companion-wave 1.4s ease-in-out;
+}
+
+@keyframes companion-wave {
+	0%,
+	100% {
+		transform: translateY(0) rotate(0deg);
+	}
+	15%,
+	85% {
+		transform: translateY(-10px) rotate(0deg);
+	}
+	30%,
+	60% {
+		transform: translateY(-11px) rotate(-24deg);
+	}
+	45%,
+	75% {
+		transform: translateY(-11px) rotate(24deg);
+	}
+}

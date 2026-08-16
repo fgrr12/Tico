@@ -86,6 +86,11 @@ interface CompanionProps {
 	cursor: { x: number; y: number } | null
 	/** The frontmost application, and when it became frontmost. */
 	activeApp: { name: string; since: number } | null
+	/** Unix seconds until which he keeps unprompted remarks to himself. */
+	quietUntil: number
+	/** The microphone is live somewhere — treated as "you are in a call". */
+	inCall: boolean
+	inCallMode: 'peek' | 'hide' | 'ignore'
 	/** The ask hotkey was pressed. The window is already focused when this flips. */
 	asking: boolean
 	onAsk: (question: string) => Promise<AskResult>
@@ -104,6 +109,9 @@ export const Companion = ({
 	settings,
 	cursor,
 	activeApp,
+	quietUntil,
+	inCall,
+	inCallMode,
 	asking,
 	onAsk,
 	onAskDone,
@@ -126,6 +134,7 @@ export const Companion = ({
 	const [typed, setTyped] = useState('')
 	const [fx, setFx] = useState<{ name: string; n: number } | null>(null)
 	const [question, setQuestion] = useState('')
+	const [gesture, setGesture] = useState<string | null>(null)
 
 	const inputRef = useRef<HTMLInputElement>(null)
 
@@ -157,6 +166,10 @@ export const Companion = ({
 	const dwellDone = useRef(new Set<number>())
 	const appNow = useRef<{ name: string; since: number } | null>(null)
 	const motionNow = useRef<Motion | null>(null)
+	const peekingNow = useRef(false)
+	const homeX = useRef<number | null>(null)
+	const waveAt = useRef(0)
+	const silent = useRef({ quietUntil: 0, presenting: false })
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -178,9 +191,34 @@ export const Companion = ({
 		motionNow.current = motion
 	}, [motion])
 
+	const peeking = inCall && inCallMode === 'peek'
+	const hidden = inCall && inCallMode === 'hide'
+
+	useEffect(() => {
+		silent.current = { quietUntil, presenting: inCall && inCallMode !== 'ignore' }
+	}, [quietUntil, inCall, inCallMode])
+
+	useEffect(() => {
+		peekingNow.current = peeking
+	}, [peeking])
+
 	// ── Speaking ─────────────────────────────────────────────────────────────
 
-	const say = useCallback((text: string, ms = 5_200) => {
+	/**
+	 * The one place a line can be suppressed, which is why every line goes through
+	 * it.
+	 *
+	 * Two different silences. **Presenting** is absolute: the microphone is live,
+	 * something may be on a shared screen, and a bubble full of words is the part
+	 * that makes a pet unprofessional — it obliges everyone on the call to read it.
+	 * He keeps moving and gesturing; he just says nothing. **Quiet** is the one you
+	 * asked for, and it only stops him interrupting: answer him directly and he
+	 * still answers back, because you started it.
+	 */
+	const say = useCallback((text: string, ms = 5_200, forced = false) => {
+		if (silent.current.presenting) return
+		if (!forced && silent.current.quietUntil > Date.now() / 1_000) return
+
 		setBubble(text)
 		clearTimeout(bubbleTimer.current)
 		bubbleTimer.current = window.setTimeout(() => setBubble(null), ms + text.length * SAY_REVEAL)
@@ -224,8 +262,12 @@ export const Companion = ({
 		const width = element?.offsetWidth ?? 92
 		const height = element?.offsetHeight ?? 96
 
+		// While peeking he is allowed past the right edge, so that half of him is
+		// off-screen and the half that is left reads as someone leaning in.
+		const overshoot = peekingNow.current ? width * 0.5 : 0
+
 		return {
-			maxX: Math.max(1, window.innerWidth - width),
+			maxX: Math.max(1, window.innerWidth - width + overshoot),
 			maxLift: Math.max(0, window.innerHeight - height),
 		}
 	}, [])
@@ -465,6 +507,29 @@ export const Companion = ({
 		return () => clearTimeout(timer)
 	}, [activeApp, copy, canSpeak, react, say, lookAt])
 
+	/**
+	 * Going to the corner for a call, and coming back afterwards.
+	 *
+	 * He does not vanish — he moves to the right edge, leaves half of himself
+	 * showing, and keeps his gestures. What he loses is his voice, which is the
+	 * part that would have made you regret installing him during a demo.
+	 */
+	useEffect(() => {
+		if (peeking) {
+			if (homeX.current === null) homeX.current = posNow.current.x
+			setBubble(null)
+			// Briskly: he is getting out of the way, not going for a walk.
+			moveTo(limits().maxX, 0, WALK_SPEED * 2)
+			return
+		}
+
+		if (homeX.current !== null) {
+			const back = homeX.current
+			homeX.current = null
+			moveTo(back, 0)
+		}
+	}, [peeking, moveTo, limits])
+
 	/** Everything unprompted, on one poll. Chattiness stretches every floor. */
 	useEffect(() => {
 		const moments = [
@@ -495,6 +560,23 @@ export const Companion = ({
 			}
 
 			if (asleep.current || moodNow.current !== 'idle' || motion || dragged.current) return
+
+			// Peeking: he keeps the gestures and loses the itinerary. Wandering off
+			// mid-call is the opposite of getting out of the way.
+			if (peekingNow.current) {
+				if (now - waveAt.current > 14_000) {
+					waveAt.current = now
+					setGesture('wave')
+					window.setTimeout(() => setGesture(null), 1_400)
+					return
+				}
+
+				if (now - momentAt.current > MOMENT_EVERY && Math.random() < 0.5) {
+					momentAt.current = now
+					pick(moments)()
+				}
+				return
+			}
 
 			// Having been somewhere a long time is worth more than a stock line
 			// about the work, so it gets asked first.
@@ -593,25 +675,25 @@ export const Companion = ({
 		onAskDone()
 
 		react('thinking', undefined, 0)
-		say(pick(copy.thinking), 120_000)
+		say(pick(copy.thinking), 120_000, true)
 
 		const answer = await onAsk(asked)
 
 		if (answer === 'no-brain') {
 			react('wow', 'pop', 2_400)
-			say(pick(copy.noBrain), 12_000)
+			say(pick(copy.noBrain), 12_000, true)
 			return
 		}
 
 		if (answer === 'error') {
 			react('error', 'shake', 2_400)
-			say(pick(copy.brainError), 6_000)
+			say(pick(copy.brainError), 6_000, true)
 			return
 		}
 
 		const mood = ANSWER_MOODS.find((allowed) => allowed === answer.mood) ?? 'happy'
 		react(mood, 'pop', 3_000)
-		say(answer.say, 9_000)
+		say(answer.say, 9_000, true)
 	}, [question, closeAsk, onAsk, onAskDone, react, say, copy])
 
 	// ── Being handled ────────────────────────────────────────────────────────
@@ -704,6 +786,8 @@ export const Companion = ({
 			data-size={settings.size}
 			data-walking={motion ? 'true' : undefined}
 			data-side={pos.x > window.innerWidth / 2 ? 'right' : 'left'}
+			data-gesture={gesture ?? undefined}
+			data-hidden={hidden ? 'true' : undefined}
 			style={{
 				transform: `translate(${pos.x}px, ${-pos.lift}px)`,
 				transitionDuration: motion ? `${motion.ms}ms` : '0ms',

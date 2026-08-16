@@ -1,5 +1,6 @@
 mod active_app;
 mod brain;
+mod call;
 mod cursor;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -24,11 +25,20 @@ use state::{State, Store};
 struct Settings {
     chattiness: Vec<(&'static str, CheckMenuItem<Wry>)>,
     size: Vec<(&'static str, CheckMenuItem<Wry>)>,
+    in_call: Vec<(&'static str, CheckMenuItem<Wry>)>,
     autostart: CheckMenuItem<Wry>,
 }
 
 const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
 const SIZES: [&str; 3] = ["small", "normal", "large"];
+const IN_CALL: [&str; 3] = ["peek", "hide", "ignore"];
+/// Minutes of silence the tray offers. `0` cancels it.
+const QUIET_FOR: [(&str, i64); 4] = [
+    ("30 minutes", 30),
+    ("1 hour", 60),
+    ("Until I say otherwise", -1),
+    ("Off", 0),
+];
 
 /// Puts the window where the pet lives and makes it invisible to the mouse.
 ///
@@ -171,6 +181,32 @@ pub fn run() {
                 ));
             }
 
+            let mut in_call = Vec::new();
+            for value in IN_CALL {
+                in_call.push((
+                    value,
+                    CheckMenuItem::with_id(
+                        app,
+                        format!("incall:{value}"),
+                        value,
+                        true,
+                        saved.in_call == value,
+                        None::<&str>,
+                    )?,
+                ));
+            }
+
+            let mut quiet = Vec::new();
+            for (label, minutes) in QUIET_FOR {
+                quiet.push(MenuItem::with_id(
+                    app,
+                    format!("quiet:{minutes}"),
+                    label,
+                    true,
+                    None::<&str>,
+                )?);
+            }
+
             let autostart = CheckMenuItem::with_id(
                 app,
                 "autostart",
@@ -200,12 +236,34 @@ pub fn run() {
                     .collect::<Vec<_>>(),
             )?;
 
+            let in_call_menu = Submenu::with_items(
+                app,
+                "In a call",
+                true,
+                &in_call
+                    .iter()
+                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
+                    .collect::<Vec<_>>(),
+            )?;
+
+            let quiet_menu = Submenu::with_items(
+                app,
+                "Quiet",
+                true,
+                &quiet
+                    .iter()
+                    .map(|item| item as &dyn tauri::menu::IsMenuItem<Wry>)
+                    .collect::<Vec<_>>(),
+            )?;
+
             let menu = Menu::with_items(
                 app,
                 &[
                     &show,
                     &hide,
                     &PredefinedMenuItem::separator(app)?,
+                    &quiet_menu,
+                    &in_call_menu,
                     &chattiness_menu,
                     &size_menu,
                     &autostart,
@@ -217,6 +275,7 @@ pub fn run() {
             app.manage(Settings {
                 chattiness,
                 size,
+                in_call,
                 autostart,
             });
 
@@ -234,6 +293,28 @@ pub fn run() {
                         let value = value.to_string();
                         state::update(app, |current| current.chattiness = value.clone());
                         mark(&settings.chattiness, &value);
+                        publish(app);
+                        return;
+                    }
+
+                    if let Some(value) = id.strip_prefix("incall:") {
+                        let value = value.to_string();
+                        state::update(app, |current| current.in_call = value.clone());
+                        mark(&settings.in_call, &value);
+                        publish(app);
+                        return;
+                    }
+
+                    if let Some(minutes) = id.strip_prefix("quiet:") {
+                        let minutes: i64 = minutes.parse().unwrap_or(0);
+                        // -1 is indefinite, which is stored as a date far enough
+                        // out that nobody outlives it.
+                        let until = match minutes {
+                            0 => 0,
+                            -1 => state::now() + 60 * 60 * 24 * 365 * 100,
+                            _ => state::now() + minutes * 60,
+                        };
+                        state::update(app, |current| current.quiet_until = until);
                         publish(app);
                         return;
                     }
@@ -268,6 +349,7 @@ pub fn run() {
             anchor_strip(&handle);
             cursor::watch(handle.clone());
             active_app::watch(handle.clone());
+            call::watch(handle.clone());
             handle.global_shortcut().register(ask_shortcut).ok();
 
             Ok(())

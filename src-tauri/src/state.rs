@@ -15,6 +15,12 @@ pub struct State {
     pub x: f64,
     pub chattiness: String,
     pub size: String,
+    /// Unix seconds until which he says nothing unprompted. `0` is "not quiet".
+    /// Stored as an instant rather than a duration so quitting the app does not
+    /// silently hand back the silence you asked for.
+    pub quiet_until: i64,
+    /// What he does while the microphone is live: `peek`, `hide` or `ignore`.
+    pub in_call: String,
 }
 
 impl Default for State {
@@ -24,6 +30,12 @@ impl Default for State {
             x: 0.86,
             chattiness: "normal".into(),
             size: "normal".into(),
+            quiet_until: 0,
+            // Peeking by default. Hiding entirely is the safe choice for a client
+            // demo and the sad one for a standup, and the app cannot tell which
+            // meeting you are in — so it picks the charming one and lets you say
+            // otherwise.
+            in_call: "peek".into(),
         }
     }
 }
@@ -73,4 +85,11 @@ pub fn boot(app: AppHandle) -> State {
 #[tauri::command]
 pub fn set_pet_x(app: AppHandle, x: f64) {
     update(&app, |state| state.x = x.clamp(0.0, 1.0));
+}
+
+pub fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs() as i64)
+        .unwrap_or(0)
 }

@@ -11,6 +11,8 @@ import type { PetRect, Settings } from './types'
 
 interface Boot extends Settings {
 	x: number
+	quiet_until: number
+	in_call: 'peek' | 'hide' | 'ignore'
 }
 
 /**
@@ -24,6 +26,7 @@ export default function App() {
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
 	const [activeApp, setActiveApp] = useState<{ name: string; since: number } | null>(null)
 	const [asking, setAsking] = useState(false)
+	const [inCall, setInCall] = useState(false)
 
 	useEffect(() => {
 		invoke<Boot>('boot').then(setBoot)
@@ -40,12 +43,16 @@ export default function App() {
 			setActiveApp({ name: event.payload.name, since: Date.now() })
 		)
 		const asked = listen('ask', () => setAsking(true))
+		const call = listen<{ active: boolean }>('in-call', (event) =>
+			setInCall(event.payload.active)
+		)
 
 		return () => {
 			cursorMoved.then((off) => off())
 			settingsChanged.then((off) => off())
 			appChanged.then((off) => off())
 			asked.then((off) => off())
+			call.then((off) => off())
 		}
 	}, [])
 
@@ -96,6 +103,9 @@ export default function App() {
 			settings={{ chattiness: boot.chattiness, size: boot.size }}
 			cursor={cursor}
 			activeApp={activeApp}
+			quietUntil={boot.quiet_until}
+			inCall={inCall}
+			inCallMode={boot.in_call}
 			asking={asking}
 			onAsk={handleAsk}
 			onAskDone={handleAskDone}
