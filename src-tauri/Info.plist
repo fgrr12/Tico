@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Agent app: tray icon only, no Dock icon and no Cmd-Tab entry. The window
+	     config's `skipTaskbar` does nothing here — that is a Windows and Linux
+	     option. Declaring it in the plist as well as calling
+	     set_activation_policy in setup() is what stops the Dock icon from
+	     flashing during the moment before setup() runs. -->
+	<key>LSUIElement</key>
+	<true/>
+</dict>
+</plist>

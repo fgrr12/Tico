@@ -1,0 +1,4 @@
+# esbuild ships a platform binary and needs its install script to run, the same
+# as in the sibling repos.
+allowBuilds:
+  esbuild: true
