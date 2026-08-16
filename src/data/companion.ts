@@ -22,7 +22,49 @@ interface CompanionCopy {
 	wake: string[]
 	/** After the cursor has been gone a while. */
 	back: string[]
+	/** Keyed by the id `matchApp` resolves a window's owner to. */
+	apps: Record<string, string[]>
+	/** For an app he has no opinion about. He still knows its name. */
+	unknownApp: ((app: string) => string)[]
+	/** Said once when you have been in the same app for a long time. */
+	dwell: ((app: string, minutes: number) => string)[]
+	/** Said when you have been bouncing between apps. */
+	switching: string[]
 	label: string
+}
+
+/**
+ * Window owner → an id the copy is keyed by.
+ *
+ * Substring matching on a lowercased name, which is crude and right: the same
+ * editor is "Code", "Visual Studio Code" and "Code - Insiders" depending on the
+ * build, and a table of exact names would be wrong on someone else's machine by
+ * the end of the week. First match wins, so the specific entries come first.
+ */
+const APP_PATTERNS: [string, string[]][] = [
+	['sql', ['beekeeper', 'tableplus', 'dbeaver', 'pgadmin', 'azure data studio', 'sequel']],
+	['vscode', ['visual studio code', 'code - insiders', 'cursor', 'windsurf', 'vscodium']],
+	['visualstudio', ['visual studio', 'rider', 'jetbrains', 'intellij', 'webstorm']],
+	['xcode', ['xcode', 'android studio']],
+	['terminal', ['terminal', 'iterm', 'warp', 'ghostty', 'alacritty', 'kitty', 'wezterm']],
+	['github', ['github desktop', 'sourcetree', 'fork', 'gitkraken']],
+	['docker', ['docker', 'orbstack', 'podman']],
+	['api', ['postman', 'insomnia', 'bruno', 'hoppscotch']],
+	['figma', ['figma', 'sketch', 'penpot']],
+	['meeting', ['zoom', 'microsoft teams', 'google meet', 'webex']],
+	['chat', ['slack', 'discord', 'whatsapp', 'telegram', 'messages', 'signal']],
+	['music', ['spotify', 'music', 'tidal', 'deezer']],
+	['browser', ['chrome', 'brave', 'safari', 'firefox', 'arc', 'edge', 'zen']],
+	['notes', ['notion', 'obsidian', 'notes', 'bear', 'craft', 'linear', 'clickup']],
+	['sheets', ['excel', 'numbers', 'sheets', 'calc']],
+	['mail', ['mail', 'outlook', 'spark', 'superhuman']],
+	['ai', ['claude', 'chatgpt', 'copilot', 'perplexity', 'ollama']],
+	['finder', ['finder', 'explorer', 'files', 'nautilus']],
+]
+
+export const matchApp = (name: string): string | null => {
+	const needle = name.toLowerCase()
+	return APP_PATTERNS.find(([, patterns]) => patterns.some((p) => needle.includes(p)))?.[0] ?? null
 }
 
 export const companionCopy: Record<Language, CompanionCopy> = {
@@ -70,6 +112,65 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Welcome back. Nothing crashed.',
 		],
 
+		apps: {
+			vscode: [
+				'VS Code. Home.',
+				'Another TypeScript file. Naturally.',
+				'Whatever you are about to name that variable — name it better.',
+			],
+			visualstudio: [
+				'The other half of the CV.',
+				'C# today. The stack nobody expects him to also know.',
+			],
+			xcode: ['Xcode. Pour a coffee, this takes a minute.'],
+			terminal: [
+				'A terminal. That is where I was born, you know.',
+				'I lived in one of those before I got out here.',
+				'Careful with that prompt. I know what it can do.',
+			],
+			sql: [
+				'SQL Server or Postgres today?',
+				'A query window. Someone is about to say "it worked locally".',
+			],
+			github: ['Pushing, or just staring at the graph?', 'Commit the thing. Go on.'],
+			docker: ['Something is about to take four minutes.', 'Containers. Ask me again later.'],
+			api: ['Poking an endpoint. My favourite spectator sport.'],
+			figma: ['Design. He does that too, and he knows he is not a designer.'],
+			meeting: ['A meeting. I will be right here when it ends.', 'Camera on? Your call.'],
+			chat: ['Someone needs something.', 'Answer it or do not, but stop reading it twice.'],
+			music: [
+				'Music. He built Lyra for exactly this moment — the lyrics float on top.',
+				'Whatever this is, Lyra would be showing you the words right now.',
+			],
+			browser: [
+				'Documentation, or Stack Overflow? Be honest.',
+				'Fourteen tabs. I counted the sound of it.',
+			],
+			notes: ['Writing it down. That is more than most people do.'],
+			sheets: ['A spreadsheet. Somewhere a database is crying.'],
+			mail: ['Email. The oldest queue with no retry policy.'],
+			ai: ['Talking to a model. I am getting one of those in M3.'],
+			finder: ['Looking for something.'],
+		},
+
+		unknownApp: [
+			(app) => `${app}. New to me.`,
+			(app) => `${app}, then. I have no opinion yet.`,
+			(app) => `So this is ${app}.`,
+		],
+
+		dwell: [
+			(app, minutes) => `${minutes} minutes in ${app}. Flow, or a bug?`,
+			(app, minutes) => `You have not left ${app} in ${minutes} minutes. Blink twice.`,
+			(_app, minutes) => `${minutes} minutes, same window. Stand up for a second.`,
+		],
+
+		switching: [
+			'Six apps in two minutes. Everything alright?',
+			'You are bouncing. Pick one.',
+			'That is a lot of context switching for one afternoon.',
+		],
+
 		label: 'tico',
 	},
 
@@ -115,6 +216,65 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Volviste. No me moví. Casi.',
 			'Ahí estás. Ya estaba empezando a hablar solo.',
 			'Bienvenido de vuelta. No se cayó nada.',
+		],
+
+		apps: {
+			vscode: [
+				'VS Code. Casa.',
+				'Otro archivo TypeScript. Obvio.',
+				'Como sea que vayás a llamar esa variable — llamala mejor.',
+			],
+			visualstudio: [
+				'La otra mitad del CV.',
+				'C# hoy. El stack que nadie espera que también maneje.',
+			],
+			xcode: ['Xcode. Servite un café, esto tarda.'],
+			terminal: [
+				'Una terminal. Ahí nací yo, por si no sabías.',
+				'Yo vivía en una de esas antes de salir acá afuera.',
+				'Cuidado con ese prompt. Yo sé lo que puede hacer.',
+			],
+			sql: [
+				'¿SQL Server o Postgres hoy?',
+				'Una ventana de consultas. Alguien está por decir "en local funcionaba".',
+			],
+			github: ['¿Empujando, o solo viendo el grafo?', 'Hacé el commit. Dale.'],
+			docker: ['Algo está por tardar cuatro minutos.', 'Contenedores. Preguntame después.'],
+			api: ['Picándole a un endpoint. Mi deporte favorito de espectador.'],
+			figma: ['Diseño. También lo hace, y sabe que no es diseñador.'],
+			meeting: ['Una reunión. Acá voy a estar cuando termine.', '¿Cámara encendida? Vos sabrás.'],
+			chat: ['Alguien necesita algo.', 'Contestá o no, pero dejá de leerlo dos veces.'],
+			music: [
+				'Música. Para este momento exacto construyó Lyra — la letra flota encima.',
+				'Sea lo que sea esto, Lyra te estaría mostrando la letra ahora mismo.',
+			],
+			browser: [
+				'¿Documentación, o Stack Overflow? Sé honesto.',
+				'Catorce pestañas. Las conté por el ruido.',
+			],
+			notes: ['Anotándolo. Eso ya es más de lo que hace la mayoría.'],
+			sheets: ['Una hoja de cálculo. En algún lado una base de datos está llorando.'],
+			mail: ['Correo. La cola más vieja del mundo y sin política de reintento.'],
+			ai: ['Hablando con un modelo. A mí me ponen uno en M3.'],
+			finder: ['Buscando algo.'],
+		},
+
+		unknownApp: [
+			(app) => `${app}. No la conocía.`,
+			(app) => `${app}, entonces. Todavía no tengo opinión.`,
+			(app) => `Así que esto es ${app}.`,
+		],
+
+		dwell: [
+			(app, minutes) => `${minutes} minutos en ${app}. ¿Flow, o un bug?`,
+			(app, minutes) => `No salís de ${app} hace ${minutes} minutos. Parpadeá dos veces.`,
+			(_app, minutes) => `${minutes} minutos, la misma ventana. Parate un ratito.`,
+		],
+
+		switching: [
+			'Seis apps en dos minutos. ¿Todo bien?',
+			'Andás rebotando. Elegí una.',
+			'Eso es mucho cambio de contexto para una sola tarde.',
 		],
 
 		label: 'tico',

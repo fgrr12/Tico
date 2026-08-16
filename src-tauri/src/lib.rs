@@ -1,3 +1,4 @@
+mod active_app;
 mod cursor;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -236,7 +237,8 @@ pub fn run() {
                 .build(app)?;
 
             anchor_strip(&handle);
-            cursor::watch(handle);
+            cursor::watch(handle.clone());
+            active_app::watch(handle);
 
             Ok(())
         })

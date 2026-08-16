@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
 
-import { type Language, companionCopy } from '../data/companion'
+import { type Language, companionCopy, matchApp } from '../data/companion'
 import type { CompanionMood, PetRect, Settings } from '../types'
 
 /**
@@ -42,6 +42,26 @@ const FALL_SPEED = 1_100
 /** Per-character delay while a line is typed into the bubble. */
 const SAY_REVEAL = 16
 
+/**
+ * How often he is allowed to have an opinion about what you are doing.
+ *
+ * These are the numbers that decide whether he is company or an interruption, and
+ * they are deliberately mean. Commenting on every app switch is the single
+ * fastest way to make someone quit a desktop pet, so: he waits before noticing,
+ * he will not mention the same app twice in a quarter of an hour, and he cannot
+ * say anything about your apps more than once every three minutes no matter what
+ * you do. Chattiness stretches all of it.
+ */
+const NOTICE_AFTER = 1_800
+const APP_LINE_EVERY = 180_000
+const APP_REPEAT_AFTER = 900_000
+/** More switches than this inside the window and he says something about it. */
+const SWITCH_WINDOW = 120_000
+const SWITCH_LIMIT = 6
+const SWITCH_COOLDOWN = 900_000
+/** Minutes in one app before he mentions it. Each fires once per stay. */
+const DWELL_AT = [45, 120]
+
 const CHATTINESS: Record<Settings['chattiness'], number> = {
 	quiet: 3,
 	normal: 1,
@@ -59,6 +79,8 @@ interface CompanionProps {
 	settings: Settings
 	/** Global cursor, in CSS pixels relative to the strip. `y` is negative above it. */
 	cursor: { x: number; y: number } | null
+	/** The frontmost application, and when it became frontmost. */
+	activeApp: { name: string; since: number } | null
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	onRectChange: (rect: PetRect) => void
@@ -71,6 +93,7 @@ export const Companion = ({
 	language,
 	settings,
 	cursor,
+	activeApp,
 	initialX,
 	onRectChange,
 	onInteractive,
@@ -108,6 +131,16 @@ export const Companion = ({
 	const posNow = useRef({ x: 0, lift: 0 })
 	const busy = useRef(false)
 	const rate = useRef(1)
+	// What he already knows about your afternoon. All of it dies with the process,
+	// which is correct: none of it is worth writing to disk, and a pet that
+	// remembers last Tuesday's app usage is a tracker wearing a costume.
+	const saidAbout = useRef(new Map<string, number>())
+	const appLineAt = useRef(0)
+	const switches = useRef<number[]>([])
+	const switchLineAt = useRef(0)
+	const dwellDone = useRef(new Set<number>())
+	const appNow = useRef<{ name: string; since: number } | null>(null)
+	const motionNow = useRef<Motion | null>(null)
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -124,6 +157,10 @@ export const Companion = ({
 	useEffect(() => {
 		rate.current = CHATTINESS[settings.chattiness]
 	}, [settings.chattiness])
+
+	useEffect(() => {
+		motionNow.current = motion
+	}, [motion])
 
 	// ── Speaking ─────────────────────────────────────────────────────────────
 
@@ -341,6 +378,77 @@ export const Companion = ({
 		}
 	}, [])
 
+	/**
+	 * Nothing he says unprompted may talk over something else, or wake him up.
+	 *
+	 * Reads `motion` through a ref rather than closing over the state, so this
+	 * keeps a stable identity. As a dependency it would re-run the effect below
+	 * every time he started or stopped walking — which would re-clear the dwell
+	 * marks mid-stay and let the same "you have been here 45 minutes" line fire
+	 * again after every stroll.
+	 */
+	const canSpeak = useCallback(
+		() =>
+			!asleep.current &&
+			!busy.current &&
+			!dragged.current &&
+			!motionNow.current &&
+			moodNow.current === 'idle',
+		[]
+	)
+
+	/**
+	 * Noticing which app you are in.
+	 *
+	 * He waits a beat before looking, because reacting the instant a window comes
+	 * forward reads as surveillance rather than company — and because you might
+	 * just be passing through on the way somewhere else.
+	 */
+	useEffect(() => {
+		if (!activeApp) return
+
+		appNow.current = activeApp
+		dwellDone.current.clear()
+
+		const timer = window.setTimeout(() => {
+			const now = Date.now()
+
+			switches.current = [...switches.current, now].filter((at) => now - at < SWITCH_WINDOW)
+			if (!canSpeak()) return
+
+			// Bouncing between windows outranks any one of them: it is the more
+			// interesting thing to have noticed.
+			if (
+				switches.current.length > SWITCH_LIMIT &&
+				now - switchLineAt.current > SWITCH_COOLDOWN * rate.current
+			) {
+				switchLineAt.current = now
+				appLineAt.current = now
+				react('wow', 'pop', 1_600)
+				say(pick(copy.switching), 5_000)
+				return
+			}
+
+			if (now - appLineAt.current < APP_LINE_EVERY * rate.current) return
+
+			const key = matchApp(activeApp.name) ?? `?${activeApp.name}`
+			const said = saidAbout.current.get(key) ?? 0
+			if (now - said < APP_REPEAT_AFTER * rate.current) return
+
+			const lines = copy.apps[key]
+			const line = lines ? pick(lines) : pick(copy.unknownApp)(activeApp.name)
+
+			saidAbout.current.set(key, now)
+			appLineAt.current = now
+
+			react('watching', undefined, 1_800)
+			lookAt(0, -1, 1_600)
+			say(line, 6_000)
+		}, NOTICE_AFTER)
+
+		return () => clearTimeout(timer)
+	}, [activeApp, copy, canSpeak, react, say, lookAt])
+
 	/** Everything unprompted, on one poll. Chattiness stretches every floor. */
 	useEffect(() => {
 		const moments = [
@@ -371,6 +479,24 @@ export const Companion = ({
 			}
 
 			if (asleep.current || moodNow.current !== 'idle' || motion || dragged.current) return
+
+			// Having been somewhere a long time is worth more than a stock line
+			// about the work, so it gets asked first.
+			const app = appNow.current
+			if (app && !busy.current) {
+				const minutes = Math.floor((now - app.since) / 60_000)
+				const reached = DWELL_AT.filter(
+					(mark) => minutes >= mark && !dwellDone.current.has(mark)
+				)
+
+				if (reached.length > 0) {
+					for (const mark of reached) dwellDone.current.add(mark)
+					appLineAt.current = now
+					react('watching', undefined, 1_800)
+					say(pick(copy.dwell)(app.name, minutes), 7_000)
+					return
+				}
+			}
 
 			if (!busy.current && now - chatterAt.current > CHATTER_EVERY * rate.current) {
 				chatterAt.current = now

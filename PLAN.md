@@ -144,7 +144,23 @@ persist.
 - Position persisted across restarts via Lyra's `window_state` pattern.
 - **Done when:** it can be handed to someone with no explanation and no AI.
 
-### M2 — Situational awareness · ~2 days
+### M2 — Situational awareness · ⚠️ done on macOS only
+
+Verified: `[tico] active app: Finder`, from `NSWorkspace.frontmostApplication`, on
+the main thread, with no permission prompt.
+
+**Windows and Linux are stubbed, not written.** Both are straightforward FFI that
+needs no permission — `GetForegroundWindow` → `QueryFullProcessImageNameW`, and
+`_NET_ACTIVE_WINDOW` → `/proc/<pid>/comm` — but neither can be compiled on this
+machine, and FFI that has never been through a compiler is worse than an empty
+function because it looks finished. `frontmost()` returns `None` there, which
+costs the pet his opinions and nothing else.
+
+Also cut: the JSON/SQLite memory this milestone budgeted for. Everything he needs
+to remember — which app, since when, what he has already said about it — is
+session-scoped, and the session is the right lifetime for it. Persisting a
+per-app time log would be the first half of a tracker nobody asked for.
+
 
 - Active application polling, ~2Hz, per platform:
   - macOS `NSWorkspace.frontmostApplication` — **no permission needed for the app
