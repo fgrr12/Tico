@@ -113,7 +113,16 @@ the README rather than half-supported, and revisited only if someone asks.
 
 ## Milestones
 
-### M0 — Bootstrap · ~half a day
+### M0 — Bootstrap · ✅ done
+
+Verified on a 14" MacBook Pro: `3024×640 physical · 2x · 320 logical tall`, full
+screen width, clicks passing through, tray quitting cleanly, no Dock icon.
+
+`window_state.rs` was **not** lifted, against the bullet below: the strip is
+derived from the monitor rather than remembered, and it is the pet's position
+inside it that will need persisting. It moves to M1, where there is something to
+persist.
+
 
 - `pnpm create tauri-app` → React + TS + Vite, matching Lyra's layout.
 - Lift from Lyra, near-verbatim: `window_state.rs`, the tray builder, the
