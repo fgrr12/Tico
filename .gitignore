@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Downloaded at runtime, never committed — see AD-3.
+models/
+*.gguf
+
+# Sidecar binaries are fetched per platform at build time.
+src-tauri/binaries/
