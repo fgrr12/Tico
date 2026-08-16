@@ -30,6 +30,12 @@ interface CompanionCopy {
 	dwell: ((app: string, minutes: number) => string)[]
 	/** Said when you have been bouncing between apps. */
 	switching: string[]
+	/** The ask hotkey, and what comes back from it. */
+	askPlaceholder: string
+	thinking: string[]
+	/** No model installed. Has to be useful, not just apologetic. */
+	noBrain: string[]
+	brainError: string[]
 	label: string
 }
 
@@ -171,6 +177,20 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'That is a lot of context switching for one afternoon.',
 		],
 
+		askPlaceholder: 'ask me something…',
+
+		thinking: ['Thinking…', 'One second.', 'Let me look that up in myself.'],
+
+		noBrain: [
+			'No brain installed. Get Ollama and pull a small model — I will find it.',
+			'I can walk, but I cannot think yet. `brew install ollama`, then `ollama pull qwen3:1.7b`.',
+		],
+
+		brainError: [
+			'Something went wrong in there. Ask me again?',
+			'That did not come back right. Try once more.',
+		],
+
 		label: 'tico',
 	},
 
@@ -275,6 +295,20 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Seis apps en dos minutos. ¿Todo bien?',
 			'Andás rebotando. Elegí una.',
 			'Eso es mucho cambio de contexto para una sola tarde.',
+		],
+
+		askPlaceholder: 'preguntame algo…',
+
+		thinking: ['Pensando…', 'Un segundo.', 'Dejame buscarlo dentro de mí.'],
+
+		noBrain: [
+			'No tengo cerebro instalado. Conseguí Ollama y bajá un modelo chiquito — yo lo encuentro.',
+			'Caminar puedo, pensar todavía no. `brew install ollama`, después `ollama pull qwen3:1.7b`.',
+		],
+
+		brainError: [
+			'Algo se rompió ahí adentro. ¿Me preguntás de nuevo?',
+			'Eso no volvió bien. Probá otra vez.',
 		],
 
 		label: 'tico',

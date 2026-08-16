@@ -3,9 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
-import { Companion } from './companion/Companion'
+import { type AskResult, Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
+import { systemPrompt } from './data/persona'
 import type { PetRect, Settings } from './types'
 
 interface Boot extends Settings {
@@ -22,6 +23,7 @@ export default function App() {
 	const [boot, setBoot] = useState<Boot | null>(null)
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
 	const [activeApp, setActiveApp] = useState<{ name: string; since: number } | null>(null)
+	const [asking, setAsking] = useState(false)
 
 	useEffect(() => {
 		invoke<Boot>('boot').then(setBoot)
@@ -37,11 +39,13 @@ export default function App() {
 		const appChanged = listen<{ name: string }>('active-app', (event) =>
 			setActiveApp({ name: event.payload.name, since: Date.now() })
 		)
+		const asked = listen('ask', () => setAsking(true))
 
 		return () => {
 			cursorMoved.then((off) => off())
 			settingsChanged.then((off) => off())
 			appChanged.then((off) => off())
+			asked.then((off) => off())
 		}
 	}, [])
 
@@ -57,6 +61,31 @@ export default function App() {
 		invoke('set_pet_x', { x })
 	}, [])
 
+	/**
+	 * The prompt is built here rather than in Rust because it is personality, and
+	 * personality lives beside the rest of the copy. Rust only does the HTTP.
+	 */
+	const handleAsk = useCallback(
+		async (question: string): Promise<AskResult> => {
+			try {
+				return await invoke<{ say: string; mood?: string }>('ask', {
+					request: {
+						system: systemPrompt(language, activeApp?.name ?? null),
+						question,
+					},
+				})
+			} catch (error) {
+				return String(error).includes('no-brain') ? 'no-brain' : 'error'
+			}
+		},
+		[language, activeApp]
+	)
+
+	const handleAskDone = useCallback(() => {
+		setAsking(false)
+		invoke('set_interactive', { hold: false })
+	}, [])
+
 	// Nothing is drawn until Rust says where he was left, so he never appears in
 	// one place and jumps to another a frame later.
 	if (!boot) return null
@@ -67,6 +96,9 @@ export default function App() {
 			settings={{ chattiness: boot.chattiness, size: boot.size }}
 			cursor={cursor}
 			activeApp={activeApp}
+			asking={asking}
+			onAsk={handleAsk}
+			onAskDone={handleAskDone}
 			initialX={boot.x}
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}

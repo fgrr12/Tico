@@ -173,7 +173,22 @@ per-app time log would be the first half of a tracker nobody asked for.
 - **Done when:** he notices you have been in the same editor for two hours and
   says something about it, with no model running.
 
-### M3 — The brain · ~3–4 days
+### M3 — The brain · ⚠️ loop built, unproven against a real model
+
+Everything is wired: hotkey → input → grounded prompt → constrained JSON → he
+says it in his own voice, with the mood the model picked. What has never run is
+the middle: there is no model on this machine, so the only path exercised end to
+end is the honest `no-brain` one.
+
+**AD-3 changed, and this is the deviation to argue with.** The provider is
+Ollama, and the bundled `llama-server` sidecar is not built. Ollama handles
+Metal, CUDA and model management, updates itself, and most developers already
+have it — against shipping platform binaries, a download manager and three
+acceleration variants. The cost is real: the app is no longer self-contained,
+which was part of the original ask. The seam is one base URL and one request
+shape, so the sidecar is a later swap rather than a rewrite. Decide before M4,
+because it changes what the installer has to do.
+
 
 - Sidecar plumbing, health check, graceful "no model" state.
 - Ollama detection; first-run download with progress and a size choice.

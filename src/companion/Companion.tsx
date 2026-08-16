@@ -74,6 +74,11 @@ const clamp = (value: number) => Math.max(-1, Math.min(1, value))
 
 type Motion = { ms: number; facing: 'left' | 'right' }
 
+export type AskResult = { say: string; mood?: string } | 'no-brain' | 'error'
+
+/** Moods the model is allowed to pick. Rust constrains it too; this is the belt. */
+const ANSWER_MOODS: CompanionMood[] = ['idle', 'happy', 'wow', 'love', 'dizzy', 'watching']
+
 interface CompanionProps {
 	language: Language
 	settings: Settings
@@ -81,6 +86,11 @@ interface CompanionProps {
 	cursor: { x: number; y: number } | null
 	/** The frontmost application, and when it became frontmost. */
 	activeApp: { name: string; since: number } | null
+	/** The ask hotkey was pressed. The window is already focused when this flips. */
+	asking: boolean
+	onAsk: (question: string) => Promise<AskResult>
+	/** Hands the window back: click-through again, focus returned to whatever had it. */
+	onAskDone: () => void
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	onRectChange: (rect: PetRect) => void
@@ -94,6 +104,9 @@ export const Companion = ({
 	settings,
 	cursor,
 	activeApp,
+	asking,
+	onAsk,
+	onAskDone,
 	initialX,
 	onRectChange,
 	onInteractive,
@@ -112,6 +125,9 @@ export const Companion = ({
 	const [bubble, setBubble] = useState<string | null>(null)
 	const [typed, setTyped] = useState('')
 	const [fx, setFx] = useState<{ name: string; n: number } | null>(null)
+	const [question, setQuestion] = useState('')
+
+	const inputRef = useRef<HTMLInputElement>(null)
 
 	const moodTimer = useRef(0)
 	const bubbleTimer = useRef(0)
@@ -536,6 +552,68 @@ export const Companion = ({
 		[]
 	)
 
+	// ── Being asked ──────────────────────────────────────────────────────────
+
+	/** The hotkey already focused the window; this is only about the caret. */
+	useEffect(() => {
+		if (!asking) return
+		activityAt.current = Date.now()
+		asleep.current = false
+		setQuestion('')
+		react('watching', 'pop', 0)
+		lookAt(0, -1, 4_000)
+		// One frame, so the input exists before it is asked to take focus.
+		const timer = window.setTimeout(() => inputRef.current?.focus(), 30)
+		return () => clearTimeout(timer)
+	}, [asking, react, lookAt])
+
+	/**
+	 * Only ever cancels the *asking*. Submitting closes the input too, and whether
+	 * the browser fires a blur at an element being unmounted is not something to
+	 * bet a state machine on — so this refuses to touch any mood but the one the
+	 * question itself put him in. Without the guard, sending a question drops him
+	 * out of `thinking` a frame after he enters it.
+	 */
+	const closeAsk = useCallback(() => {
+		setQuestion('')
+		setMood((current) => (current === 'watching' ? 'idle' : current))
+		onAskDone()
+	}, [onAskDone])
+
+	const submitAsk = useCallback(async () => {
+		const asked = question.trim()
+		if (!asked) {
+			closeAsk()
+			return
+		}
+
+		// The window goes back to click-through before the answer arrives: he can
+		// think with his hands free, and you can keep working while he does.
+		setQuestion('')
+		onAskDone()
+
+		react('thinking', undefined, 0)
+		say(pick(copy.thinking), 120_000)
+
+		const answer = await onAsk(asked)
+
+		if (answer === 'no-brain') {
+			react('wow', 'pop', 2_400)
+			say(pick(copy.noBrain), 12_000)
+			return
+		}
+
+		if (answer === 'error') {
+			react('error', 'shake', 2_400)
+			say(pick(copy.brainError), 6_000)
+			return
+		}
+
+		const mood = ANSWER_MOODS.find((allowed) => allowed === answer.mood) ?? 'happy'
+		react(mood, 'pop', 3_000)
+		say(answer.say, 9_000)
+	}, [question, closeAsk, onAsk, onAskDone, react, say, copy])
+
 	// ── Being handled ────────────────────────────────────────────────────────
 
 	const handleClick = () => {
@@ -631,11 +709,30 @@ export const Companion = ({
 				transitionDuration: motion ? `${motion.ms}ms` : '0ms',
 			}}
 		>
-			{bubble && (
-				<div className="companion-bubble">
-					{typed}
-					{typed.length < bubble.length && <span className="caret">▌</span>}
+			{asking ? (
+				<div className="companion-bubble companion-ask">
+					<input
+						ref={inputRef}
+						value={question}
+						onChange={(event) => setQuestion(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter') submitAsk()
+							if (event.key === 'Escape') closeAsk()
+						}}
+						onBlur={closeAsk}
+						placeholder={copy.askPlaceholder}
+						spellCheck={false}
+						autoComplete="off"
+						aria-label={copy.askPlaceholder}
+					/>
 				</div>
+			) : (
+				bubble && (
+					<div className="companion-bubble">
+						{typed}
+						{typed.length < bubble.length && <span className="caret">▌</span>}
+					</div>
+				)
 			)}
 
 			<button

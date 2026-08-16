@@ -487,3 +487,27 @@ body,
 		transition-duration: 0.01ms !important;
 	}
 }
+
+/*
+ * The ask bubble. Same shell as a speech bubble because it is the same thing
+ * pointed the other way — he is the one listening.
+ */
+.companion-ask {
+	pointer-events: auto;
+	padding: 0.45rem 0.6rem;
+}
+
+.companion-ask input {
+	width: 13rem;
+	background: transparent;
+	border: 0;
+	outline: none;
+	font-family: var(--mono);
+	font-size: 12px;
+	color: var(--fg);
+	caret-color: var(--purple);
+}
+
+.companion-ask input::placeholder {
+	color: var(--fg-muted);
+}

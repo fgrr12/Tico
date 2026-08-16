@@ -21,9 +21,12 @@ static LAST: Mutex<Option<String>> = Mutex::new(None);
 fn frontmost() -> Option<String> {
     use objc2_app_kit::NSWorkspace;
 
-    let workspace = unsafe { NSWorkspace::sharedWorkspace() };
-    let app = unsafe { workspace.frontmostApplication() }?;
-    let name = unsafe { app.localizedName() }?;
+    // No unsafe block: objc2 marks these three as safe, because none of them has
+    // a safety requirement beyond being on the main thread — which is where the
+    // caller already puts us.
+    let workspace = NSWorkspace::sharedWorkspace();
+    let app = workspace.frontmostApplication()?;
+    let name = app.localizedName()?;
 
     Some(name.to_string())
 }
@@ -53,6 +56,13 @@ pub fn watch(app: AppHandle) {
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {
             let Some(name) = frontmost() else { return };
+
+            // Taking focus for the ask hotkey makes him the frontmost app, and a
+            // pet that notices itself and has no opinion about itself is a bad
+            // joke told twice. His own window is not a context switch.
+            if name.eq_ignore_ascii_case("tico") {
+                return;
+            }
 
             let Ok(mut last) = LAST.lock() else { return };
             if last.as_deref() == Some(name.as_str()) {

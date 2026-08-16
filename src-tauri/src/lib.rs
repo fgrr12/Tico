@@ -1,4 +1,5 @@
 mod active_app;
+mod brain;
 mod cursor;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -13,6 +14,7 @@ use tauri::{
     Emitter, Manager, Position, Size, Wry,
 };
 use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use state::{State, Store};
 
@@ -84,16 +86,43 @@ fn publish(app: &tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Ctrl+Shift+T, in the same shape as Lyra's Ctrl+Shift+L. Deliberately not
+    // Cmd+Shift+T: a global shortcut swallows it everywhere, and that one already
+    // means "reopen the tab you just closed" in every browser.
+    let ask_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT);
+    let listening_for = ask_shortcut;
+
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(move |app, shortcut, event| {
+                    if event.state != ShortcutState::Pressed || shortcut != &listening_for {
+                        return;
+                    }
+
+                    // The strip is click-through and unfocused by design, so
+                    // asking him something means temporarily undoing both — then
+                    // the frontend hands them back when the question is done.
+                    cursor::pin(true);
+
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let _ = window.emit("ask", ());
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             state::boot,
             state::set_pet_x,
             cursor::set_pet_rect,
             cursor::set_interactive,
+            brain::brain_status,
+            brain::ask,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
             let saved = state::load(&handle);
             app.manage(Store(Mutex::new(saved.clone())));
@@ -238,7 +267,8 @@ pub fn run() {
 
             anchor_strip(&handle);
             cursor::watch(handle.clone());
-            active_app::watch(handle);
+            active_app::watch(handle.clone());
+            handle.global_shortcut().register(ask_shortcut).ok();
 
             Ok(())
         })

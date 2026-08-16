@@ -28,6 +28,9 @@ tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Only ever talks to 127.0.0.1, but rustls keeps the door open for a hosted
+# fallback without swapping the client out later.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Already in the tree via tao; declared directly so `macos.rs` can reach NSWindow
