@@ -1,4 +1,6 @@
 mod cursor;
+#[cfg(target_os = "macos")]
+mod macos;
 mod state;
 mod strip;
 
@@ -58,6 +60,11 @@ fn anchor_strip(app: &tauri::AppHandle) {
 
     let _ = window.show();
     let _ = window.set_position(Position::Physical(position));
+
+    // After show(), because the level is set on a real NSWindow and showing is
+    // what guarantees there is one.
+    #[cfg(target_os = "macos")]
+    macos::place_above_dock(&window);
 }
 
 /// Ticks the chosen item and unticks its siblings.
