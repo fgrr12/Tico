@@ -45,6 +45,90 @@ pub struct Answer {
     pub say: String,
     #[serde(default)]
     pub mood: Option<String>,
+    /// One of the actions below, or `answer`. The frontend decides what to do
+    /// with it; Rust decides what the list is, because Rust is what executes it.
+    #[serde(default)]
+    pub action: Option<String>,
+    /// Search terms only. Never a path — see the note in `actions.rs`.
+    #[serde(default)]
+    pub query: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Intent {
+    action: String,
+    #[serde(default)]
+    query: String,
+}
+
+/// The parser's contract, and it lives here rather than with the persona copy
+/// because it is a description of what Rust can execute, not of who he is.
+const INTENT_RULES: &str = "\
+You are the intent parser for a desktop assistant. Turn what the user says into \
+an action.
+
+Actions:
+- open_file: they want a file or folder opened. `query` = the words to search \
+for, nothing else.
+- reveal_file: they want to SEE where something is, not open it. `query` = \
+search words.
+- open_url: they want a website. `query` = the url or the bare site name.
+- answer: anything else — a question, a comment, small talk.
+
+Rules: `query` holds ONLY search terms, never a sentence, and never a path you \
+invented. If unsure, use answer.";
+
+/// Classification wants a cold model and an answer wants a warm one, which is
+/// most of why this is two calls rather than one schema doing both. The other
+/// half is latency where it is felt: opening a file returns after this call
+/// alone, and only a real question pays for the second.
+async fn classify(question: &str) -> Intent {
+    let fallback = Intent {
+        action: "answer".into(),
+        query: String::new(),
+    };
+
+    let body = json!({
+        "model": "",
+        "stream": false,
+        "format": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["open_file", "reveal_file", "open_url", "answer"]
+                },
+                "query": { "type": "string" }
+            },
+            "required": ["action", "query"]
+        },
+        "options": { "temperature": 0.1, "num_predict": 80 },
+        "messages": [
+            { "role": "system", "content": INTENT_RULES },
+            { "role": "user", "content": question }
+        ]
+    });
+
+    let Some(model) = smallest_model().await else {
+        return fallback;
+    };
+
+    let mut body = body;
+    body["model"] = json!(model);
+
+    let response = reqwest::Client::new()
+        .post(format!("{OLLAMA}/api/chat"))
+        .timeout(ANSWER_TIMEOUT)
+        .json(&body)
+        .send()
+        .await;
+
+    let Ok(response) = response else { return fallback };
+    let Ok(chat) = response.json::<ChatResponse>().await else {
+        return fallback;
+    };
+
+    serde_json::from_str::<Intent>(&chat.message.content).unwrap_or(fallback)
 }
 
 #[derive(Deserialize)]
@@ -92,6 +176,18 @@ pub async fn ask(request: AskRequest) -> Result<Answer, String> {
         return Err("no-brain".into());
     };
 
+    // Something to do outranks something to say: if this is a request to open
+    // anything, it returns here and never pays for a second round trip.
+    let intent = classify(&request.question).await;
+    if intent.action != "answer" && !intent.query.trim().is_empty() {
+        return Ok(Answer {
+            say: String::new(),
+            mood: Some("happy".into()),
+            action: Some(intent.action),
+            query: Some(intent.query),
+        });
+    }
+
     let body = json!({
         "model": model,
         "stream": false,
@@ -137,6 +233,9 @@ pub async fn ask(request: AskRequest) -> Result<Answer, String> {
     // Constrained decoding makes this parse essentially always succeed, but
     // "essentially" is not "always" — and a pet that prints raw JSON at you is
     // worse than one that stays quiet.
-    serde_json::from_str::<Answer>(&response.message.content)
-        .map_err(|error| format!("unparseable: {error}"))
+    let mut answer: Answer = serde_json::from_str(&response.message.content)
+        .map_err(|error| format!("unparseable: {error}"))?;
+
+    answer.action = Some("answer".into());
+    Ok(answer)
 }

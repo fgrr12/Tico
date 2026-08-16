@@ -36,6 +36,15 @@ interface CompanionCopy {
 	/** No model installed. Has to be useful, not just apologetic. */
 	noBrain: string[]
 	brainError: string[]
+	/**
+	 * What he says after doing something. Written rather than generated on
+	 * purpose: these fire on every action, they are the lines most often seen,
+	 * and a template with a real filename in it beats anything a 3B produces.
+	 */
+	opening: (name: string) => string
+	revealing: (name: string) => string
+	openingUrl: (host: string) => string
+	notFound: (query: string) => string
 	label: string
 }
 
@@ -191,6 +200,11 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'That did not come back right. Try once more.',
 		],
 
+		opening: (name) => `Opening ${name}.`,
+		revealing: (name) => `There it is — ${name}.`,
+		openingUrl: (host) => `Off to ${host}.`,
+		notFound: (query) => `Nothing called "${query}" that I can find.`,
+
 		label: 'tico',
 	},
 
@@ -310,6 +324,11 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Algo se rompió ahí adentro. ¿Me preguntás de nuevo?',
 			'Eso no volvió bien. Probá otra vez.',
 		],
+
+		opening: (name) => `Abriendo ${name}.`,
+		revealing: (name) => `Ahí está — ${name}.`,
+		openingUrl: (host) => `Vamos a ${host}.`,
+		notFound: (query) => `No encontré nada que se llame "${query}".`,
 
 		label: 'tico',
 	},

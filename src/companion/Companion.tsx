@@ -74,7 +74,10 @@ const clamp = (value: number) => Math.max(-1, Math.min(1, value))
 
 type Motion = { ms: number; facing: 'left' | 'right' }
 
-export type AskResult = { say: string; mood?: string } | 'no-brain' | 'error'
+export type AskResult =
+	| { say: string; mood?: string; action?: string; query?: string }
+	| 'no-brain'
+	| 'error'
 
 /** Moods the model is allowed to pick. Rust constrains it too; this is the belt. */
 const ANSWER_MOODS: CompanionMood[] = ['idle', 'happy', 'wow', 'love', 'dizzy', 'watching']
@@ -94,6 +97,8 @@ interface CompanionProps {
 	/** The ask hotkey was pressed. The window is already focused when this flips. */
 	asking: boolean
 	onAsk: (question: string) => Promise<AskResult>
+	/** Executes an intent and reports back what actually happened. */
+	onAction: (action: string, query: string) => Promise<{ ok: boolean; label: string }>
 	/** Hands the window back: click-through again, focus returned to whatever had it. */
 	onAskDone: () => void
 	/** Where he was standing last time, as a fraction of the strip width. */
@@ -114,6 +119,7 @@ export const Companion = ({
 	inCallMode,
 	asking,
 	onAsk,
+	onAction,
 	onAskDone,
 	initialX,
 	onRectChange,
@@ -691,10 +697,36 @@ export const Companion = ({
 			return
 		}
 
+		// Something to do rather than something to say. The line describing it is
+		// written, not generated: it fires on every action, so it is the line seen
+		// most often, and a template holding a real filename beats anything a 3B
+		// writes about a file it never saw.
+		if (answer.action && answer.action !== 'answer' && answer.query) {
+			const done = await onAction(answer.action, answer.query)
+
+			if (!done.ok) {
+				react('error', 'shake', 2_400)
+				say(copy.notFound(done.label), 6_000, true)
+				return
+			}
+
+			react('happy', 'hop', 2_400)
+			say(
+				answer.action === 'reveal_file'
+					? copy.revealing(done.label)
+					: answer.action === 'open_url'
+						? copy.openingUrl(done.label)
+						: copy.opening(done.label),
+				5_000,
+				true
+			)
+			return
+		}
+
 		const mood = ANSWER_MOODS.find((allowed) => allowed === answer.mood) ?? 'happy'
 		react(mood, 'pop', 3_000)
 		say(answer.say, 9_000, true)
-	}, [question, closeAsk, onAsk, onAskDone, react, say, copy])
+	}, [question, closeAsk, onAsk, onAction, onAskDone, react, say, copy])
 
 	// ── Being handled ────────────────────────────────────────────────────────
 

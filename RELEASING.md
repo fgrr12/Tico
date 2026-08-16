@@ -10,6 +10,27 @@ src-tauri/target/release/bundle/dmg/tico_x.y.z_aarch64.dmg   4.2 MB
 That build runs perfectly **on the machine that made it** and will be refused by
 almost every other one. This file is about the gap between those two facts.
 
+## The path this project actually takes
+
+tico is for its author and about three other people, so **it is not signed and
+will not be**. Notarization is $99/year to remove one right-click, and at four
+users that is not a trade worth making.
+
+Handing it to someone therefore means handing them one command as well:
+
+```sh
+# After copying tico.app to /Applications
+xattr -d com.apple.quarantine /Applications/tico.app
+```
+
+Without it macOS says *"tico is damaged and can't be opened"*, which is its
+unhelpful phrasing for "unsigned" and alarms people who have done nothing wrong.
+Right-click → Open works too, but only on some macOS versions and it is harder to
+explain over a message.
+
+Everything below stays for the day this is handed to a fifth person who will not
+run a command.
+
 ## Where an unsigned build stands right now
 
 ```

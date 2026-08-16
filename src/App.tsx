@@ -88,6 +88,12 @@ export default function App() {
 		[language, activeApp]
 	)
 
+	const handleAction = useCallback(
+		(action: string, query: string) =>
+			invoke<{ ok: boolean; label: string }>('run_action', { action, query }),
+		[]
+	)
+
 	const handleAskDone = useCallback(() => {
 		setAsking(false)
 		invoke('set_interactive', { hold: false })
@@ -108,6 +114,7 @@ export default function App() {
 			inCallMode={boot.in_call}
 			asking={asking}
 			onAsk={handleAsk}
+			onAction={handleAction}
 			onAskDone={handleAskDone}
 			initialX={boot.x}
 			onRectChange={handleRect}

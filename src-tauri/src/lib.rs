@@ -1,3 +1,4 @@
+mod actions;
 mod active_app;
 mod brain;
 mod call;
@@ -138,6 +139,7 @@ pub fn run() {
             cursor::set_interactive,
             brain::brain_status,
             brain::ask,
+            actions::run_action,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
