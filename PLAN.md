@@ -253,6 +253,45 @@ application's data on our way out would be rude.
 Roughly two to three weekends of real work, front-loaded on M1 because that is the
 part that has to be good.
 
+## Tried and rejected: the spontaneous brain
+
+Letting the model write his *unprompted* lines, not just his answers. Built,
+tested against real models, reverted. Recording it so nobody — including a later
+version of me — spends the weekend again.
+
+Three designs, three different failures:
+
+| Approach | What happened |
+| --- | --- |
+| Let it observe what you are doing | Invented that the INTACO portal is for Spotify |
+| Let it retrieve a fact and phrase it | 1 in 6 answered in English, 1 in 6 was false (put him at Qubo in 2017) |
+| Hand it one true fact to rephrase | Facts safe, Spanish broken |
+
+Then the same tests against qwen2.5:**7b**, to find out whether it was capacity:
+
+| | 3B | 7B |
+| --- | --- | --- |
+| "broiler farm" | "app de hornos" (ovens) | "rancho parrillero" (barbecue ranch) |
+| "guards" | left in English | "guardaespaldas" (bodyguards) |
+| "stacks" | "pilares" (pillars) | "pilas" (batteries) |
+| wrong language | 1 in 6 | 2 in 9 |
+| latency | 1.0s | 1.8–2.3s, 10.7s cold |
+
+**It is not a size problem.** The 7B is more accurate on facts and no better at
+Spanish register, at twice the latency. Turning domain jargon into idiomatic
+Costa Rican Spanish is the hard part, and it is the part a human already did
+correctly in `companion.ts` — "galera", and "stacks" deliberately left in
+English, because that is how the words are actually used.
+
+The asymmetry that explains all of it: **an answer was asked for, so a machine
+voice is accepted and a second of latency is expected. An unprompted line
+competes with one somebody wrote by hand, and loses.** The model stays where it
+demonstrably works, which is answering questions.
+
+Side effect worth keeping: `smallest_model()` picking the smallest installed
+model was a bet on latency. The 7B comparison makes it the quality bet too, for
+this workload.
+
 ## Cut from v1 — on purpose
 
 | Cut                          | Why, and when it comes back                                       |
