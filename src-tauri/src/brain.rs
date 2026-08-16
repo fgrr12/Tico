@@ -107,12 +107,15 @@ pub async fn ask(request: AskRequest) -> Result<Answer, String> {
                     "enum": ["idle", "happy", "wow", "love", "dizzy", "watching"]
                 }
             },
-            "required": ["say"]
+            // `mood` is required: left optional the model simply skips it, and he
+            // ends up wearing the same default face for every answer.
+            "required": ["say", "mood"]
         },
         "options": {
             "temperature": 0.7,
-            // A pet interrupts you with two sentences, not an essay.
-            "num_predict": 160
+            // A pet interrupts you with one sentence, not an essay. The prompt asks
+            // for 30 words; this is the ceiling if it does not listen.
+            "num_predict": 120
         },
         "messages": [
             { "role": "system", "content": request.system },
