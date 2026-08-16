@@ -103,6 +103,13 @@ pub fn run() {
     let listening_for = ask_shortcut;
 
     tauri::Builder::default()
+        // Must be registered first, per the plugin's own contract. Without it,
+        // launching tico twice gives you two pets and two tray icons — and since
+        // he is an accessory app with no Dock tile, there is nothing on screen to
+        // tell you the first one was already running.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            anchor_strip(app);
+        }))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -279,11 +286,17 @@ pub fn run() {
                 autostart,
             });
 
-            let icon = app.default_window_icon().cloned().expect("no default icon");
+            // A separate monochrome icon for the menu bar, not the app icon.
+            // macOS template images are re-coloured from their alpha channel, so
+            // this one inverts correctly on a light menu bar instead of sitting
+            // there as a dark smudge. Elsewhere the flag is ignored and the same
+            // silhouette is simply drawn as-is.
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
 
             TrayIconBuilder::new()
                 .tooltip("tico")
-                .icon(icon)
+                .icon(tray_icon)
+                .icon_as_template(true)
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();

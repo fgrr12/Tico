@@ -45,6 +45,10 @@
     ],
     "macOS": {
       "minimumSystemVersion": "10.15"
-    }
+    },
+    "category": "Utility",
+    "copyright": "© Fabricio Rojas",
+    "shortDescription": "A desktop pet that walks the bottom of your screen",
+    "longDescription": "tico walks along the bottom of your screen, notices which application you are in, and answers questions using a language model running on your own machine. He came out of a portfolio terminal and has opinions about most things."
   }
 }

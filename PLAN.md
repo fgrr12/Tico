@@ -219,7 +219,31 @@ The design rule underneath: **the speech bubble is the unprofessional part, not
 the pet.** A small creature moving at the edge of a shared screen is peripheral;
 words oblige everyone on the call to read them.
 
-### M4 — Packaging · ~2–3 days
+### M4 — Packaging · ⚠️ built and installable, not signed
+
+`pnpm t:b` produces a 13 MB `.app` and a 4.2 MB `.dmg`. It is installed in
+`/Applications`, launches, and behaves like the dev build. What it is not is
+signed by anybody: the linker's `adhoc` signature is enough to run here and
+Gatekeeper refuses it everywhere else. **That wall is $99/year and an Apple
+Developer account, and it is yours to walk through** — see `RELEASING.md`, which
+has the exact variables, the verification commands, and the Windows and Linux
+situations.
+
+Done in this pass:
+
+- His own icon, drawn from the same geometry as `CompanionFace.tsx`, minus
+  everything that vanishes below 64px.
+- A separate **monochrome template** icon for the menu bar, so it inverts on a
+  light menu bar instead of sitting there as a dark smudge.
+- **Single instance.** Found by accident: two copies were running at once, and
+  since he is an accessory app with no Dock tile, nothing on screen tells you the
+  first one was already there. Two pets, two tray icons.
+- Bundle metadata: category, copyright, descriptions.
+
+The milestone's "an uninstall that takes the downloaded model with it" is moot
+now that AD-3 went to Ollama — the model belongs to Ollama, and deleting another
+application's data on our way out would be rude.
+
 
 - Apple notarization, Windows signing — the boring part that decides whether
   anyone ever runs it. Budget the certificate before starting, not after.

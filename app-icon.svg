@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    tico's face, at icon proportions.
+
+    Same geometry and the same Tokyo Night tokens as CompanionFace.tsx, with
+    everything that disappears below 64px taken out: no scanlines, no hands, no
+    feet, and a head that fills the canvas instead of floating in it. What has to
+    survive at 32px is the shape of a little terminal window with eyes — and the
+    three traffic lights, which are three coloured pixels at that size and are the
+    most recognisable thing on him.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1f27"/>
+      <stop offset="100%" stop-color="#131519"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+
+  <!-- Antenna and its status light. Green, because an icon shows a healthy one. -->
+  <line x1="256" y1="112" x2="256" y2="80" stroke="#363b4a" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="256" cy="64" r="17" fill="#9ece6a"/>
+
+  <!-- The window. -->
+  <rect x="72" y="110" width="368" height="298" rx="66" fill="#21242c" stroke="#3b3f52" stroke-width="7"/>
+
+  <circle cx="120" cy="156" r="11" fill="#f7768e"/>
+  <circle cx="160" cy="156" r="11" fill="#e0af68"/>
+  <circle cx="200" cy="156" r="11" fill="#9ece6a"/>
+
+  <!-- The screen, and the face on it. -->
+  <rect x="104" y="192" width="304" height="180" rx="40" fill="#16181e"/>
+
+  <rect x="165" y="234" width="42" height="54" rx="17" fill="#bb9af7"/>
+  <rect x="305" y="234" width="42" height="54" rx="17" fill="#bb9af7"/>
+
+  <path d="M214 316 q42 46 84 0" fill="none" stroke="#bb9af7" stroke-width="15" stroke-linecap="round"/>
+</svg>

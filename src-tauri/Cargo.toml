@@ -22,9 +22,12 @@ tauri-build = { version = "2", features = [] }
 # on every target, and a target-scoped copy does not satisfy that check. It
 # compiles to nothing off macOS. Note that apps using this API are rejected from
 # the Mac App Store, which is not a target here.
-tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "2", # `image-png` is what makes Image::from_bytes exist, for the monochrome
+# menu bar icon.
+features = ["macos-private-api", "tray-icon", "image-png"] }
 
 tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

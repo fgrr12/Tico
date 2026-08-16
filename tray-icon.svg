@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    The menu bar icon, and a different job from the app icon.
+
+    macOS template images use the alpha channel only and are re-coloured by the
+    system, so this is black-on-transparent with the face knocked *out* rather
+    than drawn in colour. That is what makes it invert correctly on a light menu
+    bar instead of sitting there as a dark smudge.
+
+    Drawn edge to edge with a little padding: the menu bar renders it at about
+    18pt, and detail below the eyes is lost anyway.
+  -->
+  <mask id="face">
+    <rect x="0" y="0" width="512" height="512" fill="black"/>
+    <!-- White is kept. -->
+    <rect x="46" y="96" width="420" height="330" rx="76" fill="white"/>
+    <rect x="46" y="96" width="420" height="330" rx="76" fill="white"/>
+    <rect x="240" y="34" width="32" height="70" rx="16" fill="white"/>
+    <circle cx="256" cy="40" r="34" fill="white"/>
+    <!-- Black is punched back out: the screen, and the eyes and mouth on it. -->
+    <rect x="86" y="180" width="340" height="208" rx="52" fill="black"/>
+    <rect x="152" y="228" width="52" height="66" rx="21" fill="white"/>
+    <rect x="308" y="228" width="52" height="66" rx="21" fill="white"/>
+    <path d="M196 328 q60 60 120 0" fill="none" stroke="white" stroke-width="24" stroke-linecap="round"/>
+  </mask>
+
+  <rect width="512" height="512" fill="black" mask="url(#face)"/>
+</svg>
