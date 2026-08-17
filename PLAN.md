@@ -312,6 +312,36 @@ misclassified, and the classifier has already opened one padlock.
 Marking a monthly reminder done rolls it to next month rather than retiring it.
 Paying August's IVA does not mean September's is handled.
 
+## Which model, measured rather than assumed
+
+Four families compared on the two jobs tico actually gives a model, plus the one
+it keeps being asked for:
+
+| | intent | latency | answers |
+| --- | --- | --- | --- |
+| **qwen2.5:3b** | 9/10 | **0.66s** | dry and accurate |
+| mistral:7b | 10/10 | 1.50s | one outright failure, wrong tense |
+| llama3.2:3b | 9/10 | 1.43s | too terse to be useful |
+| gemma3:4b | 8/10 | 1.19s | "¡es genial!" — wrong register entirely |
+
+**qwen2.5:3b stays**, and `smallest_model()` picking it was right for a third
+reason now. Mistral wins the tenth intent case at 2.3× the latency, and that
+tenth is already caught by `is_searchable` — opening a file feeling instant is
+worth more than a case the guard handles anyway.
+
+The Spanish voice failed in **all four families**, which retires the last theory
+about it being a qwen problem:
+
+- gemma3 — `"Vos hablás, vos tenés… Whisper transcriba"`, echoing the voseo
+  instruction back into the answer
+- llama3.2 — `"La aplicación del cerdo"`
+- mistral — `"En tus proyectos, Fabricio alterna dos pilares"`, mixing person
+- qwen — one answer entirely in English
+
+Also tested and **not** shipped: a prompt rule forbidding verbatim copying from
+the English FACTS. It fixed one leak and caused another, so there is no evidence
+it helps and some that it hurts.
+
 ## Tried and rejected: the spontaneous brain
 
 Letting the model write his *unprompted* lines, not just his answers. Built,
