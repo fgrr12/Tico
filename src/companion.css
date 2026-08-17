@@ -224,8 +224,14 @@ body,
 	line-height: 1.55;
 	color: var(--fg);
 	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+	/* Read, not touched — a speech bubble must never swallow a click meant for
+	   whatever is behind it. The one that carries a button opts back in. */
 	pointer-events: none;
 	animation: companion-say 0.26s ease-out;
+}
+
+.companion-bubble[data-pending] {
+	pointer-events: auto;
 }
 
 .companion[data-side="left"] .companion-bubble {
@@ -695,6 +701,7 @@ body,
 /* The one button he ever shows: dismissing a reminder. */
 .companion-done {
 	display: block;
+	pointer-events: auto;
 	margin-top: 0.5rem;
 	padding: 0.2rem 0.55rem;
 	font-family: var(--mono);

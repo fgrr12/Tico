@@ -137,6 +137,7 @@ export const Companion = ({
 	const copy = companionCopy[language]
 
 	const rootRef = useRef<HTMLDivElement>(null)
+	const bubbleRef = useRef<HTMLDivElement>(null)
 
 	const [mood, setMood] = useState<CompanionMood>('idle')
 	const [blink, setBlink] = useState(false)
@@ -376,8 +377,27 @@ export const Companion = ({
 		const publish = () => {
 			const element = rootRef.current
 			if (!element) return
+
 			const box = element.getBoundingClientRect()
-			onRectChange({ x: box.x, y: box.y, width: box.width, height: box.height })
+			let { x, y, width, height } = box
+
+			// The bubble is absolutely positioned, so it contributes nothing to the
+			// container's box — which means Rust never learned it was there and kept
+			// the window click-through over it. Fine for a bubble that is only read;
+			// not fine for the one that grows a button, whose clicks were going
+			// straight through to the desktop.
+			const bubble = pending ? bubbleRef.current?.getBoundingClientRect() : null
+
+			if (bubble) {
+				const left = Math.min(box.left, bubble.left)
+				const top = Math.min(box.top, bubble.top)
+				x = left
+				y = top
+				width = Math.max(box.right, bubble.right) - left
+				height = Math.max(box.bottom, bubble.bottom) - top
+			}
+
+			onRectChange({ x, y, width, height })
 		}
 
 		publish()
@@ -385,7 +405,7 @@ export const Companion = ({
 
 		const id = window.setInterval(publish, 60)
 		return () => clearInterval(id)
-	}, [motion, pos, onRectChange])
+	}, [motion, pos, pending, bubble, onRectChange])
 
 	// ── Senses ───────────────────────────────────────────────────────────────
 
@@ -908,7 +928,7 @@ export const Companion = ({
 				</div>
 			) : (
 				bubble && (
-					<div className="companion-bubble">
+					<div ref={bubbleRef} className="companion-bubble" data-pending={pending ?? undefined}>
 						{typed}
 						{typed.length < bubble.length && <span className="caret">▌</span>}
 
