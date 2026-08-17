@@ -32,6 +32,45 @@ const ENERGY_BY_HOUR: Record<number, number> = {
 export const energyAt = (hour: number = new Date().getHours()): number =>
 	ENERGY_BY_HOUR[hour] ?? 0.6
 
+/**
+ * The second axis.
+ *
+ * Energy is how *much* he does. This is what *kind*. Together they are the two
+ * axes emotion is usually modelled on — arousal and valence — and two axes is a
+ * far larger space than one, which is the whole reason for adding it.
+ *
+ * The rule that keeps it honest: a feeling that cannot be seen is bookkeeping,
+ * not life. Each of these changes his posture, which behaviours he will pick,
+ * and what he says. If it only changed a variable it would not be here.
+ */
+export type Feeling = 'content' | 'bored' | 'lonely' | 'pleased' | 'worried' | 'restless'
+
+export interface Sensed {
+	/** Minutes since the cursor moved anywhere on screen. */
+	neglect: number
+	/** 0–1, raised by being clicked or petted, decaying over minutes. */
+	attention: number
+	/** Hours in the same application. */
+	dwell: number
+	/** Application switches in the last two minutes. */
+	switches: number
+	hour: number
+}
+
+/**
+ * A ladder, not a score. Ordered by which fact about the moment is the most
+ * interesting one — being ignored for ten minutes matters more than what app is
+ * open, and having just been petted matters more than either.
+ */
+export const feelingFrom = ({ neglect, attention, dwell, switches, hour }: Sensed): Feeling => {
+	if (neglect > 8) return 'lonely'
+	if (attention > 0.5) return 'pleased'
+	if (neglect > 3) return 'bored'
+	if (dwell >= 2 || (dwell >= 1 && (hour >= 23 || hour < 5))) return 'worried'
+	if (switches > 6) return 'restless'
+	return 'content'
+}
+
 interface AppLines {
 	/** Works at any hour. Every app needs these; the rest are extra. */
 	any: string[]
@@ -93,6 +132,8 @@ interface CompanionCopy {
 	props: Record<string, string[]>
 	/** Taking it off again, which is less of an event and says so. */
 	propOff: string[]
+	/** Said while in a feeling, folded into the idle chatter. */
+	feelings: Record<Feeling, string[]>
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
@@ -339,6 +380,30 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		},
 
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
+
+		feelings: {
+			content: ['This is fine, actually.', 'No notes.'],
+			bored: [
+				'Nothing is happening. I have checked.',
+				'I have counted the pixels twice now.',
+				'Move something. Anything.',
+			],
+			lonely: [
+				'Still here, in case that matters.',
+				'It has been a while.',
+				'I do not mind. I am just saying.',
+			],
+			pleased: ['That was nice.', 'Best part of my day, and I mean that.'],
+			worried: [
+				'You have been at this a long time.',
+				'Water exists. Just putting that out there.',
+				'Whatever it is, it will still be broken after a break.',
+			],
+			restless: [
+				'You are everywhere at once.',
+				'Pick one and stay there for a minute.',
+			],
+		},
 		label: 'tico',
 	},
 
@@ -551,6 +616,30 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		},
 
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
+
+		feelings: {
+			content: ['Esto está bien, en realidad.', 'Sin observaciones.'],
+			bored: [
+				'No está pasando nada. Ya revisé.',
+				'Ya conté los píxeles dos veces.',
+				'Mové algo. Lo que sea.',
+			],
+			lonely: [
+				'Sigo acá, por si importa.',
+				'Ya tiene rato esto.',
+				'No me molesta. Solo lo digo.',
+			],
+			pleased: ['Eso estuvo bueno.', 'La mejor parte de mi día, y lo digo en serio.'],
+			worried: [
+				'Llevás un montón en esto.',
+				'El agua existe. Solo lo menciono.',
+				'Sea lo que sea, va a seguir roto después de un descanso.',
+			],
+			restless: [
+				'Estás en todas partes a la vez.',
+				'Elegí una y quedate ahí un minuto.',
+			],
+		},
 		label: 'tico',
 	},
 }

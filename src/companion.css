@@ -841,3 +841,44 @@ body,
 	0% { opacity: 0; transform: translateY(-14px) rotate(-14deg) scale(0.8); }
 	100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
 }
+
+/* ── Feelings ───────────────────────────────────────────────────────────── */
+
+/*
+ * Posture, which is the part you can see without being told. Each of these is
+ * small on its own — a couple of degrees, a slower breath — and the point is
+ * that you read it before you have consciously noticed it.
+ */
+.companion[data-feeling="bored"] .companion-anim,
+.companion[data-feeling="lonely"] .companion-anim {
+	transform: translateY(3px) scale(1.02, 0.97);
+	transition: transform 1.2s ease;
+}
+
+.companion[data-feeling="bored"] .companion-body {
+	animation-duration: 6s;
+}
+
+/* Alone, he sinks a little further and breathes slower than bored. */
+.companion[data-feeling="lonely"] .companion-body {
+	animation-duration: 7.5s;
+}
+
+.companion[data-feeling="pleased"] .companion-anim {
+	transform: translateY(-2px) scale(1.03);
+	transition: transform 0.8s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+.companion[data-feeling="pleased"] .companion-body {
+	animation-duration: 2.6s;
+}
+
+/* Leaning in, the way you do at something that is taking too long. */
+.companion[data-feeling="worried"] .companion-anim {
+	transform: rotate(-2.5deg);
+	transition: transform 1.2s ease;
+}
+
+.companion[data-feeling="restless"] .companion-body {
+	animation-duration: 2s;
+}

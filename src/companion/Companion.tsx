@@ -5,6 +5,8 @@ import { CompanionFace } from './CompanionFace'
 import {
 	companionCopy,
 	energyAt,
+	type Feeling,
+	feelingFrom,
 	type Language,
 	linesFor,
 	matchApp,
@@ -143,6 +145,7 @@ export const Companion = ({
 	/** A held pose, unlike `fx` which is a one-shot. Sitting lasts. */
 	const [pose, setPose] = useState<string | null>(null)
 	const [prop, setProp] = useState<string | null>(null)
+	const [feeling, setFeeling] = useState<Feeling>('content')
 	const poseTimer = useRef(0)
 	const propTimer = useRef(0)
 
@@ -177,6 +180,9 @@ export const Companion = ({
 	const motionNow = useRef<Motion | null>(null)
 	const remindedToday = useRef(new Set<string>())
 	const lastCursorX = useRef<number | null>(null)
+	/** Raised by being handled, decaying on its own. The only input he gets. */
+	const attention = useRef(0)
+	const feelingNow = useRef<Feeling>('content')
 	const peekingNow = useRef(false)
 	const homeX = useRef<number | null>(null)
 	const waveAt = useRef(0)
@@ -201,6 +207,22 @@ export const Companion = ({
 	useEffect(() => {
 		motionNow.current = motion
 	}, [motion])
+
+	useEffect(() => {
+		feelingNow.current = feeling
+	}, [feeling])
+
+	/**
+	 * Attention decays about a tenth a minute, so being petted colours the next
+	 * five minutes and not the next hour. Anything permanent would mean he is
+	 * pleased forever after one good afternoon.
+	 */
+	useEffect(() => {
+		const id = window.setInterval(() => {
+			attention.current = Math.max(0, attention.current - 0.02)
+		}, 12_000)
+		return () => clearInterval(id)
+	}, [])
 
 	const peeking = inCall && inCallMode === 'peek'
 	const hidden = inCall && inCallMode === 'hide'
@@ -801,7 +823,10 @@ export const Companion = ({
 				// one — so it joins the pool rather than replacing it.
 				const hour = new Date().getHours()
 				const timed = copy.hours[timeOfDay(hour)].map((line) => line(hour))
-				say(pick([...copy.idle, ...timed, ...timed]), 8_000)
+				// Weighted: whatever he is feeling is the more interesting subject,
+				// and 'content' has little to say by definition.
+				const felt_lines = copy.feelings[feelingNow.current]
+				say(pick([...copy.idle, ...timed, ...felt_lines, ...felt_lines]), 8_000)
 				return
 			}
 
@@ -819,6 +844,15 @@ export const Companion = ({
 			// on the table at all.
 			const energy = energyAt()
 
+			const felt = feelingFrom({
+				neglect: quiet / 60_000,
+				attention: attention.current,
+				dwell: appNow.current ? (now - appNow.current.since) / 3_600_000 : 0,
+				switches: switches.current.length,
+				hour: new Date().getHours(),
+			})
+			if (felt !== feelingNow.current) setFeeling(felt)
+
 			if (
 				now - momentAt.current > (MOMENT_EVERY * rate.current) / Math.max(0.25, energy) &&
 				Math.random() < 0.4 + energy * 0.4
@@ -831,8 +865,33 @@ export const Companion = ({
 					return
 				}
 
-				const willing = Object.keys(moments).filter((key) => moments[key].min <= energy)
-				perform(pick(willing))
+				/**
+				 * The feeling narrows the list before energy does. This is what
+				 * makes it visible: a bored pet paces and stares, a pleased one hops
+				 * and shows off, and you can tell which is which without being told.
+				 */
+				const BY_FEELING: Record<Feeling, string[] | null> = {
+					content: null,
+					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup'],
+					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling'],
+					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch'],
+					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan'],
+					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan'],
+				}
+
+				const preferred = BY_FEELING[feelingNow.current]
+				const willing = Object.keys(moments).filter(
+					(key) =>
+						moments[key].min <= energy && (!preferred || preferred.includes(key))
+				)
+
+				// A feeling that leaves nothing possible at this energy falls back to
+				// everything, rather than to standing still.
+				const pool = willing.length > 0
+					? willing
+					: Object.keys(moments).filter((key) => moments[key].min <= energy)
+
+				perform(pick(pool))
 			}
 		}, 3_500)
 
@@ -877,6 +936,7 @@ export const Companion = ({
 			return
 		}
 
+		attention.current = Math.min(1, attention.current + 0.35)
 		react('happy', 'pop', 2_000)
 		say(pick(copy.click), 4_200)
 	}
@@ -952,6 +1012,7 @@ export const Companion = ({
 			data-singing={nowPlaying && !hidden ? 'true' : undefined}
 			data-gesture={gesture ?? undefined}
 			data-pose={pose ?? undefined}
+			data-feeling={feeling}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{
 				transform: `translate(${pos.x}px, ${-pos.lift}px)`,

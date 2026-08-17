@@ -337,6 +337,37 @@ looking for it in the language layer, where it was never going to be.
 
 The complexity went into behaviour instead — see below.
 
+## Feelings: the second axis
+
+Energy is how *much* he does. A feeling is what *kind*. Together they are the two
+axes emotion is usually modelled on — arousal and valence — and two axes is a far
+larger space than one, which is the reason for having both.
+
+Six feelings, chosen by a ladder rather than a score, ordered by which fact about
+the moment is most interesting: `lonely` (ignored for ten minutes) → `pleased`
+(just petted) → `bored` → `worried` (hours in one app, or an hour of it after
+11pm) → `restless` (bouncing between apps) → `content`.
+
+The only input he has is the cursor and being handled. Attention rises when he is
+clicked or petted and decays about a tenth a minute, so a good moment colours the
+next five minutes rather than the next hour.
+
+**The rule that keeps this honest: a feeling that cannot be seen is bookkeeping,
+not life.** Each one changes three things you can observe without being told —
+
+- **Posture.** Bored sinks and breathes slower; lonely sinks further; pleased
+  stands taller and quicker; worried leans in the way you do at something that is
+  taking too long.
+- **Which behaviours he will pick.** A bored pet paces and stares at the ceiling.
+  A pleased one hops, jigs and shows off. You can tell which without a caption.
+- **What he says**, at double weight in the chatter, because whatever he is
+  feeling is the more interesting subject.
+
+One property worth naming rather than fixing: at 2am, energy overrules feeling.
+`pleased` and `restless` have no low-energy behaviours of their own, so they fall
+back to the sleepy set — a pet that has just been petted at two in the morning
+yawns happily rather than dancing, which is correct.
+
 ## Watchable for fifteen minutes
 
 The brief, and it is a measurable one: be worth watching for a quarter of an
