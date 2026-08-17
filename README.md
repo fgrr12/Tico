@@ -1,7 +1,9 @@
 # tico
 
-A desktop pet that lives on the bottom of your screen, notices what you are doing,
-and can be asked things — answered by a language model running on your own machine.
+A desktop pet that walks along the bottom of your screen and notices what you are
+doing. He knows which application is in front, whether the microphone is live,
+what is playing, what time it is and how long you have been ignoring him, and he
+has opinions about all of it.
 
 He started as a character in [my-portfolio](../my-portfolio), where he is a
 miniature terminal window with a face on its screen. This is the same character
@@ -9,26 +11,51 @@ with a real desktop under his feet.
 
 ## Status
 
-Planning. Nothing is built yet — see [PLAN.md](PLAN.md) for the v1 scope, the
-architecture decisions that are already locked, and what is deliberately cut.
+Built, and in daily use by its author. Not signed and never will be — see
+[RELEASING.md](RELEASING.md) for the one command it takes to install.
+
+What he is made of: 39 behaviours, 13 feelings on two axes, 21 things he wears
+for no reason, and around 320 written lines in each of English and Spanish. All
+of it hand-written. A local language model was built into him and then removed —
+six attempts at getting one to write his voice, all recorded in
+[PLAN.md](PLAN.md) — which turned out to be both the cheaper and the better
+answer.
+
+He costs **3.2% of a core awake and 0.6% asleep**, 229 MB across his four
+processes, and 10 MB on disk.
 
 ## Platforms
 
-| Platform             | v1      | Notes                                                     |
-| -------------------- | ------- | --------------------------------------------------------- |
-| macOS                | ✅      | Tray-only app, no Dock icon                                |
-| Windows 10/11        | ✅      | Layered click-through window                               |
-| Linux / X11          | ✅      | Absolute positioning works                                 |
-| Linux / KDE Wayland  | ⚠️      | Needs `wlr-layer-shell`; deferred past v1                  |
-| Linux / GNOME Wayland| ❌      | Mutter does not implement layer-shell. XWayland or nothing |
+He runs everywhere. He *notices* things only on macOS — the four watchers
+(frontmost application, microphone, music, window title) are behind
+`#[cfg(target_os = "macos")]` with fallbacks that return nothing, so elsewhere
+he walks, talks, sleeps, wears hats and reacts to you, but not to your desk.
+
+| Platform              | Runs | Aware | Notes                                              |
+| --------------------- | ---- | ----- | -------------------------------------------------- |
+| macOS                 | ✅   | ✅    | Tray-only, no Dock icon. The only one in daily use  |
+| Windows 10/11         | ✅   | ❌    | Needs `IAudioSessionManager2` and the Win32 watchers|
+| Linux / X11           | ✅   | ❌    | Needs the PulseAudio and X11 equivalents            |
+| Linux / KDE Wayland   | ⚠️   | ❌    | Needs `wlr-layer-shell` to sit on the desktop       |
+| Linux / GNOME Wayland | ❌   | ❌    | Mutter has no layer-shell. XWayland or nothing      |
 
 ## Living with him
 
-Everything is in the tray: **Quiet** silences what he says unprompted (a direct
-poke still gets a reply), **In a call** decides what he does while the microphone
-is live, **Chattiness**, **Size**, **Language**, and **Read window titles** — the
-one setting that costs a permission, and the only thing it buys is that he can
-name the file you have open rather than only the app.
+Everything is in the tray: **Show / Hide**, **Quiet** silences what he says
+unprompted (a direct poke still gets a reply), **In a call** decides what he does
+while the microphone is live, **Chattiness**, **Size**, **Language**, **Start at
+login**, and **Read window titles** — the one setting that costs a permission,
+and the only thing it buys is that he can name the file you have open rather than
+only the app.
+
+Click him and he reacts on the first click, and it does not take focus off
+whatever you were typing in. That took a window flag and turning him into an
+`NSPanel`; both are explained in [PLAN.md](PLAN.md), because getting it wrong is
+the difference between a pet and an interruption.
+
+He falls asleep after 90 seconds with no cursor movement anywhere on screen, and
+asleep he is completely still — that is what takes him from 3.2% of a core to
+0.6%, and it is why stillness is not negotiable there.
 
 ### Reminders
 
@@ -79,9 +106,32 @@ The shell is lifted from [Lyra](../Lyrics-app): the same transparent
 always-on-top overlay, tray, autostart and multi-monitor handling, already solved
 and shipped there.
 
-A local model was built and then removed — six attempts at having it write his
-voice in Spanish, all recorded in [PLAN.md](PLAN.md). Everything he says is
-written by hand, which turned out to be both the cheaper and the better answer.
+## Working on him
+
+```sh
+pnpm t:d      # him, on your desktop, with hot reload
+pnpm t:b      # the .app and the .dmg
+pnpm check    # the checks that used to be run by hand and thrown away
+```
+
+`pnpm check` is not a test suite. It is the set of things that break silently:
+a feeling with no lines, a behaviour with no keyframes, an hour with no energy,
+a colour pair below 3:1, a prop that is worn but never drawn, a CSS variable
+used but never defined. None of them fails loudly on its own — they fail by him
+quietly doing nothing, which looks exactly like a pet that has nothing to do.
+
+`pnpm t:d` then `/scripts/sheet.html` draws every mood and every prop at the
+sizes he is actually shown at, on a dark backdrop. **Look at that page before
+believing a drawing is right.** Three rounds of defects got past types, lint and
+`pnpm check` and were obvious within a second of looking: a top hat filled with
+the colour of the desktop behind it, a headphone band drawn inside the head, a
+crown that came out black because a variable was undefined and SVG falls back to
+black without complaining.
+
+[CLAUDE.md](CLAUDE.md) has the rules worth knowing before changing anything; the
+short version is that liveliness is a state machine, everything unprompted rides
+one poll, travel is a CSS transition and never a rAF loop, copy is data in both
+languages, and one animation anywhere costs a frame everywhere.
 
 ## Permissions
 
