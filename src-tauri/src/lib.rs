@@ -84,6 +84,23 @@ fn anchor_strip(app: &tauri::AppHandle) {
     macos::place_above_dock(&window);
 }
 
+// Two flags in `tauri.conf.json` decide how a click on him behaves, and JSON has
+// nowhere to say why, so it is said here.
+//
+// `acceptFirstMouse` — without it, clicking an inactive window on macOS spends
+// that click on making the window active and delivers nothing. For a normal app
+// that is correct: you meant to focus the document, not to press the button you
+// happened to land on. For a pet it means every interaction costs two clicks,
+// the first of which does nothing visible. It is also, almost certainly, why the
+// button on a reminder bubble felt broken long after its hit rect was fixed.
+//
+// `focusable` — false, so the window can never become key. tao overrides
+// `canBecomeKeyWindow` with this, and the consequence is the one that matters:
+// poking him does not take focus away from whatever you were typing in. Nothing
+// here reads a keystroke — there is no text field, no shortcut, no ask box since
+// the model was removed — so the ability to hold focus buys nothing and costs
+// the user their cursor.
+
 /// Ticks the chosen item and unticks its siblings.
 fn mark(group: &[(&'static str, CheckMenuItem<Wry>)], chosen: &str) {
     for (value, item) in group {

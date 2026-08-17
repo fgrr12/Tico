@@ -337,6 +337,22 @@ looking for it in the language layer, where it was never going to be.
 
 The complexity went into behaviour instead — see below.
 
+## A click on him costs one click, and takes no focus
+
+Two window flags, both in `tauri.conf.json`, both explained at length beside
+`anchor_strip` in `lib.rs` because JSON cannot hold a comment.
+
+`acceptFirstMouse: true`. macOS spends the first click on an inactive window
+activating it, and delivers nothing. That is correct for a document window and
+wrong for a pet: every interaction cost two clicks, the first of which did
+nothing visible. It is very likely the rest of why the button on a reminder
+bubble felt broken long after its hit rect was already right.
+
+`focusable: false`. tao overrides `canBecomeKeyWindow` with it, so poking him no
+longer takes focus away from whatever you were typing in. Safe because nothing
+in him reads a keystroke: no text field, no shortcut, and no ask box since the
+model went. Holding focus bought nothing and cost the user their cursor.
+
 ## Known: the idle animation costs ~9% of a core
 
 Measured, not estimated: continuous CSS animation is 78% of everything he costs

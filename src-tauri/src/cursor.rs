@@ -40,12 +40,6 @@ pub fn set_pet_rect(rect: PetRect) {
 
 #[tauri::command]
 pub fn set_interactive(hold: bool) {
-    pin(hold);
-}
-
-/// Same thing from the Rust side, for the ask hotkey — which has to make the
-/// window take keystrokes before the frontend knows it is being asked anything.
-pub fn pin(hold: bool) {
     PINNED.store(hold, Ordering::Relaxed);
 }
 
