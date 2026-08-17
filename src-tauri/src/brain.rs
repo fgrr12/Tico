@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+
+use crate::actions;
 use serde_json::json;
 
 /// Ollama's default port. Nothing here ever leaves the machine.
@@ -76,7 +78,20 @@ search words.
 - answer: anything else — a question, a comment, small talk.
 
 Rules: `query` holds ONLY search terms, never a sentence, and never a path you \
-invented. If unsure, use answer.";
+invented. If unsure, use answer.
+
+A QUESTION is always `answer`, even when it contains the word open. Only an \
+INSTRUCTION to open something is open_file. If you cannot name a specific file \
+in their words, it is `answer`.
+
+Examples:
+  \"qué tengo abierto\"           -> answer          (a question about the screen)
+  \"what am I looking at\"        -> answer
+  \"cuál archivo tengo abierto\"  -> answer
+  \"abrime el Companion.tsx\"     -> open_file, query \"Companion.tsx\"
+  \"open my cv\"                  -> open_file, query \"cv\"
+  \"dónde está el plan\"          -> reveal_file, query \"plan\"
+  \"andá a github\"               -> open_url, query \"github\"";
 
 /// Classification wants a cold model and an answer wants a warm one, which is
 /// most of why this is two calls rather than one schema doing both. The other
@@ -178,8 +193,14 @@ pub async fn ask(request: AskRequest) -> Result<Answer, String> {
 
     // Something to do outranks something to say: if this is a request to open
     // anything, it returns here and never pays for a second round trip.
+    // The classifier is right about nine times in ten. `is_searchable` catches
+    // most of the tenth: a query with nothing distinctive left in it is a
+    // question wearing a verb, and answering it is both safer and more useful —
+    // especially now that the window title is in the prompt.
     let intent = classify(&request.question).await;
-    if intent.action != "answer" && !intent.query.trim().is_empty() {
+    let actionable = intent.action == "open_url" || actions::is_searchable(&intent.query);
+
+    if intent.action != "answer" && actionable {
         return Ok(Answer {
             say: String::new(),
             mood: Some("happy".into()),

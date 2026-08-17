@@ -36,6 +36,15 @@ fn clean(query: &str) -> String {
         "reveal", "please",
     ];
 
+    /// Words that survive `VERBS` but say nothing about *which* file. Left in,
+    /// they are what turned "qué tengo abierto" into an open padlock image
+    /// somebody had lying around — a single vague word matches something, always.
+    const FILLER: [&str; 24] = [
+        "que", "qué", "cual", "cuál", "cuales", "tengo", "estoy", "abierto", "abierta", "ahora",
+        "archivo", "el", "la", "los", "las", "mi", "mis", "what", "am", "looking", "at", "my",
+        "this", "file",
+    ];
+
     query
         .split_whitespace()
         .map(|word| {
@@ -44,7 +53,10 @@ fn clean(query: &str) -> String {
                 .filter(|c| c.is_ascii_alphanumeric() || "áéíóúñüÁÉÍÓÚÑÜ.-_".contains(*c))
                 .collect::<String>()
         })
-        .filter(|word| !word.is_empty() && !VERBS.contains(&word.to_lowercase().as_str()))
+        .filter(|word| {
+            let lower = word.to_lowercase();
+            !word.is_empty() && !VERBS.contains(&lower.as_str()) && !FILLER.contains(&lower.as_str())
+        })
         .take(6)
         .collect::<Vec<_>>()
         .join(" ")
@@ -57,6 +69,15 @@ fn clean(query: &str) -> String {
 /// and this turns them into a real file that already exists. That is the whole
 /// security boundary: a hallucinated filename finds nothing, where a hallucinated
 /// *path* would be something opened on trust.
+/// Whether there is anything left to search for once the filler is gone.
+///
+/// The second line of defence behind the intent prompt. The classifier is right
+/// about nine times in ten, and this turns most of the tenth into "I don't know
+/// what you mean" instead of opening whatever happened to match one common word.
+pub fn is_searchable(query: &str) -> bool {
+    clean(query).split_whitespace().any(|term| term.chars().count() >= 3)
+}
+
 fn mdfind(predicate: &str) -> Vec<String> {
     let Ok(output) = Command::new("mdfind").arg(predicate).output() else {
         return Vec::new();
@@ -225,6 +246,16 @@ mod tests {
             assert!(hits[0].to_string_lossy().contains("tico"));
             assert_eq!(label_of(&hits[0]), "Cargo.toml");
         }
+    }
+
+    #[test]
+    fn a_question_is_not_a_search() {
+        // The exact phrasing that opened a padlock image on the author's screen.
+        assert!(!is_searchable("qué tengo abierto"));
+        assert!(!is_searchable("cuál archivo tengo abierto ahora"));
+        assert!(!is_searchable("what am I looking at"));
+        assert!(is_searchable("Companion.tsx"));
+        assert!(is_searchable("cv pdf"));
     }
 
     #[test]
