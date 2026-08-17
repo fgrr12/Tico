@@ -66,7 +66,7 @@ pub fn watch(app: AppHandle) {
         let mut last = (f64::MIN, f64::MIN);
 
         loop {
-            std::thread::sleep(Duration::from_millis(33));
+            std::thread::sleep(Duration::from_millis(50));
 
             let Some(window) = app.get_webview_window("main") else {
                 continue;
@@ -85,7 +85,10 @@ pub fn watch(app: AppHandle) {
             let x = (cursor.x - origin.x as f64) / scale;
             let y = (cursor.y - origin.y as f64) / scale;
 
-            if (x - last.0).abs() > 1.0 || (y - last.1).abs() > 1.0 {
+            // 20Hz and 3px. The hit test is imperceptible either way at this rate,
+            // and the eyes travel six pixels in total — there is nothing on the
+            // other side of this to see.
+            if (x - last.0).abs() > 3.0 || (y - last.1).abs() > 3.0 {
                 last = (x, y);
                 let _ = window.emit("cursor", CursorMoved { x, y });
             }

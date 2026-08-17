@@ -155,8 +155,11 @@ export const Companion = ({
 
 	const [mood, setMood] = useState<CompanionMood>('idle')
 	const [blink, setBlink] = useState(false)
-	const [look, setLook] = useState({ x: 0, y: 0 })
-	const [aim, setAim] = useState<{ x: number; y: number } | null>(null)
+	// Neither of these is state any more. Where he is looking changes with the
+	// pointer, which is far too often to re-render for, and it reaches the drawing
+	// as two CSS variables written straight onto the element.
+	const look = useRef({ x: 0, y: 0 })
+	const aim = useRef<{ x: number; y: number } | null>(null)
 	const [pos, setPos] = useState({ x: 0, lift: 0 })
 	const [motion, setMotion] = useState<Motion | null>(null)
 	const [bubble, setBubble] = useState<string | null>(null)
@@ -320,11 +323,27 @@ export const Companion = ({
 		if (ms > 0) moodTimer.current = window.setTimeout(() => setMood('idle'), ms)
 	}, [])
 
-	const lookAt = useCallback((x: number, y: number, ms = 1_400) => {
-		setAim({ x, y })
-		clearTimeout(aimTimer.current)
-		aimTimer.current = window.setTimeout(() => setAim(null), ms)
+	/** The one place the eyes move, whoever asked. */
+	const applyLook = useCallback(() => {
+		const element = rootRef.current
+		if (!element) return
+		const { x, y } = aim.current ?? look.current
+		element.style.setProperty('--look-x', String(x))
+		element.style.setProperty('--look-y', String(y))
 	}, [])
+
+	const lookAt = useCallback(
+		(x: number, y: number, ms = 1_400) => {
+			aim.current = { x, y }
+			applyLook()
+			clearTimeout(aimTimer.current)
+			aimTimer.current = window.setTimeout(() => {
+				aim.current = null
+				applyLook()
+			}, ms)
+		},
+		[applyLook]
+	)
 
 	// ── Moving ───────────────────────────────────────────────────────────────
 
@@ -483,11 +502,15 @@ export const Companion = ({
 		const cx = box.x + box.width / 2
 		const cy = box.y + box.height / 2
 
-		setLook((prev) => {
-			const x = clamp((cursor.x - cx) / 280)
-			const y = clamp((cursor.y - cy) / 220)
-			return Math.abs(prev.x - x) < 0.02 && Math.abs(prev.y - y) < 0.02 ? prev : { x, y }
-		})
+		const x = clamp((cursor.x - cx) / 280)
+		const y = clamp((cursor.y - cy) / 220)
+
+		// Six pixels of eye travel does not need fifty steps. Coarser here means
+		// fewer style writes and no visible difference.
+		if (Math.abs(look.current.x - x) > 0.05 || Math.abs(look.current.y - y) > 0.05) {
+			look.current = { x, y }
+			if (!aim.current) applyLook()
+		}
 
 		// Hovering is derived from the cursor rather than from `pointerenter`: the
 		// window only starts accepting pointer events once Rust has already decided
@@ -516,7 +539,7 @@ export const Companion = ({
 
 		if (!inside && near && moodNow.current === 'idle') setMood('watching')
 		else if (!near && moodNow.current === 'watching') setMood('idle')
-	}, [cursor, copy, react, say])
+	}, [cursor, copy, react, say, applyLook])
 
 	useEffect(() => {
 		let open = 0
@@ -777,7 +800,8 @@ export const Companion = ({
 				min: 0.4,
 				run: () => {
 					react('watching', undefined, 2_600)
-					setAim(null)
+					aim.current = null
+					applyLook()
 				},
 			},
 			sneeze: { min: 0.45, run: () => react('wow', 'sneeze', 900), then: 'shake' },
@@ -1185,7 +1209,8 @@ export const Companion = ({
 			dragged.current = true
 			dragTimes.current = [...dragTimes.current, Date.now()]
 			clearTimeout(petTimer.current)
-			setAim(null)
+			aim.current = null
+			applyLook()
 			react('held', undefined, 0)
 			say(pick(copy.drag), 2_600)
 		}
@@ -1271,7 +1296,6 @@ export const Companion = ({
 					<CompanionFace
 						mood={mood}
 						blink={blink}
-						look={aim ?? look}
 						glyph={null}
 						singing={nowPlaying !== null && !hidden}
 						prop={prop}

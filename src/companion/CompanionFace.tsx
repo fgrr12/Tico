@@ -60,7 +60,6 @@ const RIGHT = 59
 export const CompanionFace = ({
 	mood,
 	blink,
-	look,
 	glyph,
 	singing,
 	prop,
@@ -72,8 +71,8 @@ export const CompanionFace = ({
 	const cheeks = mood === 'happy' || mood === 'love'
 
 	const eye = (base: number) => {
-		const x = base + look.x * 3
-		const y = EYE_Y + look.y * 2.4
+		const x = base
+		const y = EYE_Y
 
 		switch (expression) {
 			case 'closed':
@@ -119,7 +118,23 @@ export const CompanionFace = ({
 				<pattern id="tico-scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
 					<rect width="4" height="1" fill="#ffffff" opacity="0.035" />
 				</pattern>
+				<radialGradient id="tico-shadow">
+					<stop offset="0%" stopColor="#000000" stopOpacity="0.5" />
+					<stop offset="70%" stopColor="#000000" stopOpacity="0.22" />
+					<stop offset="100%" stopColor="#000000" stopOpacity="0" />
+				</radialGradient>
 			</defs>
+
+			{/*
+			 * A drawn shadow rather than a CSS drop-shadow.
+			 *
+			 * The filter was a blur pass recomputed on every frame of an animation
+			 * that never stops — it ran for as long as he was on screen. This is two
+			 * ellipses and a gradient, which the GPU draws once and forgets. It is
+			 * also more correct: something standing on a ledge casts a shadow on the
+			 * ledge, it does not glow.
+			 */}
+			<ellipse cx="48" cy="88" rx="30" ry="6" fill="url(#tico-shadow)" />
 
 			{/* Antenna — the status light, and the only part that means something. */}
 			<line x1="48" y1="17" x2="48" y2="8" stroke="var(--line-strong)" strokeWidth="2.5" />
@@ -207,8 +222,16 @@ export const CompanionFace = ({
 						</g>
 					)}
 
-					{eye(LEFT)}
-					{eye(RIGHT)}
+					{/*
+					 * Wrapped so the pointer can move them through a CSS variable
+					 * instead of through React. This used to be two numbers in state,
+					 * updated up to thirty times a second, re-rendering the whole
+					 * drawing each time — for an effect that is six pixels of travel.
+					 */}
+					<g className="companion-eyes">
+						{eye(LEFT)}
+						{eye(RIGHT)}
+					</g>
 
 					{/* Singing replaces the mouth rather than adding to it: an open
 					    mouth that scales reads as a note being held, and the shape it

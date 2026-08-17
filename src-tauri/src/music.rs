@@ -2,6 +2,9 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::Duration;
 
+/// Players worth asking about. Checked in-process before anything is spawned.
+const PLAYERS: [&str; 2] = ["Spotify", "Music"];
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -47,6 +50,29 @@ end if
 return out
 "#;
 
+/// Is either player even open?
+///
+/// This is the cheap half of the question and it is asked first. Reading the
+/// running applications is an in-process lookup; asking AppleScript is a whole
+/// spawned interpreter, and spawning one every few seconds to hear "no" was
+/// costing more CPU than the entire rest of the pet put together.
+#[cfg(target_os = "macos")]
+fn a_player_is_open() -> bool {
+    use objc2_app_kit::NSWorkspace;
+
+    let workspace = NSWorkspace::sharedWorkspace();
+    workspace.runningApplications().iter().any(|app| {
+        app.localizedName()
+            .map(|name| PLAYERS.iter().any(|player| name.to_string() == *player))
+            .unwrap_or(false)
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn a_player_is_open() -> bool {
+    false
+}
+
 fn now_playing() -> Option<NowPlaying> {
     let output = Command::new("osascript").arg("-e").arg(SCRIPT).output().ok()?;
     let raw = String::from_utf8_lossy(&output.stdout);
@@ -65,13 +91,20 @@ fn now_playing() -> Option<NowPlaying> {
     })
 }
 
-/// Every three seconds, measured at ~135ms a call. Slow enough not to matter,
-/// often enough that he is singing the song you are actually hearing.
+/// Adaptive, because the cost is all in the asking.
+///
+/// A spawned `osascript` measured ~135ms, and at one every three seconds that is
+/// several percent of a core burning all day to be told nothing is playing. So:
+/// nothing spawns unless a player is actually open, and when nothing is playing
+/// the question is asked every fifteen seconds instead of every four. A track
+/// change noticed four seconds late is imperceptible; a laptop that runs warm
+/// all afternoon is not.
 pub fn watch(app: AppHandle) {
     std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(3));
+        let idle = LAST.lock().map(|last| last.is_none()).unwrap_or(true);
+        std::thread::sleep(Duration::from_secs(if idle { 15 } else { 4 }));
 
-        let playing = now_playing();
+        let playing = if a_player_is_open() { now_playing() } else { None };
 
         let Ok(mut last) = LAST.lock() else { continue };
         if *last == playing {

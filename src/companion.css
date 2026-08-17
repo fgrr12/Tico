@@ -80,8 +80,13 @@ body,
 	/* The pointer handlers own the gesture. */
 	touch-action: none;
 	animation: companion-bob 4s ease-in-out infinite;
-	filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5))
-		drop-shadow(0 0 10px rgba(187, 154, 247, 0.18));
+	/*
+	 * No filter here on purpose. A drop-shadow is a blur pass, and this element
+	 * animates every frame for as long as he is on screen — so the blur was being
+	 * recomputed forever. The shadow is drawn inside the SVG now: two ellipses
+	 * and a gradient, drawn once. It is also the more correct picture, since
+	 * something standing on a ledge casts a shadow on the ledge.
+	 */
 }
 
 .companion-body:active {
@@ -94,6 +99,28 @@ body,
 
 .companion[data-mood="sleep"] .companion-body {
 	animation: companion-breathe 5s ease-in-out infinite;
+}
+
+/*
+ * Asleep, everything stops.
+ *
+ * Measured: continuous CSS animation is 78% of his entire CPU cost — 9.4% of a
+ * core with it, 2.1% without. Nothing else came close, and neither promoting him
+ * to his own layer nor removing the drop-shadow filter moved it at all.
+ *
+ * He falls asleep exactly when you have walked away from the machine, which is
+ * precisely when nobody is looking and the battery is the only thing still
+ * paying. A sleeping thing being still is also just true.
+ *
+ * The `z`s keep moving. They are two text nodes, and something has to say he is
+ * asleep rather than broken.
+ */
+.companion[data-mood="sleep"] .companion-body,
+.companion[data-mood="sleep"] .companion-anim,
+.companion[data-mood="sleep"] .companion-led,
+.companion[data-mood="sleep"] .companion-foot,
+.companion[data-mood="sleep"] .companion-hand {
+	animation-play-state: paused;
 }
 
 .companion[data-walking="true"] .companion-body {
@@ -1153,4 +1180,15 @@ body,
 /* Fright arrives faster than it leaves, the way it does. */
 .companion[data-feeling="scared"] .companion-screen {
 	transition: fill 0.35s ease;
+}
+
+/*
+ * Where he is looking, as a transform driven by two custom properties. The
+ * component writes them straight onto the element — no state, no render, no
+ * reconciliation — which matters because the pointer moves far more often than
+ * anything else about him changes.
+ */
+.companion-eyes {
+	transform: translate(calc(var(--look-x, 0) * 3px), calc(var(--look-y, 0) * 2.4px));
+	transition: transform 0.12s ease-out;
 }

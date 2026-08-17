@@ -19,8 +19,6 @@ export type CompanionMood =
 export interface CompanionFaceProps {
 	mood: CompanionMood
 	blink: boolean
-	/** Cursor direction, -1…1 on each axis. The eyes lean this way. */
-	look: { x: number; y: number }
 	/** Shown instead of the face. Unused until he has something to show. */
 	glyph: string | null
 	/** Music is playing somewhere. Overrides the mouth and adds notes. */
