@@ -12,6 +12,8 @@ interface Boot extends Settings {
 	x: number
 	quiet_until: number
 	in_call: 'peek' | 'hide' | 'ignore'
+	/** `auto` follows the system, which is all it could do before the tray. */
+	language: 'auto' | Language
 }
 
 /**
@@ -20,7 +22,6 @@ interface Boot extends Settings {
  * Rust, and everything Rust cannot see — where he is standing now — goes back.
  */
 export default function App() {
-	const [language] = useState<Language>(detectLanguage)
 	const [boot, setBoot] = useState<Boot | null>(null)
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
 	const [activeApp, setActiveApp] = useState<{
@@ -98,6 +99,9 @@ export default function App() {
 	// Nothing is drawn until Rust says where he was left, so he never appears in
 	// one place and jumps to another a frame later.
 	if (!boot) return null
+
+	// A saved choice wins; `auto` falls back to whatever the OS is set to.
+	const language: Language = boot.language === 'auto' ? detectLanguage() : boot.language
 
 	return (
 		<Companion

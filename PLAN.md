@@ -337,6 +337,22 @@ looking for it in the language layer, where it was never going to be.
 
 The complexity went into behaviour instead — see below.
 
+## Known: the idle animation costs ~9% of a core
+
+Measured, not estimated: continuous CSS animation is 78% of everything he costs
+(9.4% of a core with it, 2.1% without). It is inherent to animating an overlay
+sixty times a second, and three attempts at optimising around it changed nothing
+— compositing layer promotion, dropping the drop-shadow filter, halving the blur
+passes.
+
+Already done: **everything pauses while he sleeps**, which covers the case that
+matters, since he falls asleep exactly when you have walked away.
+
+If it ever becomes a problem awake, the only real lever left is not animating
+continuously — letting the idle bob run in bursts with stillness between, the way
+a creature actually stands. That would cost some of the aliveness, which is why
+it has not been done.
+
 ## Feelings: the second axis
 
 Energy is how *much* he does. A feeling is what *kind*. Together they are the two

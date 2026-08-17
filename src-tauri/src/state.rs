@@ -25,6 +25,9 @@ pub struct State {
     /// this one costs an Accessibility grant and exposes far more than the app
     /// name does, so it is never the default.
     pub read_titles: bool,
+    /// `auto`, `en` or `es`. `auto` follows the system, which is what it did
+    /// before there was a way to say otherwise.
+    pub language: String,
 }
 
 impl Default for State {
@@ -41,6 +44,7 @@ impl Default for State {
             // otherwise.
             in_call: "peek".into(),
             read_titles: false,
+            language: "auto".into(),
         }
     }
 }

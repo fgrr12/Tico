@@ -27,6 +27,7 @@ struct Settings {
     chattiness: Vec<(&'static str, CheckMenuItem<Wry>)>,
     size: Vec<(&'static str, CheckMenuItem<Wry>)>,
     in_call: Vec<(&'static str, CheckMenuItem<Wry>)>,
+    language: Vec<(&'static str, CheckMenuItem<Wry>)>,
     autostart: CheckMenuItem<Wry>,
     read_titles: CheckMenuItem<Wry>,
 }
@@ -34,6 +35,7 @@ struct Settings {
 const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
 const SIZES: [&str; 3] = ["small", "normal", "large"];
 const IN_CALL: [&str; 3] = ["peek", "hide", "ignore"];
+const LANGUAGES: [&str; 3] = ["auto", "en", "es"];
 /// Minutes of silence the tray offers. `0` cancels it.
 const QUIET_FOR: [(&str, i64); 4] = [
     ("30 minutes", 30),
@@ -179,6 +181,25 @@ pub fn run() {
                 ));
             }
 
+            let mut language = Vec::new();
+            for value in LANGUAGES {
+                language.push((
+                    value,
+                    CheckMenuItem::with_id(
+                        app,
+                        format!("language:{value}"),
+                        match value {
+                            "en" => "English",
+                            "es" => "Español",
+                            _ => "Follow the system",
+                        },
+                        true,
+                        saved.language == value,
+                        None::<&str>,
+                    )?,
+                ));
+            }
+
             let mut quiet = Vec::new();
             for (label, minutes) in QUIET_FOR {
                 quiet.push(MenuItem::with_id(
@@ -243,6 +264,16 @@ pub fn run() {
                     .collect::<Vec<_>>(),
             )?;
 
+            let language_menu = Submenu::with_items(
+                app,
+                "Language",
+                true,
+                &language
+                    .iter()
+                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
+                    .collect::<Vec<_>>(),
+            )?;
+
             let quiet_menu = Submenu::with_items(
                 app,
                 "Quiet",
@@ -263,6 +294,7 @@ pub fn run() {
                     &in_call_menu,
                     &chattiness_menu,
                     &size_menu,
+                    &language_menu,
                     &read_titles,
                     &autostart,
                     &PredefinedMenuItem::separator(app)?,
@@ -274,6 +306,7 @@ pub fn run() {
                 chattiness,
                 size,
                 in_call,
+                language,
                 autostart,
                 read_titles,
             });
@@ -298,6 +331,14 @@ pub fn run() {
                         let value = value.to_string();
                         state::update(app, |current| current.chattiness = value.clone());
                         mark(&settings.chattiness, &value);
+                        publish(app);
+                        return;
+                    }
+
+                    if let Some(value) = id.strip_prefix("language:") {
+                        let value = value.to_string();
+                        state::update(app, |current| current.language = value.clone());
+                        mark(&settings.language, &value);
                         publish(app);
                         return;
                     }
