@@ -7,6 +7,12 @@
 	     option. Declaring it in the plist as well as calling
 	     set_activation_policy in setup() is what stops the Dock icon from
 	     flashing during the moment before setup() runs. -->
+	<!-- Required for the music detection in music.rs. Without it a bundled build
+	     is denied Apple Events by the OS, which reads as tico simply never
+	     noticing that anything is playing. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>tico reads the track you are playing from Spotify and Music, so he can sing along.</string>
+
 	<key>LSUIElement</key>
 	<true/>
 </dict>
