@@ -26,6 +26,7 @@ const EYES: Record<CompanionMood, Eyes> = {
 	watching: 'open',
 	muted: 'open',
 	yawn: 'closed',
+	scared: 'wide',
 }
 
 /** Drawn around (0,0) and translated into place, so both eyes share one path. */
@@ -45,6 +46,8 @@ const MOUTHS: Record<CompanionMood, string> = {
 	watching: 'M43 62 q5 3.5 10 0',
 	muted: 'M42 63 h12',
 	yawn: 'M40 58.5 q8 15 16 0 q-8-7-16 0',
+	// A wobble, not a frown. Fear is unsteady rather than sad.
+	scared: 'M39 62 q3.5-4 7 0 q3.5 4 7 0 q3.5-4 3 0',
 }
 
 /** Moods whose mouth is a hole rather than a line. */

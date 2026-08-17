@@ -1008,3 +1008,118 @@ body,
 	30% { transform: rotate(-9deg) translateY(-3px); }
 	65% { transform: rotate(6deg) translateY(-1px); }
 }
+
+/* ── The rocket ─────────────────────────────────────────────────────────── */
+
+/*
+ * Nose down in the direction of travel and a flame out the back. The tilt is
+ * what sells it: something moving fast and staying level reads as sliding, and
+ * something leaning into it reads as flying.
+ */
+.companion[data-flying="true"] .companion-body {
+	animation: companion-thrust 0.28s ease-in-out infinite;
+}
+
+.companion[data-flying="true"] .companion-anim {
+	transform: rotate(-16deg);
+	transition: transform 0.25s ease;
+	filter: drop-shadow(0 0 16px rgba(224, 175, 104, 0.55));
+}
+
+.companion[data-flying="true"][data-side="right"] .companion-anim {
+	transform: rotate(16deg);
+}
+
+.companion[data-flying="true"] .companion-foot {
+	animation: companion-flame 0.14s ease-in-out infinite alternate;
+	fill: var(--amber);
+	stroke: var(--pink);
+}
+
+@keyframes companion-thrust {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-2px); }
+}
+
+@keyframes companion-flame {
+	0% { transform: translateY(2px) scaleY(1); }
+	100% { transform: translateY(9px) scaleY(2.1); }
+}
+
+/* ── Fear ───────────────────────────────────────────────────────────────── */
+
+.companion-anim[data-anim="shiver"] {
+	animation: companion-shiver 2.2s ease-in-out;
+}
+
+/* Fast and small. Fear is high-frequency where cold is slow. */
+@keyframes companion-shiver {
+	0%, 100% { transform: translateX(0); }
+	8% { transform: translateX(-2px); }
+	16% { transform: translateX(2px); }
+	24% { transform: translateX(-2px); }
+	32% { transform: translateX(2px); }
+	40% { transform: translateX(-1.5px); }
+	52% { transform: translateX(1.5px); }
+	64% { transform: translateX(-1px); }
+	78% { transform: translateX(1px); }
+}
+
+/* Backed away and braced. */
+.companion[data-feeling="scared"] .companion-anim {
+	transform: rotate(-7deg) translateY(2px);
+	transition: transform 0.4s cubic-bezier(0.3, 1.4, 0.6, 1);
+}
+
+.companion[data-feeling="scared"] .companion-body {
+	animation-duration: 1.4s;
+}
+
+/* ── The bubble carries the feeling too ─────────────────────────────────── */
+
+/*
+ * Subtle on purpose: it has to be read first and noticed second. Weight,
+ * spacing and opacity only — a bubble in a different typeface would be a
+ * different bubble, not the same one in a different mood.
+ */
+.companion[data-feeling="sleepy"] .companion-bubble,
+.companion[data-feeling="lonely"] .companion-bubble {
+	font-weight: 300;
+	letter-spacing: 0.06em;
+	opacity: 0.82;
+}
+
+.companion[data-feeling="bored"] .companion-bubble {
+	letter-spacing: 0.05em;
+	opacity: 0.88;
+}
+
+.companion[data-feeling="smug"] .companion-bubble {
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.companion[data-feeling="festive"] .companion-bubble,
+.companion[data-feeling="pleased"] .companion-bubble {
+	font-weight: 600;
+	color: #ffffff;
+}
+
+.companion[data-feeling="worried"] .companion-bubble {
+	font-size: 11.5px;
+	letter-spacing: -0.005em;
+}
+
+/* Said too fast and too loud, and still shaking slightly as it is read. */
+.companion[data-feeling="scared"] .companion-bubble,
+.companion[data-feeling="rattled"] .companion-bubble {
+	font-weight: 700;
+	animation: companion-say 0.26s ease-out, companion-textshake 0.9s ease-in-out;
+}
+
+@keyframes companion-textshake {
+	0%, 100% { transform: translateX(0); }
+	20% { transform: translateX(-1.5px); }
+	45% { transform: translateX(1.5px); }
+	70% { transform: translateX(-1px); }
+}

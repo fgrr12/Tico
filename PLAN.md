@@ -386,6 +386,39 @@ One property worth naming rather than fixing: at 2am, energy overrules feeling.
 back to the sleepy set — a pet that has just been petted at two in the morning
 yawns happily rather than dancing, which is correct.
 
+## Fear, and a rocket
+
+**He is afraid of some applications.** Meetings terrify him, spreadsheets and
+email are a lesser dread. Not a joke about productivity: a pet with *preferences*
+reads as having an inner life, and preferences need something on the disliked
+end. Standing in front of Teams with a wobbling mouth, shaking, and backing away
+to the far edge does more for that than any number of cheerful lines.
+
+The fright lasts thirty seconds and passes. A permanent terror of Teams would be
+a bug rather than a personality.
+
+**The rocket** is the one behaviour here that is pure spectacle. Everything else
+is something a small creature would plausibly do; this is not, which is why it
+needs a whole day's energy behind it and why it is rare. He lifts off the floor,
+crosses the entire screen with flame where his feet were, and drops.
+
+`flee` is the same movement with a reason attached, which is what makes the
+rocket read as *joy* rather than as a transition.
+
+## The bubble carries the feeling
+
+Two channels, both nearly free.
+
+**Delivery.** How fast he talks, by feeling — nine milliseconds a character when
+frightened, thirty when sleepy. The same sentence blurted out and dragged out are
+two different deliveries, and delivery is most of what tone is.
+
+**Typography.** Weight, spacing and opacity only. Sleepy is light and loose,
+smug is heavy and tight, worried shrinks, frightened is bold and still shaking as
+you read it. Subtle on purpose: it has to be read first and noticed second. A
+bubble in a different typeface would be a different bubble, not the same one in a
+different mood.
+
 ## Watchable for fifteen minutes
 
 The brief, and it is a measurable one: be worth watching for a quarter of an

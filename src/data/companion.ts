@@ -56,6 +56,7 @@ export type Feeling =
 	| 'sleepy'
 	| 'festive'
 	| 'nostalgic'
+	| 'scared'
 
 export interface Sensed {
 	/** Minutes since the cursor moved anywhere on screen. */
@@ -70,6 +71,8 @@ export interface Sensed {
 	drags: number
 	/** This application is one he has not seen yet today. */
 	newApp: boolean
+	/** Something he is frightened of just came to the front. */
+	feared: boolean
 	music: boolean
 	/** The id `matchApp` resolved, so a feeling can be about a kind of app. */
 	appKey: string | null
@@ -88,6 +91,9 @@ export interface Sensed {
  */
 export const feelingFrom = (seen: Sensed): Feeling => {
 	if (seen.drags >= 3) return 'rattled'
+	// Above almost everything: fear is the most interesting thing about any
+	// moment it happens in, and it passes on its own in half a minute.
+	if (seen.feared) return 'scared'
 	if (seen.neglect > 8) return 'lonely'
 	if (seen.attention > 0.85) return 'smug'
 	if (seen.attention > 0.5) return 'pleased'
@@ -164,6 +170,8 @@ interface CompanionCopy {
 	propOff: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>
+	/** What frightens him about a particular application, said on sight. */
+	fears: Record<string, string[]>
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
@@ -197,6 +205,15 @@ const APP_PATTERNS: [string, string[]][] = [
 	['ai', ['claude', 'chatgpt', 'copilot', 'perplexity', 'ollama']],
 	['finder', ['finder', 'explorer', 'files', 'nautilus']],
 ]
+
+/**
+ * The applications he is afraid of, and how much.
+ *
+ * Meetings terrify him. Spreadsheets and email are a lesser dread. It is not a
+ * joke about productivity — it is that a pet with *preferences* reads as having
+ * an inner life, and preferences need something on the disliked end.
+ */
+export const FEARED_APPS = ['meeting', 'sheets', 'mail']
 
 export const matchApp = (name: string): string | null => {
 	const needle = name.toLowerCase()
@@ -412,6 +429,11 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
 
 		feelings: {
+			scared: [
+				'I do not like this and I am being honest about it.',
+				'Can we go back to the other window.',
+				'I am going to stand over here.',
+			],
 			content: [
 				'This is fine, actually.',
 				'No notes.',
@@ -487,6 +509,20 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'That prompt and I go back a while.',
 				'Careful in there. I know what it can do.',
 			],
+		},
+
+		fears: {
+			meeting: [
+				'A meeting. I am not built for this.',
+				'No. No no no.',
+				'Someone is about to say "quick sync".',
+				'I will be under the dock if anyone asks.',
+			],
+			sheets: [
+				'A grid. It goes on forever in both directions.',
+				'Every cell is a decision. There are nine hundred of them.',
+			],
+			mail: ['The inbox. It is never actually empty, you know.', 'How many are unread. Do not tell me.'],
 		},
 		label: 'tico',
 	},
@@ -702,6 +738,11 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
 
 		feelings: {
+			scared: [
+				'Esto no me gusta y lo estoy diciendo de frente.',
+				'¿Podemos volver a la otra ventana?',
+				'Yo me voy a quedar por acá.',
+			],
 			content: [
 				'Esto está bien, en realidad.',
 				'Sin observaciones.',
@@ -777,6 +818,20 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Ese prompt y yo nos conocemos de antes.',
 				'Cuidado ahí adentro. Yo sé lo que puede hacer.',
 			],
+		},
+
+		fears: {
+			meeting: [
+				'Una reunión. Yo no estoy hecho para esto.',
+				'No. No no no.',
+				'Alguien está por decir "un quick sync".',
+				'Voy a estar debajo del dock si alguien pregunta.',
+			],
+			sheets: [
+				'Una cuadrícula. Sigue para siempre en las dos direcciones.',
+				'Cada celda es una decisión. Hay novecientas.',
+			],
+			mail: ['La bandeja. Nunca está vacía de verdad, ¿sabías?', 'Cuántos sin leer. No me digás.'],
 		},
 		label: 'tico',
 	},

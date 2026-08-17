@@ -13,6 +13,8 @@ export type CompanionMood =
 	| 'watching'
 	| 'muted'
 	| 'yawn'
+	/** Something on screen is genuinely alarming. Usually a meeting. */
+	| 'scared'
 
 export interface CompanionFaceProps {
 	mood: CompanionMood

@@ -4,6 +4,7 @@ import { CompanionFace } from './CompanionFace'
 
 import {
 	companionCopy,
+	FEARED_APPS,
 	energyAt,
 	type Feeling,
 	feelingFrom,
@@ -50,6 +51,23 @@ const WALK_SPEED = 74
 const FALL_SPEED = 1_100
 /** Per-character delay while a line is typed into the bubble. */
 const SAY_REVEAL = 16
+
+/**
+ * How fast he talks, by feeling. Not decoration: a line blurted out in nine
+ * milliseconds a character and the same line dragged out at thirty are two
+ * different deliveries of the same words, and delivery is most of what tone is.
+ */
+const REVEAL_BY_FEELING: Partial<Record<Feeling, number>> = {
+	sleepy: 30,
+	lonely: 24,
+	bored: 22,
+	worried: 19,
+	scared: 9,
+	rattled: 9,
+	festive: 11,
+	pleased: 12,
+	smug: 14,
+}
 
 /**
  * How often he is allowed to have an opinion about what you are doing.
@@ -146,6 +164,7 @@ export const Companion = ({
 	const [pose, setPose] = useState<string | null>(null)
 	const [prop, setProp] = useState<string | null>(null)
 	const [feeling, setFeeling] = useState<Feeling>('content')
+	const [flying, setFlying] = useState(false)
 	const poseTimer = useRef(0)
 	const propTimer = useRef(0)
 
@@ -281,7 +300,7 @@ export const Companion = ({
 			count += 1
 			setTyped(bubble.slice(0, count))
 			if (count >= bubble.length) clearInterval(id)
-		}, SAY_REVEAL)
+		}, REVEAL_BY_FEELING[feelingNow.current] ?? SAY_REVEAL)
 
 		return () => clearInterval(id)
 	}, [bubble])
@@ -571,6 +590,17 @@ export const Companion = ({
 			const said = saidAbout.current.get(key) ?? 0
 			if (now - said < APP_REPEAT_AFTER * rate.current) return
 
+			// A feared application is the more interesting thing to say about the
+			// moment than anything in the ordinary pool.
+			const fear = copy.fears[key]
+			if (fear) {
+				react('scared', 'shiver', 3_000)
+				saidAbout.current.set(key, now)
+				appLineAt.current = now
+				say(pick(fear), 6_000)
+				return
+			}
+
 			const lines = copy.apps[key]
 			const line = lines
 				? pick(linesFor(lines, timeOfDay()))
@@ -790,6 +820,39 @@ export const Companion = ({
 			trip: { min: 0.55, run: () => react('wow', 'trip', 1_100), then: 'shake' },
 			bow: { min: 0.6, run: () => react('happy', 'bow', 1_400) },
 			wave: { min: 0.6, run: () => { react('happy', undefined, 1_600); setGesture('wave'); window.setTimeout(() => setGesture(null), 1_400) } },
+			/**
+			 * All the way across, fast, off the ground. The one behaviour that is
+			 * pure spectacle — everything else here is something a small creature
+			 * would plausibly do, and this is not, which is why it is rare and why
+			 * it needs a whole day's energy behind it.
+			 */
+			rocket: {
+				min: 0.75,
+				run: () => {
+					const far = posNow.current.x < limits().maxX / 2 ? limits().maxX : 0
+					setFlying(true)
+					react('wow', undefined, 2_400)
+					moveTo(far, 60, 900, () => {
+						moveTo(far, 0, FALL_SPEED, () => {
+							setFlying(false)
+							react('wow', 'land', 900)
+						})
+					})
+				},
+			},
+
+			/** The rocket with a reason. Away from whatever just appeared. */
+			flee: {
+				min: 0.3,
+				run: () => {
+					const far = posNow.current.x < limits().maxX / 2 ? limits().maxX : 0
+					react('scared', undefined, 2_600)
+					moveTo(far, 0, WALK_SPEED * 3)
+				},
+			},
+
+			cower: { min: 0, run: () => { react('scared', 'shiver', 2_200); sit(5_000) } },
+
 			skip: {
 				min: 0.7,
 				run: () => {
@@ -939,6 +1002,9 @@ export const Companion = ({
 				newApp: Boolean(
 					inFront && !seenApps.current.has(inFront.name) && now - inFront.since < 30_000
 				),
+				// Half a minute of fright, then he gets over it. A permanent terror
+				// of Teams would be a bug rather than a personality.
+				feared: Boolean(appKey && FEARED_APPS.includes(appKey) && now - inFront!.since < 30_000),
 				music: nowPlaying !== null,
 				appKey,
 				energy,
@@ -967,15 +1033,16 @@ export const Companion = ({
 					content: null,
 					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom'],
 					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling', 'edge', 'settle', 'wave'],
-					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch', 'bow', 'skip', 'wave'],
+					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch', 'bow', 'skip', 'wave', 'rocket'],
 					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan', 'settle', 'groom'],
 					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan', 'startle', 'doubletake', 'trip', 'skip'],
 					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean', 'settle', 'startle'],
 					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou', 'bow', 'admire', 'adjust'],
 					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake'],
 					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare', 'dream', 'settle'],
-					festive: ['dance', 'jig', 'bounce', 'hop', 'spin', 'skip', 'bow', 'wave'],
+					festive: ['dance', 'jig', 'bounce', 'hop', 'spin', 'skip', 'bow', 'wave', 'rocket'],
 					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean', 'settle', 'inspect'],
+					scared: ['flee', 'cower', 'startle', 'shake', 'stare', 'blinkfast'],
 				}
 
 				const possible = Object.keys(moments).filter(
@@ -1112,6 +1179,7 @@ export const Companion = ({
 			data-gesture={gesture ?? undefined}
 			data-pose={pose ?? undefined}
 			data-feeling={feeling}
+			data-flying={flying ? 'true' : undefined}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{
 				transform: `translate(${pos.x}px, ${-pos.lift}px)`,
