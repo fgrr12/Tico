@@ -660,6 +660,71 @@ const Prop = ({ kind }: { kind: string }) => {
 				</g>
 			)
 
+		/* ── Souvenirs ─────────────────────────────────────────────────────────
+		      Not chosen. These only ever arrive on the way back from behind the
+		      screen, which is the whole reason they are separated from the list
+		      above — a cobweb that turns up on a Tuesday for no reason is just
+		      another hat, and the joke here is entirely the causation. ────── */
+
+		case 'cobweb':
+			// Slung across his top-left corner the way one is across a corner of a
+			// room, and drawn over the case rather than above it: it has to read as
+			// being *on* him. Thin strokes, so the eye underneath still reads.
+			return (
+				<g
+					className="companion-prop"
+					fill="none"
+					stroke="#e2e6f0"
+					strokeWidth="1.3"
+					opacity="0.8"
+				>
+					{/* Anchors out of the corner, then the spiral as three arcs. */}
+					<path d="M8 16 L46 16 M8 16 L8 54 M8 16 L38 46" />
+					<path d="M20 16 A12 12 0 0 1 8 28" />
+					<path d="M31 16 A23 23 0 0 1 8 39" />
+					<path d="M42 16 A34 34 0 0 1 8 50" />
+				</g>
+			)
+		case 'bolt':
+			// A nut, held up in the right hand for inspection. Deliberately small:
+			// found objects are funnier at the size they would really be, and
+			// anything bigger stops being debris and becomes a trophy.
+			return (
+				<g className="companion-prop">
+					<path d="M90 47 l9 5 v10 l-9 5 l-9-5 v-10 z" fill="#7d8496" />
+					{/* The lit top face, which is what stops it reading as a flat blob. */}
+					<path d="M90 47 l9 5 l-9 5 l-9-5 z" fill="#99a1b3" />
+					<circle cx="90" cy="57" r="4" fill="#2b303c" />
+				</g>
+			)
+		case 'dust':
+			// A dust bunny, built exactly like the afro — which is the point. It is
+			// what the afro would be if nobody had picked it out.
+			return (
+				<g className="companion-prop">
+					{/* Five circles at five sizes. Three of the same size came out a
+					    smooth grey cloud, which is weather, not something under a desk. */}
+					<g fill="#6f7482">
+						<circle cx="34" cy="12" r="6.5" />
+						<circle cx="43" cy="6" r="9" />
+						<circle cx="54" cy="8" r="7.5" />
+						<circle cx="62" cy="13" r="5.5" />
+						<circle cx="48" cy="13" r="8" />
+					</g>
+					<circle cx="44" cy="4" r="3" fill="#878d9d" opacity="0.6" />
+					{/*
+					 * Wisps that curl away along the silhouette. These were straight
+					 * radial lines and the whole thing read as an insect sitting on his
+					 * head — three legs and a body is a bug however grey you make it.
+					 */}
+					<g fill="none" stroke="#7c8291" strokeWidth="1.1" strokeLinecap="round">
+						<path d="M35 5 q-4-3 -8-1" />
+						<path d="M49 -3 q1-4 5-4" />
+						<path d="M64 8 q4-3 8-1" />
+					</g>
+				</g>
+			)
+
 		default:
 			return null
 	}

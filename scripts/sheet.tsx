@@ -61,6 +61,9 @@ const PROPS = [
 	'duck',
 	'umbrella',
 	'headphones',
+	'cobweb',
+	'bolt',
+	'dust',
 ]
 
 const SIZES = [66, 92, 124, 240]

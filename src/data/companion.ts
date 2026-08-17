@@ -215,6 +215,12 @@ interface CompanionCopy {
 	 * aloud by a stranger in a meeting — short, and about him, never about you.
 	 */
 	peekHello: string[]
+	/**
+	 * Back from behind the screen with nothing to show for it. The trip itself is
+	 * the answer to `idle`'s "I wonder what is past the edge" — these are for the
+	 * times he comes back empty, which is most of them.
+	 */
+	behind: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>
 	/** What frightens him about a particular application, said on sight. */
@@ -606,6 +612,23 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Prepared.',
 				'It is for the sun, if you must know.',
 			],
+
+			// Souvenirs. He did not pick these up, they picked him up.
+			cobweb: [
+				'Something lives back there. Something patient.',
+				'I walked through it. It walked through me.',
+				'This was not here when I left.',
+			],
+			bolt: [
+				'This was holding something together.',
+				'I found it on the floor behind everything.',
+				'Somebody is missing this. Not my problem.',
+			],
+			dust: [
+				'It came with me. It insisted.',
+				'Nobody has been back there in a long time.',
+				'I have brought some of it into your life.',
+			],
 		},
 
 		propFuss: {
@@ -639,6 +662,10 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			cape: ['It caught on something.', 'It only works when I am moving.'],
 			duck: ['He is heavier than he looks.', 'He has not blinked once.'],
 			umbrella: ['My wrist hurts. Do not ask.', 'Holding this all day was a decision.'],
+
+			cobweb: ['I cannot get it off. I have tried.', 'It is stuck to everything at once.'],
+			bolt: ['I should put this back.', 'I keep nearly dropping it.'],
+			dust: ['It has settled in.', 'It is going grey. So am I.'],
 		},
 
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
@@ -650,6 +677,17 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Hello everyone. That is all I had.',
 			'I am tico. Carry on.',
 			'You called? I will go back now.',
+		],
+
+		behind: [
+			'Nothing back there. I checked properly.',
+			'It is darker than this side.',
+			'There is a cable. It goes somewhere.',
+			'Now I know. I am not going to tell you.',
+			'Same as here, but without you.',
+			'I have been meaning to do that.',
+			'Do not go back there.',
+			'It is fine. It is just very quiet.',
 		],
 
 		feelings: {
@@ -1159,6 +1197,23 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Precavido.',
 				'Es para el sol, si tanto querés saber.',
 			],
+
+			// Souvenirs. Él no los recogió, ellos lo recogieron a él.
+			cobweb: [
+				'Algo vive allá atrás. Algo paciente.',
+				'Yo la atravesé. Ella me atravesó a mí.',
+				'Esto no estaba cuando me fui.',
+			],
+			bolt: [
+				'Esto estaba sosteniendo algo.',
+				'Me la encontré en el suelo, detrás de todo.',
+				'A alguien le hace falta. No es mi problema.',
+			],
+			dust: [
+				'Se vino conmigo. Insistió.',
+				'Hace rato que nadie va allá atrás.',
+				'Te traje un poco a tu vida.',
+			],
 		},
 
 		propFuss: {
@@ -1192,6 +1247,10 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			cape: ['Se me enganchó en algo.', 'Solo funciona cuando me muevo.'],
 			duck: ['Pesa más de lo que aparenta.', 'No ha parpadeado ni una vez.'],
 			umbrella: ['Me duele la muñeca. No preguntés.', 'Sostener esto todo el día fue una decisión.'],
+
+			cobweb: ['No me la puedo quitar. Ya lo intenté.', 'Se me pegó a todo a la vez.'],
+			bolt: ['Debería devolverla a su lugar.', 'Casi se me cae cada rato.'],
+			dust: ['Ya se acomodó.', 'Se está poniendo gris. Yo también.'],
 		},
 
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
@@ -1203,6 +1262,17 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Hola a todos. Eso era todo.',
 			'Soy tico. Sigan ustedes.',
 			'¿Me llamaron? Ya me devuelvo.',
+		],
+
+		behind: [
+			'No hay nada allá atrás. Revisé bien.',
+			'Es más oscuro que de este lado.',
+			'Hay un cable. Va para algún lado.',
+			'Ya sé qué hay. No te voy a contar.',
+			'Igual que acá, pero sin vos.',
+			'Tenía rato de querer hacer eso.',
+			'No vayás allá atrás.',
+			'Todo bien. Solo es muy silencioso.',
 		],
 
 		feelings: {

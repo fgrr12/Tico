@@ -230,8 +230,15 @@ check('every prop is drawn, written and on the sheet', () => {
 	}
 
 	// `headphones` is picked by hand in `wearSomething` rather than from the
-	// list, because it is the one prop with a reason. It still has to be drawn.
-	const worn = [...list(companion, 'const PROPS'), 'headphones']
+	// list, because it is the one prop with a reason. The souvenirs are their own
+	// list for the same kind of reason — they only arrive back from a crossing,
+	// and putting them in `PROPS` would have them turning up unearned. All of
+	// them still have to be drawn, and still have to have lines.
+	const worn = [
+		...list(companion, 'const PROPS'),
+		...list(companion, 'const SOUVENIRS'),
+		'headphones',
+	]
 	const drawn = [...face.matchAll(/^\t\tcase '(\w+)':/gm)].map((m) => m[1])
 	const onSheet = list(sheet, 'const PROPS')
 

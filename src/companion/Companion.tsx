@@ -933,6 +933,22 @@ export const Companion = ({
 			},
 			peekover: { min: 0.35, run: () => { react('watching', 'peek', 1_800); lookAt(0, 1, 1_800) } },
 
+			/**
+			 * Off one edge and back from the other, having gone to look.
+			 *
+			 * This started as the shy behaviour during a call and turned out to be a
+			 * better idle than a corner trick: `copy.idle` already has him wondering
+			 * aloud what is past the edge, so this is the same pet going to find out.
+			 * Expensive on purpose — 0.5 means he does not go exploring at two in the
+			 * morning, which is exactly when a pet vanishing off the screen would read
+			 * as a crash rather than as curiosity.
+			 */
+			behind: {
+				min: 0.5,
+				travels: true,
+				run: () => cross(backFromBehind),
+			},
+
 			// ── noticing himself ─────────────────────────────────────────────
 			inspect: { min: 0.35, run: () => { react('watching', 'inspect', 1_600); lookAt(0, 0.8, 1_600) } },
 			doubletake: {
@@ -1063,6 +1079,43 @@ export const Companion = ({
 			'umbrella',
 		]
 
+		/**
+		 * Putting something on, and the one timer that takes it off again.
+		 *
+		 * Shared by the two things that can dress him — picking a hat for no
+		 * reason, and coming back from behind the screen wearing what he found —
+		 * because both need the identical two-step exit. A souvenir that never
+		 * came off would stop being a souvenir and become a permanent feature.
+		 * `lines` is already decided by the caller: whether he comments on the
+		 * thing is a different question for a hat than it is for a cobweb.
+		 */
+		const wear = (kind: string, lines?: string[]) => {
+			setProp(kind)
+			// In case the last one was still on its way out. Whatever is arriving
+			// wins, and it should arrive putting itself on rather than taking itself
+			// off.
+			setPropLeaving(false)
+
+			// A beat after it appears, not with it. He puts the thing on and *then*
+			// has an opinion about it, which is the order those two happen in.
+			if (lines) window.setTimeout(() => say(pick(lines), 5_000), 1_200)
+
+			clearTimeout(propTimer.current)
+			propTimer.current = window.setTimeout(() => {
+				// Two steps: the exit plays, and only then does the node go. The
+				// second timer reuses the same ref, so the unmount cleanup already
+				// covers both halves and there is nothing new to tear down.
+				setPropLeaving(true)
+				// Taking it off is the smaller event and gets commented on less.
+				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
+
+				propTimer.current = window.setTimeout(() => {
+					setProp(null)
+					setPropLeaving(false)
+				}, PROP_LEAVE)
+			}, 25_000 + Math.random() * 70_000)
+		}
+
 		const wearSomething = () => {
 			// Headphones only while something is playing — the one prop with a
 			// reason, which is what makes the rest read as having none.
@@ -1079,35 +1132,15 @@ export const Companion = ({
 					? favourite
 					: pick(PROPS)
 
-			setProp(kind)
-			// In case the last one was still on its way out. Whatever is arriving
-			// wins, and it should arrive putting itself on rather than taking itself
-			// off.
-			setPropLeaving(false)
+			// Only what he chose counts towards the favourite. A souvenir does not:
+			// the favourite bends the next random draw, so letting a cobweb win it
+			// would have him spawning cobwebs on a Tuesday with nothing behind them,
+			// which is the one thing the souvenirs exist not to do.
 			onRemember('prop', kind)
 
-			// A beat after it appears, not with it. He puts the thing on and *then*
-			// has an opinion about it, which is the order those two happen in.
 			const lines =
 				kind === favourite && Math.random() < 0.5 ? copy.memory.favourite : copy.props[kind]
-			if (lines && Math.random() < 0.65) {
-				window.setTimeout(() => say(pick(lines), 5_000), 1_200)
-			}
-
-			clearTimeout(propTimer.current)
-			propTimer.current = window.setTimeout(() => {
-				// Two steps: the exit plays, and only then does the node go. The
-				// second timer reuses the same ref, so the unmount cleanup already
-				// covers both halves and there is nothing new to tear down.
-				setPropLeaving(true)
-				// Taking it off is the smaller event and gets commented on less.
-				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
-
-				propTimer.current = window.setTimeout(() => {
-					setProp(null)
-					setPropLeaving(false)
-				}, PROP_LEAVE)
-			}, 25_000 + Math.random() * 70_000)
+			wear(kind, lines && Math.random() < 0.65 ? lines : undefined)
 		}
 
 		/**
@@ -1126,20 +1159,29 @@ export const Companion = ({
 		 * the walk in join into one movement and read as a rendering seam; with it,
 		 * he was somewhere else for a moment.
 		 */
-		const cross = () => {
+		const cross = (arrived?: () => void) => {
 			const width = rootRef.current?.offsetWidth ?? 92
-			const leaving = peekEdge.current
+			const wasPeeking = peekingNow.current
+
+			// Peeking he leaves by the edge he is already on. Otherwise whichever is
+			// nearer, because walking the length of the screen to go round the back
+			// is not a whim, it is a commute — the same reasoning as `edge`.
+			const leaving = wasPeeking
+				? peekEdge.current
+				: posNow.current.x < window.innerWidth / 2
+					? 'left'
+					: 'right'
 
 			crossingNow.current = true
 			setGesture(null)
 
 			// Out past the clip, unhurried — he is slipping away, not fleeing.
 			moveTo(leaving === 'right' ? window.innerWidth : -width, 0, WALK_SPEED * 1.6, () => {
-				// The call can end at any point in here, and when it does the peek
-				// effect is already walking him home — so every step checks that it is
+				// A call can end at any point in here, and when it does the peek
+				// effect is already walking him home — so every step checks it is
 				// still wanted. The pause below is a bare `setTimeout` that nothing
 				// clears, which makes this the one that matters.
-				if (!peekingNow.current) {
+				if (wasPeeking && !peekingNow.current) {
 					crossingNow.current = false
 					return
 				}
@@ -1153,10 +1195,23 @@ export const Companion = ({
 
 				window.setTimeout(() => {
 					crossingNow.current = false
-					if (!peekingNow.current) return
-					moveTo(peekRestX(), 0, WALK_SPEED * 1.6)
+					if (wasPeeking && !peekingNow.current) return
+
+					// Where he reappears. Pinned to the edge during a call, because
+					// that is the whole contract; otherwise a little way in, so he
+					// arrives walking rather than materialising in the corner.
+					const landing = peekingNow.current
+						? peekRestX()
+						: peekEdge.current === 'left'
+							? 50 + Math.random() * 150
+							: limits().maxX - (50 + Math.random() * 150)
+
+					moveTo(landing, 0, WALK_SPEED * 1.6, arrived)
+
 					// A wave on arrival, often but not always. Every time is a routine.
-					if (Math.random() < 0.6) {
+					// Only from the corner: out in the open the souvenir is the payoff,
+					// and both at once is him doing a bit.
+					if (peekingNow.current && Math.random() < 0.6) {
 						waveAt.current = Date.now()
 						window.setTimeout(() => {
 							setGesture('wave')
@@ -1165,6 +1220,30 @@ export const Companion = ({
 					}
 				}, 700 + Math.random() * 1_400)
 			})
+		}
+
+		/**
+		 * What he brings back, which is the answer to a question he already asks.
+		 *
+		 * `copy.idle` has him wondering aloud what is past the edge. Going to look
+		 * is the crossing; a cobweb on his head when he reappears is the punchline,
+		 * and it only lands because the two are the same behaviour. Most trips
+		 * bring back nothing at all — if he returned holding something every time,
+		 * behind the screen would be a vending machine rather than somewhere dusty.
+		 */
+		const SOUVENIRS = ['cobweb', 'bolt', 'dust']
+
+		const backFromBehind = () => {
+			if (Math.random() < 0.4) {
+				const kind = pick(SOUVENIRS)
+				react('wow', 'pop', 1_800)
+				// Always says its line, unlike a hat. He did not choose this and has
+				// only just noticed it, which is worth a remark every time.
+				wear(kind, copy.props[kind])
+				return
+			}
+
+			if (Math.random() < 0.55) say(pick(copy.behind), 5_000)
 		}
 
 		const perform = (key: string) => {
@@ -1325,14 +1404,14 @@ export const Companion = ({
 				 */
 				const BY_FEELING: Record<Feeling, string[] | null> = {
 					content: null,
-					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom'],
+					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom', 'behind'],
 					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling', 'edge', 'settle', 'wave'],
 					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch', 'bow', 'skip', 'wave', 'rocket'],
 					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan', 'settle', 'groom'],
 					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan', 'startle', 'doubletake', 'trip', 'skip'],
 					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean', 'settle', 'startle'],
 					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou', 'bow', 'admire', 'adjust'],
-					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake'],
+						curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake', 'behind'],
 					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare', 'dream', 'settle'],
 					festive: ['dance', 'jig', 'bounce', 'hop', 'spin', 'skip', 'bow', 'wave', 'rocket'],
 					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean', 'settle', 'inspect'],
