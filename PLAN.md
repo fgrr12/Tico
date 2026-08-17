@@ -337,6 +337,35 @@ looking for it in the language layer, where it was never going to be.
 
 The complexity went into behaviour instead — see below.
 
+## Watchable for fifteen minutes
+
+The brief, and it is a measurable one: be worth watching for a quarter of an
+hour without getting bored. The old set failed it plainly — nine behaviours over
+~51 draws is each one six times, and it goes flat around minute five.
+
+The lever is not more behaviours, it is **combination**. A pet in a party hat
+doing a jig is not the same sight as one in sunglasses sitting down.
+
+| | day | evening | 2am |
+| --- | --- | --- | --- |
+| behaviours available | 22 | 17 | 5 |
+| × props | 198 | 153 | 45 |
+
+**Chains** are the other half. A yawn that becomes a sit that becomes a nod reads
+as one creature getting tired; the same three drawn separately read as a shuffle.
+Nine behaviours lead into a second one.
+
+**Props are unmotivated on purpose.** A pet that wears a party hat because it is
+your birthday is a feature. One that wears it on a Tuesday afternoon and takes it
+off a minute later is a character. The single exception is headphones, which only
+appear while something is playing — the one prop with a reason is what makes the
+rest read as having none.
+
+Randomness verified rather than assumed, since the last thing asked to choose
+between options collapsed onto one of them: 6400 draws over 22 buckets, maximum
+deviation from uniform 17.5%, which is ~3σ for the maximum of 22 draws and
+exactly what uniform looks like. A collapse would read 300%.
+
 ## Behaviour is where the life is
 
 **Energy**, 0 to 1, by the clock, with the real shape of a day including the dip

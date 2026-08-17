@@ -60,6 +60,7 @@ export const CompanionFace = ({
 	look,
 	glyph,
 	singing,
+	prop,
 	faceColor,
 	ledColor,
 }: CompanionFaceProps) => {
@@ -229,6 +230,8 @@ export const CompanionFace = ({
 				</>
 			)}
 
+			{prop && <Prop kind={prop} />}
+
 			{singing && (
 				<g fill={faceColor} className="companion-notes" aria-hidden="true">
 					<text x="76" y="26" fontSize="13">
@@ -261,4 +264,99 @@ export const CompanionFace = ({
 			)}
 		</svg>
 	)
+}
+
+/**
+ * Things he is wearing, for no reason and with no explanation.
+ *
+ * The whole point is that they are unmotivated. A pet that puts on a party hat
+ * because it is your birthday is a feature; one that puts on a party hat on a
+ * Tuesday afternoon and takes it off forty seconds later is a character.
+ *
+ * Drawn above y=16, which is the top of his head, so they overflow the viewBox —
+ * `.companion-svg` is `overflow: visible` for exactly this.
+ */
+const Prop = ({ kind }: { kind: string }) => {
+	switch (kind) {
+		case 'party':
+			return (
+				<g className="companion-prop">
+					<path d="M48 -12 L62 20 L34 20 Z" fill="var(--pink)" />
+					<path d="M48 -12 L55 4 L41 4 Z" fill="var(--amber)" opacity="0.8" />
+					<circle cx="48" cy="-14" r="4" fill="var(--cyan)" />
+				</g>
+			)
+		case 'tophat':
+			return (
+				<g className="companion-prop">
+					<rect x="30" y="14" width="36" height="5" rx="2.5" fill="#1a1c23" />
+					<rect x="36" y="-12" width="24" height="27" rx="3" fill="#1a1c23" />
+					<rect x="36" y="2" width="24" height="5" fill="var(--purple)" />
+				</g>
+			)
+		case 'shades':
+			return (
+				<g className="companion-prop">
+					<rect x="26" y="42" width="20" height="15" rx="5" fill="#0d0f14" />
+					<rect x="50" y="42" width="20" height="15" rx="5" fill="#0d0f14" />
+					<rect x="44" y="47" width="8" height="3" fill="#0d0f14" />
+					<rect x="29" y="45" width="7" height="4" rx="2" fill="#ffffff" opacity="0.25" />
+				</g>
+			)
+		case 'headphones':
+			return (
+				<g className="companion-prop">
+					<path
+						d="M14 34 A34 34 0 0 1 82 34"
+						fill="none"
+						stroke="#2a2e3a"
+						strokeWidth="7"
+						strokeLinecap="round"
+					/>
+					<rect x="6" y="32" width="14" height="22" rx="6" fill="#2a2e3a" />
+					<rect x="76" y="32" width="14" height="22" rx="6" fill="#2a2e3a" />
+				</g>
+			)
+		case 'crown':
+			return (
+				<g className="companion-prop">
+					<path d="M32 16 L32 -2 L40 8 L48 -6 L56 8 L64 -2 L64 16 Z" fill="var(--amber)" />
+					<circle cx="48" cy="-8" r="3" fill="var(--pink)" />
+				</g>
+			)
+		case 'flower':
+			return (
+				<g className="companion-prop">
+					<g fill="var(--pink)">
+						<circle cx="70" cy="12" r="5" />
+						<circle cx="79" cy="12" r="5" />
+						<circle cx="74.5" cy="4" r="5" />
+						<circle cx="74.5" cy="20" r="5" />
+					</g>
+					<circle cx="74.5" cy="12" r="3.5" fill="var(--amber)" />
+				</g>
+			)
+		case 'scarf':
+			return (
+				<g className="companion-prop">
+					<rect x="18" y="74" width="60" height="9" rx="4.5" fill="var(--pink)" />
+					<rect x="62" y="78" width="10" height="20" rx="4" fill="var(--pink)" />
+				</g>
+			)
+		case 'coffee':
+			return (
+				<g className="companion-prop">
+					<rect x="-4" y="46" width="15" height="17" rx="3" fill="#e8e8ea" />
+					<path
+						d="M11 50 a5 5 0 0 1 0 9"
+						fill="none"
+						stroke="#e8e8ea"
+						strokeWidth="2.5"
+					/>
+					<rect x="-4" y="46" width="15" height="4" rx="2" fill="#6b4a2f" />
+				</g>
+			)
+		default:
+			return null
+	}
 }

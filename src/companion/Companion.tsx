@@ -142,7 +142,9 @@ export const Companion = ({
 	const [gesture, setGesture] = useState<string | null>(null)
 	/** A held pose, unlike `fx` which is a one-shot. Sitting lasts. */
 	const [pose, setPose] = useState<string | null>(null)
+	const [prop, setProp] = useState<string | null>(null)
 	const poseTimer = useRef(0)
+	const propTimer = useRef(0)
 
 
 	const moodTimer = useRef(0)
@@ -625,50 +627,70 @@ export const Companion = ({
 	/** Everything unprompted, on one poll. Chattiness stretches every floor. */
 	useEffect(() => {
 		/**
-		 * What he does with himself, and how awake he has to be to consider it.
+		 * What he does with himself.
 		 *
-		 * `min` is the floor: dancing needs most of a day's energy behind it and
-		 * simply never happens at 2am, while sitting down is what is left when
-		 * nothing else qualifies. That single number is what makes late tico a
-		 * different creature rather than the same one on a longer timer.
+		 * `min` is the energy floor: dancing needs most of a day behind it and
+		 * simply never happens at 2am, while sitting is what is left when nothing
+		 * else qualifies. That one number is what makes late tico a different
+		 * creature rather than the same one on a longer timer.
+		 *
+		 * `then` chains a second behaviour a beat later. A yawn that becomes a sit
+		 * that becomes a nod reads as one creature getting tired; the same three
+		 * drawn separately read as a shuffle. Chains are most of what stops the
+		 * fifteenth minute looking like the first.
 		 */
-		const moments: { min: number; run: () => void }[] = [
-			{ min: 0, run: () => react('yawn', 'yawn', 1_500) },
-			{
-				min: 0,
-				// Sitting down. A pose, not a twitch: he stays down for a while,
-				// which is the part that reads as resting rather than glitching.
-				run: () => {
-					setPose('sit')
-					clearTimeout(poseTimer.current)
-					poseTimer.current = window.setTimeout(
-						() => setPose(null),
-						6_000 + Math.random() * 9_000
-					)
-				},
-			},
-			{ min: 0.3, run: () => react('happy', 'stretch', 1_200) },
-			{
+		type Moment = { min: number; run: () => void; then?: string }
+
+		const sit = (ms = 6_000 + Math.random() * 9_000) => {
+			setPose('sit')
+			clearTimeout(poseTimer.current)
+			poseTimer.current = window.setTimeout(() => setPose(null), ms)
+		}
+
+		const moments: Record<string, Moment> = {
+			yawn: { min: 0, run: () => react('yawn', 'yawn', 1_500), then: 'sit' },
+			sit: { min: 0, run: () => sit() },
+			slump: { min: 0, run: () => { sit(12_000); react('sleep', undefined, 4_000) } },
+			nod: { min: 0, run: () => react('sleep', 'nod', 1_800) },
+			stare: { min: 0, run: () => { react('idle', undefined, 3_000); lookAt(0, 0.2, 3_000) } },
+
+			stretch: { min: 0.3, run: () => react('happy', 'stretch', 1_200) },
+			scan: {
 				min: 0.3,
 				run: () => {
 					lookAt(-1, -0.2, 700)
 					window.setTimeout(() => lookAt(1, -0.2, 700), 720)
 				},
 			},
-			{ min: 0.35, run: () => react('idle', 'shake', 900) },
-			{
+			blinkfast: { min: 0.3, run: () => react('idle', 'blinkfast', 900) },
+			lean: { min: 0.3, run: () => react('idle', 'lean', 2_200) },
+			hiccup: { min: 0.35, run: () => react('wow', 'hiccup', 800) },
+			shake: { min: 0.35, run: () => react('idle', 'shake', 900), then: 'blinkfast' },
+			ceiling: { min: 0.35, run: () => { react('watching', undefined, 1_800); lookAt(0, -1, 1_800) } },
+
+			watchyou: {
 				min: 0.4,
 				run: () => {
-					react('watching', undefined, 1_200)
-					lookAt(0, -1, 1_200)
+					react('watching', undefined, 2_600)
+					setAim(null)
 				},
 			},
-			{ min: 0.55, run: () => react('happy', 'hop', 900) },
-			{ min: 0.7, run: () => react('happy', 'dance', 1_700) },
-			{
+			sneeze: { min: 0.45, run: () => react('wow', 'sneeze', 900), then: 'shake' },
+			spin: { min: 0.5, run: () => react('happy', 'spin', 1_000) },
+			bounce: { min: 0.55, run: () => react('happy', 'bounce', 1_300) },
+			hop: { min: 0.55, run: () => react('happy', 'hop', 900) },
+			pace: {
 				min: 0.6,
-				// Goes after the cursor for a few steps and gives up, which is more
-				// of a personality than arriving would be.
+				run: () => {
+					const from = posNow.current.x
+					const step = Math.random() < 0.5 ? -110 : 110
+					moveTo(from + step, 0, WALK_SPEED * 1.3, () =>
+						window.setTimeout(() => moveTo(from, 0, WALK_SPEED * 1.3), 400)
+					)
+				},
+			},
+			chase: {
+				min: 0.6,
 				run: () => {
 					const target = lastCursorX.current
 					if (target === null) return
@@ -676,8 +698,40 @@ export const Companion = ({
 					const step = Math.max(-140, Math.min(140, target - from))
 					moveTo(from + step, 0, WALK_SPEED * 1.4)
 				},
+				then: 'stare',
 			},
-		]
+			dance: { min: 0.7, run: () => react('happy', 'dance', 1_700) },
+			jig: { min: 0.75, run: () => react('happy', 'jig', 1_600), then: 'bounce' },
+			showoff: { min: 0.8, run: () => react('love', 'spin', 1_200), then: 'hop' },
+		}
+
+		/**
+		 * Something to wear, occasionally, for no reason he would explain. A pet
+		 * that puts on a party hat because it is your birthday is a feature; one
+		 * that does it on a Tuesday and takes it off a minute later is a character.
+		 */
+		const PROPS = ['party', 'tophat', 'shades', 'crown', 'flower', 'scarf', 'coffee']
+
+		const wearSomething = () => {
+			// Headphones only while something is playing — the one prop with a
+			// reason, which is what makes the rest read as having none.
+			const kind = nowPlaying && Math.random() < 0.6 ? 'headphones' : pick(PROPS)
+			setProp(kind)
+			clearTimeout(propTimer.current)
+			propTimer.current = window.setTimeout(
+				() => setProp(null),
+				25_000 + Math.random() * 70_000
+			)
+		}
+
+		const perform = (key: string) => {
+			const moment = moments[key]
+			if (!moment) return
+			moment.run()
+			if (moment.then) {
+				window.setTimeout(() => moments[moment.then as string]?.run(), 1_900)
+			}
+		}
 
 		const id = window.setInterval(() => {
 			const now = Date.now()
@@ -708,7 +762,7 @@ export const Companion = ({
 				// dance is not a gesture there, it is an entrance.
 				if (now - momentAt.current > MOMENT_EVERY && Math.random() < 0.5) {
 					momentAt.current = now
-					pick(moments.filter((moment) => moment.min <= 0.35)).run()
+					perform(pick(Object.keys(moments).filter((key) => moments[key].min <= 0.35)))
 				}
 				return
 			}
@@ -761,13 +815,20 @@ export const Companion = ({
 				Math.random() < 0.4 + energy * 0.4
 			) {
 				momentAt.current = now
-				const willing = moments.filter((moment) => moment.min <= energy)
-				pick(willing).run()
+
+				// One in nine, so it is a surprise rather than a wardrobe.
+				if (!prop && Math.random() < 0.11) {
+					wearSomething()
+					return
+				}
+
+				const willing = Object.keys(moments).filter((key) => moments[key].min <= energy)
+				perform(pick(willing))
 			}
 		}, 3_500)
 
 		return () => clearInterval(id)
-	}, [copy, say, react, lookAt, wander, motion])
+	}, [copy, say, react, lookAt, wander, motion, nowPlaying, prop, moveTo])
 
 	// biome-ignore lint: greets once, in whatever language the OS asked for.
 	useEffect(() => {
@@ -783,6 +844,7 @@ export const Companion = ({
 			clearTimeout(walkTimer.current)
 			clearTimeout(petTimer.current)
 			clearTimeout(poseTimer.current)
+			clearTimeout(propTimer.current)
 		},
 		[]
 	)
@@ -926,6 +988,7 @@ export const Companion = ({
 						look={aim ?? look}
 						glyph={null}
 						singing={nowPlaying !== null && !hidden}
+						prop={prop}
 						faceColor="var(--purple)"
 						ledColor={mood === 'sleep' ? 'var(--fg-muted)' : 'var(--green)'}
 					/>

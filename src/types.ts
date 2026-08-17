@@ -23,6 +23,8 @@ export interface CompanionFaceProps {
 	glyph: string | null
 	/** Music is playing somewhere. Overrides the mouth and adds notes. */
 	singing: boolean
+	/** Something he is wearing or holding, for no reason he would explain. */
+	prop: string | null
 	faceColor: string
 	ledColor: string
 }
