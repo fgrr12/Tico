@@ -53,6 +53,12 @@ const PET_AFTER = 1_600
 /** Pointer travel that turns a click into a drag. */
 const DRAG_THRESHOLD = 5
 /**
+ * Floor between crossings to the other edge during a call. Long, because the
+ * whole effect is that you catch it happening rather than watch it happen — a
+ * pet that shuttles between corners every minute is pacing, not being shy.
+ */
+const CROSS_EVERY = 95_000
+/**
  * How long a prop stays mounted after it is taken off, so its exit can play.
  * Longer than the slowest exit in `companion.css`, which is the 0.36s one.
  */
@@ -238,6 +244,13 @@ export const Companion = ({
 	const seenApps = useRef(new Set<string>())
 	const feelingNow = useRef<Feeling>('content')
 	const peekingNow = useRef(false)
+	/** Which edge he is peeking from. He does not stay on the one he started on. */
+	const peekEdge = useRef<'left' | 'right'>('right')
+	/** Mid-crossing: briefly allowed all the way off the strip, and left alone. */
+	const crossingNow = useRef(false)
+	/** Out in the open during a call, because you asked him to be. */
+	const steppingOut = useRef(false)
+	const crossAt = useRef(0)
 	const homeX = useRef<number | null>(null)
 	const waveAt = useRef(0)
 	const silent = useRef({ quietUntil: 0, presenting: false })
@@ -304,7 +317,11 @@ export const Companion = ({
 	 */
 	const say = useCallback(
 		(text: string, ms = 5_200, forced = false, pendingId: string | null = null) => {
-			if (silent.current.presenting) return
+			// `forced` means you asked for this out loud, and it beats both silences.
+			// Every one of them is about him *volunteering* things: the call mute
+			// exists so he does not talk over a demo, not so he can be clicked on
+			// and pretend he did not notice. Nothing unprompted passes `true`.
+			if (!forced && silent.current.presenting) return
 			if (!forced && silent.current.quietUntil > Date.now() / 1_000) return
 
 			// Taken as an argument rather than set by the caller beforehand: `say`
@@ -370,16 +387,24 @@ export const Companion = ({
 
 	// ── Moving ───────────────────────────────────────────────────────────────
 
+	/**
+	 * How far past an edge he is allowed, which is the whole difference between
+	 * standing on the strip and leaning in from beside it.
+	 *
+	 * Three settings, and the overshoot is symmetric because he now peeks from
+	 * either edge: normally none, half of him while peeking, and all of him while
+	 * crossing — `#root` is `overflow: hidden`, so "all of him" is genuinely gone
+	 * rather than hanging over the edge of the window.
+	 */
 	const limits = useCallback(() => {
 		const element = rootRef.current
 		const width = element?.offsetWidth ?? 92
 		const height = element?.offsetHeight ?? 96
 
-		// While peeking he is allowed past the right edge, so that half of him is
-		// off-screen and the half that is left reads as someone leaning in.
-		const overshoot = peekingNow.current ? width * 0.5 : 0
+		const overshoot = crossingNow.current ? width : peekingNow.current ? width * 0.5 : 0
 
 		return {
+			minX: -overshoot,
 			maxX: Math.max(1, window.innerWidth - width + overshoot),
 			maxLift: Math.max(0, window.innerHeight - height),
 		}
@@ -387,12 +412,18 @@ export const Companion = ({
 
 	const clampPos = useCallback(
 		(x: number, lift: number) => {
-			const { maxX, maxLift } = limits()
+			const { minX, maxX, maxLift } = limits()
 			return {
-				x: Math.min(maxX, Math.max(0, x)),
+				x: Math.min(maxX, Math.max(minX, x)),
 				lift: Math.min(maxLift, Math.max(0, lift)),
 			}
 		},
+		[limits]
+	)
+
+	/** Where half of him shows, on whichever edge he is currently haunting. */
+	const peekRestX = useCallback(
+		() => (peekEdge.current === 'left' ? limits().minX : limits().maxX),
 		[limits]
 	)
 
@@ -408,7 +439,15 @@ export const Companion = ({
 			const from = posNow.current
 			const to = clampPos(x, lift)
 			const distance = Math.hypot(to.x - from.x, to.lift - from.lift)
-			if (distance < 3) return
+			// Nowhere to go, but the callback still runs. Callers use it to end a
+			// state that only they can end — flying, crossing, being out in the open
+			// during a call — and swallowing it here strands them on forever. The
+			// rocket has always had this bug: launch from a pixel off the far wall
+			// and `setFlying(false)` never runs.
+			if (distance < 3) {
+				after?.()
+				return
+			}
 
 			const ms = Math.min(6_000, Math.max(260, (distance / speed) * 1_000))
 			const facing = to.x < from.x ? 'left' : 'right'
@@ -421,7 +460,9 @@ export const Companion = ({
 			clearTimeout(walkTimer.current)
 			walkTimer.current = window.setTimeout(() => {
 				setMotion(null)
-				onMoved(to.x / limits().maxX)
+				// Not while crossing. Where he is halfway through walking off the edge
+				// of the world is not somewhere to put him back on the next launch.
+				if (!crossingNow.current) onMoved(to.x / limits().maxX)
 				after?.()
 			}, ms)
 		},
@@ -708,18 +749,23 @@ export const Companion = ({
 	/**
 	 * Going to the corner for a call, and coming back afterwards.
 	 *
-	 * He does not vanish — he moves to the right edge, leaves half of himself
-	 * showing, and keeps his gestures. What he loses is his voice, which is the
-	 * part that would have made you regret installing him during a demo.
+	 * He does not vanish — he moves to an edge, leaves half of himself showing,
+	 * and keeps his gestures. What he loses is his voice, which is the part that
+	 * would have made you regret installing him during a demo.
 	 */
 	useEffect(() => {
 		if (peeking) {
 			if (homeX.current === null) homeX.current = posNow.current.x
 			setBubble(null)
+			// He always leaves to the right. Which edge he is on later is up to him.
+			peekEdge.current = 'right'
 			// Briskly: he is getting out of the way, not going for a walk.
 			moveTo(limits().maxX, 0, WALK_SPEED * 2)
 			return
 		}
+
+		crossingNow.current = false
+		steppingOut.current = false
 
 		if (homeX.current !== null) {
 			const back = homeX.current
@@ -791,6 +837,14 @@ export const Companion = ({
 			then?: string
 			/** Only offered when this holds — `adjust` is meaningless bare-headed. */
 			needs?: () => boolean
+			/**
+			 * Covers ground. Withheld while peeking, where the whole point is that
+			 * he stays put: anything that moves him ends the call with him standing
+			 * in the middle of the screen, which is the thing peeking exists to
+			 * prevent. The energy floor was doing this job badly — `flee` costs 0.3
+			 * and crosses the entire strip at three times walking pace.
+			 */
+			travels?: boolean
 		}
 
 		const sit = (ms = 6_000 + Math.random() * 9_000) => {
@@ -834,6 +888,7 @@ export const Companion = ({
 			hop: { min: 0.55, run: () => react('happy', 'hop', 900) },
 			pace: {
 				min: 0.6,
+				travels: true,
 				run: () => {
 					const from = posNow.current.x
 					const step = Math.random() < 0.5 ? -110 : 110
@@ -844,6 +899,7 @@ export const Companion = ({
 			},
 			chase: {
 				min: 0.6,
+				travels: true,
 				run: () => {
 					const target = lastCursorX.current
 					if (target === null) return
@@ -865,6 +921,7 @@ export const Companion = ({
 			// ── he lives on a ledge, so let him use it ───────────────────────
 			edge: {
 				min: 0.3,
+				travels: true,
 				// Whichever edge is nearer. Walking the length of the screen to lean
 				// on the far one is not a whim, it is a commute.
 				run: () => {
@@ -930,6 +987,7 @@ export const Companion = ({
 			 */
 			rocket: {
 				min: 0.75,
+				travels: true,
 				run: () => {
 					const far = posNow.current.x < limits().maxX / 2 ? limits().maxX : 0
 
@@ -955,6 +1013,7 @@ export const Companion = ({
 			/** The rocket with a reason. Away from whatever just appeared. */
 			flee: {
 				min: 0.3,
+				travels: true,
 				run: () => {
 					const far = posNow.current.x < limits().maxX / 2 ? limits().maxX : 0
 					react('scared', undefined, 2_600)
@@ -966,6 +1025,7 @@ export const Companion = ({
 
 			skip: {
 				min: 0.7,
+				travels: true,
 				run: () => {
 					const from = posNow.current.x
 					moveTo(from + (Math.random() < 0.5 ? -90 : 90), 0, WALK_SPEED * 1.6)
@@ -1050,6 +1110,63 @@ export const Companion = ({
 			}, 25_000 + Math.random() * 70_000)
 		}
 
+		/**
+		 * Crossing to the other edge, out of sight.
+		 *
+		 * He cannot actually pass behind anything — the strip is one always-on-top
+		 * transparent window over the full width of the monitor, so everything he
+		 * draws is in front of the Dock by construction and there is no z-order to
+		 * borrow. What there is instead is `overflow: hidden` on `#root`: walk far
+		 * enough past an edge and he is genuinely gone, and the jump across happens
+		 * with nothing on screen to see it. Coming back in from the far side is
+		 * what sells "he went round the back" — the shortcut is invisible because
+		 * the only two frames you get are him leaving and him arriving.
+		 *
+		 * The pause in the middle is doing the acting. Without it the walk out and
+		 * the walk in join into one movement and read as a rendering seam; with it,
+		 * he was somewhere else for a moment.
+		 */
+		const cross = () => {
+			const width = rootRef.current?.offsetWidth ?? 92
+			const leaving = peekEdge.current
+
+			crossingNow.current = true
+			setGesture(null)
+
+			// Out past the clip, unhurried — he is slipping away, not fleeing.
+			moveTo(leaving === 'right' ? window.innerWidth : -width, 0, WALK_SPEED * 1.6, () => {
+				// The call can end at any point in here, and when it does the peek
+				// effect is already walking him home — so every step checks that it is
+				// still wanted. The pause below is a bare `setTimeout` that nothing
+				// clears, which makes this the one that matters.
+				if (!peekingNow.current) {
+					crossingNow.current = false
+					return
+				}
+
+				// Motion is already null by the time this runs, so setting the
+				// position now is the same duration-0 jump a drag uses.
+				peekEdge.current = leaving === 'right' ? 'left' : 'right'
+				const across = { x: leaving === 'right' ? -width : window.innerWidth, lift: 0 }
+				setPos(across)
+				posNow.current = across
+
+				window.setTimeout(() => {
+					crossingNow.current = false
+					if (!peekingNow.current) return
+					moveTo(peekRestX(), 0, WALK_SPEED * 1.6)
+					// A wave on arrival, often but not always. Every time is a routine.
+					if (Math.random() < 0.6) {
+						waveAt.current = Date.now()
+						window.setTimeout(() => {
+							setGesture('wave')
+							window.setTimeout(() => setGesture(null), 1_400)
+						}, 900)
+					}
+				}, 700 + Math.random() * 1_400)
+			})
+		}
+
 		const perform = (key: string) => {
 			const moment = moments[key]
 			if (!moment) return
@@ -1077,6 +1194,15 @@ export const Companion = ({
 			// Peeking: he keeps the gestures and loses the itinerary. Wandering off
 			// mid-call is the opposite of getting out of the way.
 			if (peekingNow.current) {
+				// Both of these own him completely while they run.
+				if (crossingNow.current || steppingOut.current) return
+
+				if (now - crossAt.current > CROSS_EVERY && Math.random() < 0.35) {
+					crossAt.current = now
+					cross()
+					return
+				}
+
 				if (now - waveAt.current > 14_000) {
 					waveAt.current = now
 					setGesture('wave')
@@ -1084,14 +1210,18 @@ export const Companion = ({
 					return
 				}
 
-				// Calm ones only. He is half off-screen at the edge of a call — a
-				// dance is not a gesture there, it is an entrance.
+				// Calm ones only, and nothing that travels. He is half off-screen at
+				// the edge of a call — a dance is not a gesture there, it is an
+				// entrance, and `flee` is an entrance with a running start.
 				if (now - momentAt.current > MOMENT_EVERY && Math.random() < 0.5) {
 					momentAt.current = now
 					perform(
 						pick(
 							Object.keys(moments).filter(
-								(key) => moments[key].min <= 0.35 && (moments[key].needs?.() ?? true)
+								(key) =>
+									moments[key].min <= 0.35 &&
+									!moments[key].travels &&
+									(moments[key].needs?.() ?? true)
 							)
 						)
 					)
@@ -1239,6 +1369,7 @@ export const Companion = ({
 		prop,
 		moveTo,
 		limits,
+		peekRestX,
 		opening,
 		familiarity,
 		onRemember,
@@ -1288,6 +1419,40 @@ export const Companion = ({
 
 	// ── Being handled ────────────────────────────────────────────────────────
 
+	/**
+	 * Stepping out of the corner, mid-call, because you kept clicking him.
+	 *
+	 * The deliberate exception to losing his voice during a call. That rule is
+	 * about him volunteering things over a demo — it was never meant to make him
+	 * unresponsive to being poked, and a pet you can click four times with no
+	 * acknowledgement reads as broken rather than as discreet. So he comes out,
+	 * says one line, waves, and puts himself back. One line: he is introducing
+	 * himself to the room, not joining the call.
+	 */
+	const introduce = useCallback(() => {
+		steppingOut.current = true
+		setGesture(null)
+
+		// Out where he can be seen, but still his end of the strip. Walking to the
+		// middle of the screen during someone's meeting is the whole nightmare.
+		const width = rootRef.current?.offsetWidth ?? 92
+		const out = peekEdge.current === 'left' ? width * 0.5 : window.innerWidth - width * 1.5
+
+		moveTo(out, 0, WALK_SPEED * 1.5, () => {
+			react('happy', 'pop', 3_600)
+			setGesture('wave')
+			window.setTimeout(() => setGesture(null), 1_400)
+			say(pick(copy.peekHello), 4_600, true)
+
+			window.setTimeout(() => {
+				steppingOut.current = false
+				// Only if the call is still on. If it ended while he was out there,
+				// the peek effect has already sent him home and this would undo it.
+				if (peekingNow.current) moveTo(peekRestX(), 0, WALK_SPEED * 1.6)
+			}, 5_400)
+		})
+	}, [copy, moveTo, react, say, peekRestX])
+
 	const handleClick = () => {
 		if (dragged.current) return
 		activityAt.current = Date.now()
@@ -1296,6 +1461,23 @@ export const Companion = ({
 		clicks.current = {
 			count: now - clicks.current.at < 900 ? clicks.current.count + 1 : 1,
 			at: now,
+		}
+
+		if (peekingNow.current) {
+			// Whatever he is already doing out there wins.
+			if (steppingOut.current || crossingNow.current) return
+
+			// Three, and not one. During a call a single click on him is at least as
+			// likely to be you missing the window he is standing in front of, and
+			// answering that by walking into shot is the wrong guess to make.
+			if (clicks.current.count < 3) {
+				react('happy', 'pop', 1_200)
+				return
+			}
+
+			clicks.current = { count: 0, at: now }
+			introduce()
+			return
 		}
 
 		if (clicks.current.count >= 4) {

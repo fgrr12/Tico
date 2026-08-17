@@ -208,6 +208,13 @@ interface CompanionCopy {
 	propFuss: Record<string, string[]>
 	/** Taking it off again, which is less of an event and says so. */
 	propOff: string[]
+	/**
+	 * The one thing he says during a call, and only if you click him three times
+	 * to ask for it. He is introducing himself to whoever can see your screen and
+	 * then getting out of the way, so every one of these has to survive being read
+	 * aloud by a stranger in a meeting — short, and about him, never about you.
+	 */
+	peekHello: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>
 	/** What frightens him about a particular application, said on sight. */
@@ -635,6 +642,15 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		},
 
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
+
+		peekHello: [
+			'Hello. I am tico. I live here.',
+			'Hi. I was not listening.',
+			'Sorry. I am the small one in the corner.',
+			'Hello everyone. That is all I had.',
+			'I am tico. Carry on.',
+			'You called? I will go back now.',
+		],
 
 		feelings: {
 			content: [
@@ -1179,6 +1195,15 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		},
 
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
+
+		peekHello: [
+			'Hola. Soy tico. Vivo aquí.',
+			'Buenas. No estaba escuchando.',
+			'Perdón. Soy el pequeño de la esquina.',
+			'Hola a todos. Eso era todo.',
+			'Soy tico. Sigan ustedes.',
+			'¿Me llamaron? Ya me devuelvo.',
+		],
 
 		feelings: {
 			content: [

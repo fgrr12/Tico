@@ -573,9 +573,19 @@ body,
 	transition-property: transform, opacity;
 }
 
-/* A wave from the corner. The left hand is the one still on screen while he
-   peeks in from the right edge. */
-.companion[data-gesture="wave"] .companion-hand[data-side="left"] {
+/*
+ * A wave from the corner — both hands, and the clip picks which one you see.
+ *
+ * This used to be the left hand only, because he only ever peeked in from the
+ * right edge and the left hand was the half still on screen. Now he crosses to
+ * the other edge, where that is exactly backwards and the wave happens entirely
+ * off-screen. Waving with both and letting `overflow: hidden` on `#root` throw
+ * away the one past the edge costs nothing, needs no state threaded down here to
+ * say which side he is on, and is right at both edges. Fully in the open — which
+ * only happens when he steps out to introduce himself — you get both, which for
+ * a greeting is if anything the better read.
+ */
+.companion[data-gesture="wave"] .companion-hand {
 	transform-origin: 50% 100%;
 	animation: companion-wave 1.4s ease-in-out;
 }

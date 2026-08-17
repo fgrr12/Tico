@@ -55,6 +55,21 @@ const table = companion.slice(
 	companion.indexOf('const PROPS')
 )
 const behaviours = [...table.matchAll(/^\t\t\t(\w+): \{/gm)].map((match) => match[1])
+
+/**
+ * Each behaviour with the two fields the peek pool filters on. Sliced between
+ * one entry and the next rather than matched against a closing brace, because
+ * half of them are written on one line and half over ten.
+ */
+const entries = [...table.matchAll(/^\t\t\t(\w+): \{/gm)]
+const moments = entries.map((match, index) => {
+	const body = table.slice(match.index, entries[index + 1]?.index ?? table.length)
+	return {
+		name: match[1],
+		min: Number((body.match(/min: ([\d.]+)/) ?? [])[1] ?? 0),
+		travels: body.includes('travels: true'),
+	}
+})
 const animations = [...new Set([...table.matchAll(/'(\w+)'(?=, \d)/g)].map((match) => match[1]))]
 
 const byFeeling = companion.slice(
@@ -136,6 +151,22 @@ check('every behaviour a feeling asks for exists', () => {
 	const unknown = [...new Set(named)].filter((key) => !behaviours.includes(key))
 	assert(unknown.length === 0, `no such behaviour: ${unknown.join(', ')}`)
 	return `${behaviours.length} behaviours`
+})
+
+check('he still has something to do from the corner of a call', () => {
+	// The peek pool is what is left after two filters, and both have grown: the
+	// energy floor, and now `travels`. Empty it and he stands in the corner
+	// perfectly still for the length of a meeting, which no type or lint notices
+	// because an empty pool is a valid array — `pick` just hands back undefined.
+	const pool = moments.filter((moment) => moment.min <= 0.35 && !moment.travels)
+	assert(pool.length >= 6, `only ${pool.length} things to do while peeking`)
+
+	// And the crossing has to stay possible at either end of it.
+	assert(
+		companion.includes('minX: -overshoot'),
+		'the overshoot is no longer symmetric, so he cannot peek from the left edge'
+	)
+	return `${pool.length} calm, stationary moments`
 })
 
 check('every animation has keyframes behind it', () => {
