@@ -165,6 +165,10 @@ body,
 
 .companion-anim {
 	display: block;
+	/* The containing block for the fall trail and the impact ring, both of which
+	   are pseudo-elements on this. It cannot be left to the transform to create
+	   one — the transforms here come and go with each animation. */
+	position: relative;
 	transform-origin: 50% 90%;
 }
 
@@ -1253,6 +1257,120 @@ body,
 @keyframes companion-dangle {
 	0%, 100% { transform: rotate(-4deg); }
 	50% { transform: rotate(4deg); }
+}
+
+/* ── Falling, and arriving ──────────────────────────────────────────────── */
+
+/*
+ * A drop long enough to heat up on the way down.
+ *
+ * **One animation, scaled, rather than three variants.** `--heat` is written by
+ * `fall` from the distance that particular drop covers, and every value below is
+ * multiplied by it — so a slide off a ledge is a faint blush and a drop from the
+ * ceiling is the full meteor, out of the same rules. There is no threshold and
+ * nothing switches on: at `--heat: 0` every one of these evaluates to zero and
+ * the effect is simply not there.
+ *
+ * **The cost is a second, and it was checked rather than assumed.** The pet is
+ * already being composited every frame while he falls — the transform transition
+ * is running — so this adds work to frames that were happening anyway, which is
+ * the case PLAN.md's "the price is per composited frame, not per element" was
+ * measured for. `data-flying` has been doing the same thing with the same
+ * `drop-shadow` since the rocket shipped.
+ *
+ * What matters is that it *stops*. Everything here hangs off `[data-falling]`,
+ * which `fall` clears in the same callback that ends the transition. An effect
+ * that leaked past the landing would cost the full always-on price for the rest
+ * of the day — that is the two-`z`-nodes bug, and it is the only way this gets
+ * expensive.
+ */
+:root {
+	/* Defined here so it is never undefined mid-cascade. SVG falls back to black
+	   on an undefined custom property without complaining, and that lesson was
+	   learned once already with `--amber` and a crown. */
+	--heat: 0;
+}
+
+.companion[data-falling="true"] .companion-anim {
+	filter:
+		drop-shadow(0 0 calc(18px * var(--heat)) rgba(255, 150, 60, calc(0.75 * var(--heat))))
+		drop-shadow(0 0 calc(40px * var(--heat)) rgba(255, 80, 20, calc(0.5 * var(--heat))));
+}
+
+/*
+ * The trail. A pseudo-element rather than a node, so nothing is mounted or
+ * unmounted per fall — it is always there and always zero-height until `--heat`
+ * says otherwise.
+ *
+ * Above him and behind: he is going down, so what burns off him goes up.
+ */
+.companion[data-falling="true"] .companion-anim::before {
+	content: "";
+	position: absolute;
+	/*
+	 * Behind him. Painted over the SVG it covered his face, which turns the pet
+	 * into a torch rather than a thing that is on fire. The `filter` above makes
+	 * this element a stacking context, so a negative index goes behind his body
+	 * and no further — it cannot fall out through the back of the window.
+	 */
+	z-index: -1;
+	left: 50%;
+	/* Overlapping his body rather than floating above it. Started at 55% and the
+	   flame read as a separate object hanging over his head. */
+	bottom: 40%;
+	width: calc(52px * var(--heat));
+	height: calc(190px * var(--heat));
+	transform: translateX(-50%);
+	/*
+	 * A tapering flame rather than a rounded rectangle. `border-radius` alone gave
+	 * straight sides and a blunt top, which photographed as a beam of light
+	 * pointing at him — the silhouette is doing more work here than the colour.
+	 */
+	clip-path: polygon(50% 0%, 88% 38%, 100% 100%, 0% 100%, 12% 38%);
+	/*
+	 * Opaque at the root and gone by the tip, and firmly orange. The first version
+	 * peaked at 0.85 and the drop-shadow underneath ate it; the second went too
+	 * pale at the base and came out the colour of sand.
+	 */
+	background: linear-gradient(
+		to top,
+		rgba(255, 205, 120, var(--heat)) 0%,
+		rgba(255, 138, 40, calc(0.95 * var(--heat))) 28%,
+		rgba(228, 66, 22, calc(0.62 * var(--heat))) 62%,
+		rgba(190, 40, 15, 0) 100%
+	);
+	animation: companion-trail 0.22s ease-in-out infinite alternate;
+	pointer-events: none;
+}
+
+@keyframes companion-trail {
+	0% { transform: translateX(-50%) scaleY(0.86) scaleX(1.05); opacity: 0.75; }
+	100% { transform: translateX(-50%) scaleY(1.12) scaleX(0.9); opacity: 1; }
+}
+
+/*
+ * The arrival. Rides the `land` one-shot that already fires at the end of every
+ * fall, so it needs no state of its own and cannot outlive the thing it belongs
+ * to — and it reads `--heat` from the drop that just happened, which is why
+ * `fall` leaves that value set rather than clearing it.
+ */
+.companion-anim[data-anim="land"]::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 0;
+	width: calc(150px * var(--heat));
+	height: calc(34px * var(--heat));
+	transform: translateX(-50%);
+	border-radius: 50%;
+	border: 2px solid rgba(255, 170, 80, calc(0.8 * var(--heat)));
+	animation: companion-impact 0.45s ease-out forwards;
+	pointer-events: none;
+}
+
+@keyframes companion-impact {
+	0% { opacity: 0.95; transform: translateX(-50%) scale(0.25); }
+	100% { opacity: 0; transform: translateX(-50%) scale(1.6); }
 }
 
 /* ── The rocket ─────────────────────────────────────────────────────────── */

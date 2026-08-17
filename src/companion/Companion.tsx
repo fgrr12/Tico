@@ -89,6 +89,12 @@ const LADDER_MAX = 620
 const LADDER_SLIPS = 0.4
 /** A ledge has to be this far below him to be worth reaching for. */
 const LEDGE_GAP = 40
+/**
+ * The fraction of the full drop that already counts as maximum heat. Below one
+ * because a scale whose top end needs a floor-to-ceiling fall is a scale you
+ * never see the top of.
+ */
+const HEAT_FULL = 0.7
 /** Per-character delay while a line is typed into the bubble. */
 const SAY_REVEAL = 16
 
@@ -234,6 +240,8 @@ export const Companion = ({
 	)
 	/** Gripping the top edge of one of your windows, on the way down. */
 	const [hanging, setHanging] = useState(false)
+	/** Coming down under gravity. Gates the meteor, and nothing else. */
+	const [falling, setFalling] = useState(false)
 	/** Owns him for the length of a climb, the way crossing does. */
 	const climbing = useRef(false)
 	const climbTimer = useRef(0)
@@ -550,18 +558,46 @@ export const Companion = ({
 					x + width * 0.35 < ledge.x + ledge.width
 			)
 
-			if (!caught) {
-				moveTo(x, 0, FALL_SPEED, () => react('wow', 'land', 900))
-				return
-			}
-
 			// Below the edge, not on top of it. Landing *on* a window's top edge reads
 			// as perching, which is a different and calmer idea — he is supposed to
 			// have caught the thing on the way past. So his hands end up on the line
 			// and the rest of him hangs over the front of your window.
-			const grip = Math.max(0, caught.lift - height * 0.8)
+			const target = caught ? Math.max(0, caught.lift - height * 0.8) : 0
 
-			moveTo(x, grip, FALL_SPEED, () => {
+			/**
+			 * How hot this drop gets, from the distance *this segment* covers.
+			 *
+			 * Per segment rather than per height, which is the whole reason it reads
+			 * right: sliding a hundred pixels off a ledge he was already gripping is
+			 * not a meteor, and the same pet dropped from the ceiling is. Written
+			 * straight onto the element like `--look-x`, because it changes on every
+			 * fall and none of those are worth a re-render.
+			 *
+			 * `HEAT_FULL` is short of the real ceiling on purpose — needing a
+			 * literally floor-to-roof drop to see the full effect means almost never
+			 * seeing it.
+			 */
+			const heat = Math.min(1, (from - target) / (limits().maxLift * HEAT_FULL))
+			rootRef.current?.style.setProperty('--heat', heat.toFixed(3))
+
+			// Left set after the fall on purpose: the impact reads it to size itself,
+			// so clearing it here would land every meteor as a footstep. It is a
+			// number sitting in a custom property — it costs nothing to leave.
+			setFalling(true)
+
+			if (!caught) {
+				moveTo(x, 0, FALL_SPEED, () => {
+					setFalling(false)
+					react('wow', 'land', 900)
+					// Only a real drop is worth a remark. A short one gets the bounce
+					// and nothing else, which is what keeps the line from being noise.
+					if (heat > 0.55 && Math.random() < 0.7) say(pick(copy.hardLanding), 4_000)
+				})
+				return
+			}
+
+			moveTo(x, target, FALL_SPEED, () => {
+				setFalling(false)
 				setHanging(true)
 				react('wow', undefined, 1_600)
 				if (Math.random() < 0.7) say(pick(copy.grab), 3_800)
@@ -576,7 +612,7 @@ export const Companion = ({
 				)
 			})
 		},
-		[moveTo, react, say, copy, onLedges]
+		[moveTo, react, say, copy, limits, onLedges]
 	)
 
 	/**
@@ -1807,8 +1843,12 @@ export const Companion = ({
 
 		if (!dragged.current) return
 
+		// Through `fall`, the same as coming off a ladder. It used to be its own
+		// `moveTo` straight to the floor, which meant the one fall you cause by hand
+		// was the one that ignored every ledge on the way down — and now, the only
+		// one that would not catch fire. Two paths, one of them quietly poorer.
 		if (posNow.current.lift > 4) {
-			moveTo(posNow.current.x, 0, FALL_SPEED, () => react('wow', 'land', 900))
+			fall(posNow.current.lift)
 		} else {
 			react('wow', 'land', 900)
 			onMoved(posNow.current.x / limits().maxX)
@@ -1854,6 +1894,7 @@ export const Companion = ({
 			data-feeling={feeling}
 			data-flying={flying ? 'true' : undefined}
 			data-hanging={hanging ? 'true' : undefined}
+			data-falling={falling ? 'true' : undefined}
 			data-climbing={ladder && !ladder.falling ? 'true' : undefined}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{

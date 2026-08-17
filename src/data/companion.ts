@@ -231,6 +231,8 @@ interface CompanionCopy {
 	 * and the lines have to stay true to that.
 	 */
 	grab: string[]
+	/** After a drop long enough to have been on fire for part of it. */
+	hardLanding: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>
 	/** What frightens him about a particular application, said on sight. */
@@ -721,6 +723,15 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'I am going to hang here a moment.',
 			'Do not move this one.',
 			'Solid. Whatever it is.',
+		],
+
+		hardLanding: [
+			'I am fine. Structurally.',
+			'That was further than it looked.',
+			'Everything still works. I checked.',
+			'Do not do that again. Do it again later.',
+			'I saw my whole afternoon flash past.',
+			'Landed. Mostly on purpose.',
 		],
 
 		feelings: {
@@ -1329,6 +1340,15 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Me voy a quedar colgado un ratito.',
 			'No movás esta.',
 			'Firme. Sea lo que sea.',
+		],
+
+		hardLanding: [
+			'Estoy bien. Estructuralmente.',
+			'Eso era más alto de lo que se veía.',
+			'Todo sigue funcionando. Ya revisé.',
+			'No lo volvás a hacer. Hacelo otra vez más tarde.',
+			'Vi pasar toda mi tarde.',
+			'Aterricé. Casi que a propósito.',
 		],
 
 		feelings: {
