@@ -183,6 +183,40 @@ check('every custom property used is defined somewhere', () => {
 	return `${used.size} used, all defined`
 })
 
+// ── things he wears ─────────────────────────────────────────────────────────
+
+check('every prop is drawn, written and on the sheet', () => {
+	const face = readFileSync(new URL('../src/companion/CompanionFace.tsx', import.meta.url), 'utf8')
+	const sheet = readFileSync(new URL('./sheet.tsx', import.meta.url), 'utf8')
+
+	const list = (source, after) => {
+		const start = source.indexOf(after)
+		const open = source.indexOf('[', start)
+		return [...source.slice(open, source.indexOf(']', open)).matchAll(/'(\w+)'/g)].map((m) => m[1])
+	}
+
+	// `headphones` is picked by hand in `wearSomething` rather than from the
+	// list, because it is the one prop with a reason. It still has to be drawn.
+	const worn = [...list(companion, 'const PROPS'), 'headphones']
+	const drawn = [...face.matchAll(/^\t\tcase '(\w+)':/gm)].map((m) => m[1])
+	const onSheet = list(sheet, 'const PROPS')
+
+	for (const kind of worn) {
+		// A prop with no `case` renders nothing at all: he "puts on" an invisible
+		// thing, says a line about it, and takes it off. Silent in every log.
+		assert(drawn.includes(kind), `${kind} is worn but never drawn`)
+		assert(onSheet.includes(kind), `${kind} is missing from the sheet, so nobody has looked at it`)
+		for (const language of ['en', 'es']) {
+			assert(companionCopy[language].props[kind]?.length > 0, `${language} has no line for ${kind}`)
+		}
+	}
+
+	const unworn = drawn.filter((kind) => !worn.includes(kind))
+	assert(unworn.length === 0, `drawn but never worn: ${unworn.join(', ')}`)
+
+	return `${worn.length} props`
+})
+
 // ── copy ────────────────────────────────────────────────────────────────────
 
 check('both languages carry the same keys', () => {

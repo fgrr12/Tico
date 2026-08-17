@@ -499,6 +499,48 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'You have not had water today either.',
 			],
 			headphones: ['Now we both hear it.', 'Lend me a song.'],
+
+			afro: [
+				'It is not mine. I am keeping it.',
+				'More hair than machine now.',
+				'Do not touch it.',
+			],
+			mohawk: [
+				'I had a phase. It came back.',
+				'Nobody at this desk is punk. I am fixing that.',
+				'It took me all morning.',
+			],
+			longhair: [
+				'It suits me and you know it.',
+				'I am growing it out.',
+				'This is a different me.',
+			],
+			beanie: ['It is not cold. I like it.', 'Warm head, clear thoughts.'],
+			cap: ['Backwards. Obviously.', 'I am off duty.'],
+			hood: [
+				'Now nobody can see me.',
+				'Focus mode.',
+				'Do not read anything into it.',
+			],
+			catears: ['I have no comment on these.', 'They came with the outfit.'],
+			glasses: [
+				'I can see exactly the same amount. I look smarter.',
+				'For reading. I do not read.',
+			],
+			moustache: ['It is real. Do not investigate.', 'I grew it this afternoon.'],
+			tie: ['Somebody here has to look serious.', 'It is a lot for a Tuesday.'],
+			bowtie: ['Formal, but fun about it.', 'I am the host now.'],
+			cape: ['I do not fly. It still helps.', 'Every entrance is better with this.'],
+			duck: [
+				'Explain the bug to him. It works.',
+				'He has solved more of them than I have.',
+				'He is listening. Go ahead.',
+			],
+			umbrella: [
+				'It never rains in here. Still.',
+				'Prepared.',
+				'It is for the sun, if you must know.',
+			],
 		},
 
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
@@ -918,6 +960,48 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Vos tampoco has tomado agua hoy.',
 			],
 			headphones: ['Ahora lo escuchamos los dos.', 'Prestame una canción.'],
+
+			afro: [
+				'No es mío. Me lo quedo.',
+				'Ahora soy más pelo que máquina.',
+				'No me lo toqués.',
+			],
+			mohawk: [
+				'Tuve una época. Volvió.',
+				'Nadie en este escritorio es punk. Lo estoy arreglando.',
+				'Me llevó toda la mañana.',
+			],
+			longhair: [
+				'Me queda bien y lo sabés.',
+				'Me lo estoy dejando crecer.',
+				'Este es otro yo.',
+			],
+			beanie: ['No hace frío. Me gusta.', 'Cabeza caliente, ideas claras.'],
+			cap: ['Al revés. Obvio.', 'Ando libre hoy.'],
+			hood: [
+				'Ahora nadie me ve.',
+				'Modo concentración.',
+				'No le busqués significado.',
+			],
+			catears: ['No tengo comentarios sobre esto.', 'Venían con el atuendo.'],
+			glasses: [
+				'Veo exactamente lo mismo. Me veo más listo.',
+				'Son para leer. Yo no leo.',
+			],
+			moustache: ['Es de verdad. No investigués.', 'Me lo dejé esta tarde.'],
+			tie: ['Alguien aquí tiene que verse serio.', 'Es mucho para un martes.'],
+			bowtie: ['Formal, pero con gracia.', 'Ahora el anfitrión soy yo.'],
+			cape: ['No vuelo. Igual ayuda.', 'Toda entrada mejora con esto.'],
+			duck: [
+				'Explicale el bug a él. Sirve.',
+				'Él ha resuelto más que yo.',
+				'Te está escuchando. Dale.',
+			],
+			umbrella: [
+				'Aquí adentro nunca llueve. Igual.',
+				'Precavido.',
+				'Es para el sol, si tanto querés saber.',
+			],
 		},
 
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],

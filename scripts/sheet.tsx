@@ -37,7 +37,30 @@ const MOODS: CompanionMood[] = [
 ]
 
 /** Kept in step with `PROPS` in `Companion.tsx`, plus the music-only one. */
-const PROPS = ['party', 'tophat', 'shades', 'crown', 'flower', 'scarf', 'coffee', 'headphones']
+const PROPS = [
+	'party',
+	'tophat',
+	'shades',
+	'crown',
+	'flower',
+	'scarf',
+	'coffee',
+	'afro',
+	'mohawk',
+	'longhair',
+	'beanie',
+	'cap',
+	'hood',
+	'catears',
+	'glasses',
+	'moustache',
+	'tie',
+	'bowtie',
+	'cape',
+	'duck',
+	'umbrella',
+	'headphones',
+]
 
 const SIZES = [66, 92, 124, 240]
 

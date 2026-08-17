@@ -357,6 +357,18 @@ export const CompanionFace = ({
  *
  * Drawn above y=16, which is the top of his head, so they overflow the viewBox —
  * `.companion-svg` is `overflow: visible` for exactly this.
+ *
+ * Landmarks, since every one of these is placed against them: the case is
+ * x 8–88, y 16–82; the title bar and its three lights end at y=31; the screen
+ * is x 15–81, y 32–74; the eyes sit at (37,50) and (59,50) and the mouth around
+ * y=62; the hands are x 1–9.6 and 86.4–95 at y 53–67; the feet are y 77–87 with
+ * a gap between them at x 40.5–55.5. Anything hanging off his chin goes down
+ * that gap; anything held goes on a hand, not beside it.
+ *
+ * Colours are literal here rather than tokens. A costume that shifted with his
+ * mood would be a mood, and these are supposed to mean nothing. Never fill one
+ * with a colour near `--bg-chrome` — that is the top hat that came out
+ * invisible, twice.
  */
 const Prop = ({ kind }: { kind: string }) => {
 	switch (kind) {
@@ -460,6 +472,179 @@ const Prop = ({ kind }: { kind: string }) => {
 					</g>
 				</g>
 			)
+
+		/* ── Wigs. They sit on the case, so they stop above y=22 and leave the
+		      three lights showing — a wig covering them turns him back into a
+		      featureless box for the minute he is wearing it. ─────────────── */
+
+		case 'afro':
+			return (
+				<g className="companion-prop">
+					<g fill="#6d4c37">
+						<circle cx="27" cy="12" r="10.5" />
+						<circle cx="69" cy="12" r="10.5" />
+						<circle cx="36" cy="3" r="12" />
+						<circle cx="60" cy="3" r="12" />
+						<circle cx="48" cy="-1" r="13" />
+					</g>
+					{/* One highlight, or it is a brown cloud. */}
+					<circle cx="40" cy="-4" r="4.5" fill="#8a6349" opacity="0.7" />
+				</g>
+			)
+		case 'mohawk':
+			return (
+				<g className="companion-prop">
+					<path d="M32 21 L36 0 L41 15 L48 -7 L55 15 L60 0 L64 21 Z" fill="#e5427a" />
+					{/* Roots, so the spikes look grown rather than glued on. */}
+					<path d="M32 15 q16 5 32 0 v6 q-16 4 -32 0 z" fill="#8d2a4d" />
+				</g>
+			)
+		case 'longhair':
+			return (
+				<g className="companion-prop" fill="#c98b3f">
+					{/* Two panels down the bezel, stopping short of the screen at
+					    x=15 so they frame the face instead of covering it. */}
+					<path d="M7 28 q-3 20 0 34 q6 4 11 0 q-3-18 0-34 z" />
+					<path d="M89 28 q3 20 0 34 q-6 4 -11 0 q3-18 0-34 z" />
+					{/* A crown and a centre-parted fringe. */}
+					<path d="M6 30 q0-27 42-27 q42 0 42 27 q-5-16-15-19 q-11 8-27 8 q-16 0-27-8 q-10 3-15 19 z" />
+				</g>
+			)
+
+		/* ── Hats ──────────────────────────────────────────────────────────── */
+
+		case 'beanie':
+			return (
+				<g className="companion-prop">
+					<path d="M26 15 q2-19 22-19 q20 0 22 19 z" fill="#5a83c4" />
+					<rect x="24" y="13" width="48" height="8" rx="4" fill="#4a6ea8" />
+					{/* The ribbing is what makes it knitted instead of a blue dome. */}
+					<g stroke="#3d5c8d" strokeWidth="1.4" strokeLinecap="round">
+						<line x1="33" y1="15" x2="33" y2="19" />
+						<line x1="41" y1="15" x2="41" y2="19" />
+						<line x1="49" y1="15" x2="49" y2="19" />
+						<line x1="57" y1="15" x2="57" y2="19" />
+						<line x1="65" y1="15" x2="65" y2="19" />
+					</g>
+					<circle cx="48" cy="-8" r="5.5" fill="#cfd8e8" />
+				</g>
+			)
+		case 'cap':
+			// Worn backwards, which is the only way a brim reads at this size —
+			// pointing forward it is a flat bar across his own face.
+			return (
+				<g className="companion-prop">
+					<path d="M26 16 q0-17 22-17 q22 0 22 17 z" fill="#2f7d5c" />
+					<path d="M26 12 q-15 1 -17 6 q11 4 17 1 z" fill="#276b4e" />
+					<rect x="25" y="12" width="46" height="5" rx="2.5" fill="#276b4e" />
+					<circle cx="48" cy="-1" r="2.4" fill="#8fd6b4" />
+				</g>
+			)
+		case 'hood':
+			return (
+				<g className="companion-prop">
+					<path
+						d="M4 50 q-4-42 44-42 q48 0 44 42 q-6 3-10-3 q4-31-34-31 q-38 0-34 31 q-4 6-10 3 z"
+						fill="#4a5568"
+					/>
+					{/* Drawstrings. Two dots and two lines, and it is a hoodie. */}
+					<g stroke="#cfd4e0" strokeWidth="2" strokeLinecap="round">
+						<line x1="10" y1="50" x2="12" y2="60" />
+						<line x1="86" y1="50" x2="84" y2="60" />
+					</g>
+					<circle cx="12.4" cy="61.5" r="2" fill="#cfd4e0" />
+					<circle cx="83.6" cy="61.5" r="2" fill="#cfd4e0" />
+				</g>
+			)
+		case 'catears':
+			return (
+				<g className="companion-prop">
+					<path d="M23 20 L28 -3 L45 12 Z" fill="#4a5468" />
+					<path d="M73 20 L68 -3 L51 12 Z" fill="#4a5468" />
+					<path d="M28.5 15 L31 2 L40 12 Z" fill="var(--pink)" opacity="0.5" />
+					<path d="M67.5 15 L65 2 L56 12 Z" fill="var(--pink)" opacity="0.5" />
+				</g>
+			)
+
+		/* ── Worn on the face ──────────────────────────────────────────────── */
+
+		case 'glasses':
+			// Open lenses, unlike the shades — the whole joke of glasses is that
+			// you can still see the eyes behind them.
+			return (
+				<g className="companion-prop" fill="none" stroke="#c0a06a" strokeWidth="2.2">
+					<circle cx="37" cy="50" r="9.5" />
+					<circle cx="59" cy="50" r="9.5" />
+					<path d="M46.5 49 q1.5-2 3 0" />
+					<path d="M27.5 47 l-9-2" strokeLinecap="round" />
+					<path d="M68.5 47 l9-2" strokeLinecap="round" />
+				</g>
+			)
+		case 'moustache':
+			return (
+				<g className="companion-prop">
+					<path
+						d="M48 56 q-4-2.5-8.5-1.5 q-5.5 1-5.5 4 q0 3 4 2 q6-1.5 10-4 q4 2.5 10 4 q4 1 4-2 q0-3-5.5-4 q-4.5-1-8.5 1.5 z"
+						fill="#9a7d5e"
+					/>
+				</g>
+			)
+
+		/* ── Clothes. All of it hangs off the bottom edge of the case, which is
+		      the only part of his front that is not screen. ────────────────── */
+
+		case 'tie':
+			return (
+				<g className="companion-prop">
+					<path d="M43.5 70 l4.5-3 l4.5 3 l-1.5 5 h-6 z" fill="#a63c4b" />
+					<path d="M45 76 l-2 11 l5 7 l5-7 l-2-11 z" fill="#c74a5b" />
+				</g>
+			)
+		case 'bowtie':
+			return (
+				<g className="companion-prop">
+					<path d="M48 76 l-12-6 v12 z" fill="#d0405a" />
+					<path d="M48 76 l12-6 v12 z" fill="#d0405a" />
+					<rect x="44.5" y="72.5" width="7" height="7" rx="2" fill="#a83349" />
+				</g>
+			)
+		case 'cape':
+			return (
+				<g className="companion-prop">
+					{/* Flared outside the case rather than over it. Drawn on top of
+					    everything, a cape across his front is a bib. */}
+					<path d="M22 27 q-15 10 -13 25 q9-6 16-8 z" fill="#8f2c3e" />
+					<path d="M74 27 q15 10 13 25 q-9-6-16-8 z" fill="#8f2c3e" />
+					<path d="M22 20 q26 9 52 0 v6 q-26 9 -52 0 z" fill="#b03a4e" />
+				</g>
+			)
+
+		/* ── Held ──────────────────────────────────────────────────────────── */
+
+		case 'duck':
+			// The rubber duck. He is very clear that it is there to be explained
+			// to, and equally clear that this is not weird.
+			return (
+				<g className="companion-prop">
+					<ellipse cx="46" cy="13" rx="11" ry="8" fill="#f2c14e" />
+					<path d="M36 10 l-7-5 l2 9 z" fill="#f2c14e" />
+					<circle cx="55" cy="5" r="6.5" fill="#f2c14e" />
+					<path d="M60 3 l8 2.5 l-8 3.5 z" fill="#e8813a" />
+					<circle cx="56.5" cy="3" r="1.3" fill="#2a2118" />
+				</g>
+			)
+		case 'umbrella':
+			// Over the left hand, where the coffee goes, and open — a closed one
+			// at this size is a stick.
+			return (
+				<g className="companion-prop">
+					<path d="M-19 27 a18 18 0 0 1 36 0 q-9-4 -18-4 q-9 0-18 4 z" fill="#d0405a" />
+					<path d="M-19 27 q4.5 4 9 0 q4.5 4 9 0 q4.5 4 9 0 q4.5 4 9 0 v-1 h-36 z" fill="#d0405a" />
+					<path d="M-1 27 L5 55" stroke="#8a6f52" strokeWidth="2.4" strokeLinecap="round" />
+					<path d="M5 55 q1 5 6 4" fill="none" stroke="#8a6f52" strokeWidth="2.4" strokeLinecap="round" />
+				</g>
+			)
+
 		default:
 			return null
 	}

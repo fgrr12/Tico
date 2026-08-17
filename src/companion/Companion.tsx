@@ -939,7 +939,29 @@ export const Companion = ({
 		 * that puts on a party hat because it is your birthday is a feature; one
 		 * that does it on a Tuesday and takes it off a minute later is a character.
 		 */
-		const PROPS = ['party', 'tophat', 'shades', 'crown', 'flower', 'scarf', 'coffee']
+		const PROPS = [
+			'party',
+			'tophat',
+			'shades',
+			'crown',
+			'flower',
+			'scarf',
+			'coffee',
+			'afro',
+			'mohawk',
+			'longhair',
+			'beanie',
+			'cap',
+			'hood',
+			'catears',
+			'glasses',
+			'moustache',
+			'tie',
+			'bowtie',
+			'cape',
+			'duck',
+			'umbrella',
+		]
 
 		const wearSomething = () => {
 			// Headphones only while something is playing — the one prop with a
