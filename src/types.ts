@@ -51,3 +51,22 @@ export interface Settings {
 	chattiness: Chattiness
 	size: PetSize
 }
+
+/**
+ * What he remembers of you from before this launch. Mirrors `Opening` in
+ * `memory.rs`, which does the date arithmetic — the frontend never works out
+ * what day it is, it is only told what changed.
+ */
+export interface Opening {
+	/** Distinct days he has been around, not days since installation. */
+	days: number
+	streak: number
+	best_streak: number
+	/** Days of real absence. `0` for the same day or the next morning. */
+	away: number
+	first_day: boolean
+	pets: number
+	drags: number
+	/** What he has worn most, once he has worn it enough to mean it. */
+	favourite: string | null
+}

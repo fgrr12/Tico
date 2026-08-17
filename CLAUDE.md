@@ -48,6 +48,15 @@ completely or not bother. Also why a rule that overrides the body's animation
 uses `animation-name` and `animation-duration`: the `animation` shorthand resets
 `animation-play-state` and quietly wakes him up.
 
+**He remembers his history with you, never a record of your activity.** That is
+the line, and `memory.json` is built to stay on the right side of it: days known,
+streak, times he has been picked up, which hat he has worn most. No app names, no
+window titles, no track names, no timestamp finer than a date. The rule it comes
+from is still in `Companion.tsx` — *a pet that remembers last Tuesday's app usage
+is a tracker wearing a costume* — and everything about your work still dies with
+the process. Familiarity is the one axis that only moves one way; everything else
+about him is a distribution, and a distribution is varied, not alive.
+
 **Copy is data, keyed by language.** Every line lives in the copy file with an `en`
 and an `es` entry. This is inherited from the portfolio and is free to keep — do
 not scatter strings through components, and do not drop Spanish.

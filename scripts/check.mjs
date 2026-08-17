@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs'
 
 import {
 	companionCopy,
+	DAY_MILESTONES,
 	documentIn,
 	energyAt,
+	familiarityFrom,
 	feelingFrom,
 	matchApp,
 	PALETTE,
+	STREAK_MILESTONES,
 	TERRORS,
 	timeOfDay,
 } from '../src/data/companion.ts'
@@ -215,6 +218,32 @@ check('every prop is drawn, written and on the sheet', () => {
 	assert(unworn.length === 0, `drawn but never worn: ${unworn.join(', ')}`)
 
 	return `${worn.length} props`
+})
+
+check('every familiarity tier is reachable and has lines', () => {
+	// A tier with no lines is a pet that goes quiet for a month once it knows you
+	// well enough, which is the exact opposite of the point.
+	const tiers = ['new', 'knowing', 'familiar', 'old']
+	const reached = new Set([0, 1, 3, 4, 13, 14, 59, 60, 400].map(familiarityFrom))
+
+	for (const tier of tiers) {
+		assert(reached.has(tier), `no number of days produces '${tier}'`)
+		for (const language of ['en', 'es']) {
+			const lines = companionCopy[language].memory.tier[tier]
+			assert(Array.isArray(lines) && lines.length >= 3, `${language}.${tier} has ${lines?.length}`)
+		}
+	}
+
+	// The greeting ladder falls through to `copy.boot` only when none of these
+	// apply, so an empty one is a launch that silently says nothing new.
+	for (const language of ['en', 'es']) {
+		for (const kind of ['hello', 'back', 'milestone', 'streak', 'favourite']) {
+			const lines = companionCopy[language].memory[kind]
+			assert(Array.isArray(lines) && lines.length > 0, `${language}.memory.${kind} is empty`)
+		}
+	}
+
+	return `${tiers.length} tiers, ${DAY_MILESTONES.length + STREAK_MILESTONES.length} milestones`
 })
 
 // ── copy ────────────────────────────────────────────────────────────────────

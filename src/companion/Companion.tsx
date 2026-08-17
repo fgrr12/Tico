@@ -3,8 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { CompanionFace } from './CompanionFace'
 
 import {
+	DAY_MILESTONES,
+	STREAK_MILESTONES,
 	companionCopy,
 	documentIn,
+	type Familiarity,
+	familiarityFrom,
 	PALETTE,
 	TERRORS,
 	energyAt,
@@ -15,7 +19,7 @@ import {
 	matchApp,
 	timeOfDay,
 } from '../data/companion'
-import type { CompanionMood, PetRect, Settings } from '../types'
+import type { CompanionMood, Opening, PetRect, Settings } from '../types'
 
 /**
  * `tico`, on a real desktop.
@@ -126,6 +130,11 @@ interface CompanionProps {
 	inCallMode: 'peek' | 'hide' | 'ignore'
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
+	/** What he remembers from before this launch. Read once, at boot. */
+	opening: Opening
+	/** Counters that outlive the session. Fire and forget — nothing reads them
+	 *  back until the next launch, so a dropped one costs nothing. */
+	onRemember: (what: string, key?: string) => void
 	onRectChange: (rect: PetRect) => void
 	/** Pins the window interactive for a drag, so a fast one cannot drop him. */
 	onInteractive: (hold: boolean) => void
@@ -144,11 +153,18 @@ export const Companion = ({
 	inCall,
 	inCallMode,
 	initialX,
+	opening,
+	onRemember,
 	onRectChange,
 	onInteractive,
 	onMoved,
 }: CompanionProps) => {
 	const copy = companionCopy[language]
+	/**
+	 * Fixed for the session, which is right: how well he knows you is a fact about
+	 * this morning, not something that should shift while you watch.
+	 */
+	const familiarity: Familiarity = familiarityFrom(opening.days)
 
 	const rootRef = useRef<HTMLDivElement>(null)
 	const bubbleRef = useRef<HTMLDivElement>(null)
@@ -529,6 +545,7 @@ export const Companion = ({
 				if (dragged.current) return
 				react('love', 'pop', 3_200)
 				say(pick(copy.pet), 3_600)
+				onRemember('pet')
 			}, PET_AFTER)
 		} else if (!inside && hovering.current) {
 			hovering.current = false
@@ -966,12 +983,26 @@ export const Companion = ({
 		const wearSomething = () => {
 			// Headphones only while something is playing — the one prop with a
 			// reason, which is what makes the rest read as having none.
-			const kind = nowPlaying && Math.random() < 0.6 ? 'headphones' : pick(PROPS)
+			// The favourite is whatever he has worn most across every session, and
+			// it only tilts the odds — a pet that always wears the same hat has a
+			// uniform, not a preference. Nothing chose it: it emerged from a random
+			// draw and then bent the draw, which is roughly how taste works.
+			const favourite = opening.favourite
+			const wantsFavourite = favourite !== null && Math.random() < 0.35
+
+			const kind = nowPlaying && Math.random() < 0.6
+				? 'headphones'
+				: wantsFavourite && favourite !== null
+					? favourite
+					: pick(PROPS)
+
 			setProp(kind)
+			onRemember('prop', kind)
 
 			// A beat after it appears, not with it. He puts the thing on and *then*
 			// has an opinion about it, which is the order those two happen in.
-			const lines = copy.props[kind]
+			const lines =
+				kind === favourite && Math.random() < 0.5 ? copy.memory.favourite : copy.props[kind]
 			if (lines && Math.random() < 0.65) {
 				window.setTimeout(() => say(pick(lines), 5_000), 1_200)
 			}
@@ -1061,7 +1092,10 @@ export const Companion = ({
 				// Weighted: whatever he is feeling is the more interesting subject,
 				// and 'content' has little to say by definition.
 				const felt_lines = copy.feelings[feelingNow.current]
-				say(pick([...copy.idle, ...timed, ...felt_lines, ...felt_lines]), 8_000)
+				// One copy of the memory lines, not two: how long he has known you is
+				// a colour on the conversation, never the subject of it.
+				const known = copy.memory.tier[familiarity]
+				say(pick([...copy.idle, ...timed, ...known, ...felt_lines, ...felt_lines]), 8_000)
 				return
 			}
 
@@ -1156,11 +1190,51 @@ export const Companion = ({
 		}, 3_500)
 
 		return () => clearInterval(id)
-	}, [copy, say, react, lookAt, wander, motion, nowPlaying, prop, moveTo, limits])
+		// `opening`, `familiarity` and `onRemember` are fixed for the session — App
+		// renders nothing until the memory has been read — so listing them costs no
+		// extra runs of this and keeps it honest about what it closes over.
+	}, [
+		copy,
+		say,
+		react,
+		lookAt,
+		wander,
+		motion,
+		nowPlaying,
+		prop,
+		moveTo,
+		limits,
+		opening,
+		familiarity,
+		onRemember,
+	])
 
+	/**
+	 * The first thing he says on a launch, and the one place the memory is loud.
+	 *
+	 * A ladder, like `feelingFrom`, and ordered the same way — by which fact is
+	 * the most interesting one. Coming back after a week beats a round number of
+	 * days, which beats a streak, which beats the generic boot line. Only one of
+	 * them is ever said.
+	 *
+	 * Everything below the first rung is deliberately rare. If he announced the
+	 * count every morning it would be a progress bar with a face, and the reason
+	 * this is worth having at all is that it is the only thing about him you
+	 * cannot see coming.
+	 */
 	// biome-ignore lint: greets once, in whatever language the OS asked for.
 	useEffect(() => {
-		const timer = window.setTimeout(() => say(pick(copy.boot), 6_000), 1_600)
+		const line = () => {
+			if (opening.first_day) return pick(copy.memory.hello)
+			if (opening.away > 1) return pick(copy.memory.back)(opening.away)
+			if (DAY_MILESTONES.includes(opening.days)) return pick(copy.memory.milestone)(opening.days)
+			if (STREAK_MILESTONES.includes(opening.streak)) {
+				return pick(copy.memory.streak)(opening.streak)
+			}
+			return pick(copy.boot)
+		}
+
+		const timer = window.setTimeout(() => say(line(), 6_000), 1_600)
 		return () => clearTimeout(timer)
 	}, [])
 
@@ -1235,6 +1309,7 @@ export const Companion = ({
 			applyLook()
 			react('held', undefined, 0)
 			say(pick(copy.drag), 2_600)
+			onRemember('drag')
 		}
 
 		// `lift` grows upward while the pointer moves down the screen.

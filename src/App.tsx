@@ -6,7 +6,7 @@ import { listen } from '@tauri-apps/api/event'
 import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
-import type { PetRect, Settings } from './types'
+import type { Opening, PetRect, Settings } from './types'
 
 interface Boot extends Settings {
 	x: number
@@ -32,9 +32,13 @@ export default function App() {
 	const [nowPlaying, setNowPlaying] = useState<{ artist: string; song: string } | null>(null)
 	const [reminders, setReminders] = useState<{ id: string; text: string }[]>([])
 	const [inCall, setInCall] = useState(false)
+	const [opening, setOpening] = useState<Opening | null>(null)
 
 	useEffect(() => {
 		invoke<Boot>('boot').then(setBoot)
+		// Read once. It is what he knew when he woke up, and nothing during the
+		// session changes what he already remembers.
+		invoke<Opening>('memory').then(setOpening)
 
 		// Re-read on a slow clock so anything that writes to reminders.json is
 		// noticed without tico having to be restarted.
@@ -90,6 +94,10 @@ export default function App() {
 		invoke('set_pet_x', { x })
 	}, [])
 
+	const handleRemember = useCallback((what: string, key?: string) => {
+		invoke('remember', { what, key: key ?? null })
+	}, [])
+
 	const handleReminderDone = useCallback((id: string) => {
 		invoke('complete_reminder', { id }).then(() =>
 			invoke<{ id: string; text: string }[]>('due_reminders').then(setReminders)
@@ -98,7 +106,7 @@ export default function App() {
 
 	// Nothing is drawn until Rust says where he was left, so he never appears in
 	// one place and jumps to another a frame later.
-	if (!boot) return null
+	if (!boot || !opening) return null
 
 	// A saved choice wins; `auto` falls back to whatever the OS is set to.
 	const language: Language = boot.language === 'auto' ? detectLanguage() : boot.language
@@ -119,6 +127,8 @@ export default function App() {
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}
 			onMoved={handleMoved}
+			opening={opening}
+			onRemember={handleRemember}
 		/>
 	)
 }

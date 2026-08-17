@@ -5,6 +5,7 @@ mod music;
 mod reminders;
 #[cfg(target_os = "macos")]
 mod macos;
+mod memory;
 mod state;
 mod window_title;
 mod strip;
@@ -140,11 +141,14 @@ pub fn run() {
             cursor::set_interactive,
             reminders::due_reminders,
             reminders::complete_reminder,
+            memory::memory,
+            memory::remember,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
             let saved = state::load(&handle);
             app.manage(Store(Mutex::new(saved.clone())));
+            app.manage(memory::Vault(Mutex::new(memory::load(&handle))));
 
             // Tray-only: no Dock icon, no Cmd-Tab entry.
             //

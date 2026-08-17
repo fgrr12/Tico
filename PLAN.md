@@ -377,6 +377,43 @@ over. What is lost with tao's subclass is a `canBecomeKeyWindow` override a
 borderless window gets anyway and a `sendEvent:` override that only serves
 `movableByWindowBackground`, which he does not use.
 
+## Memory between sessions
+
+Everything else about him is a distribution — 39 behaviours, 13 feelings, 21
+hats — and a distribution is *varied*, not *alive*: on day sixty he was drawing
+from the same bag as on day one. `memory.json` is the one axis that only moves
+one way.
+
+Stored: days known, current and best streak, lifetime pets and drags, and how
+many times he has worn each thing. Four familiarity tiers derived from the day
+count — new, knowing, familiar, old — the last of which takes two months to
+reach, because a pet that is your oldest friend by Tuesday has not earned it.
+
+What it buys: a launch greeting that is a ladder like `feelingFrom`, ordered by
+which fact is most interesting (first run beats a week away beats a round number
+beats a streak beats the generic boot line, and only one is ever said); memory
+lines folded into the idle chatter as a colour on it, never the subject; and a
+favourite hat, which is the part worth keeping — nothing chose it. It emerged
+from a random draw and now bends the draw, which is roughly how taste works.
+
+**What it deliberately does not store is the design.** No app names, no window
+titles, no track names, no timestamp finer than a date. The rule it is written
+against was already in `Companion.tsx` from when nothing survived a restart — *a
+pet that remembers last Tuesday's app usage is a tracker wearing a costume* — and
+it still holds. The line is between **his history with you**, which is what makes
+him different in week four, and **a record of your activity**, which is
+surveillance with a face on it. The first is a few hundred bytes worth nothing to
+anyone who found the file; the second is worth quite a lot, which is exactly why
+it is not written.
+
+The date arithmetic is in Rust with the reminders, for the same reason: rolling a
+day by hand is where the bugs are. Five tests cover the ones that would otherwise
+ship — restarting five times in an afternoon is one day, one night apart is not an
+absence, a gap resets the streak but not the best one, and a clock that went
+backwards changes nothing rather than producing a negative streak that never
+heals. The roll runs at boot *and* on any remembered event, so an app left running
+for a week still notices the days the first time you touch him.
+
 ## What he actually costs
 
 Re-measured properly, because the number that used to be here was wrong twice

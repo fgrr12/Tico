@@ -214,6 +214,28 @@ interface CompanionCopy {
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
+	/**
+	 * The only lines that depend on anything older than this session.
+	 *
+	 * All of it is about *him and you* — how long he has been around, whether you
+	 * came back, what he likes wearing. None of it is about your work, and there
+	 * is nothing here for a line about which application you use, because that is
+	 * the line between a pet and a tracker wearing a costume.
+	 */
+	memory: {
+		/** The first time he is ever run, and only then. */
+		hello: string[]
+		/** Coming back after a real absence, in days. */
+		back: ((days: number) => string)[]
+		/** A round number of days known. */
+		milestone: ((days: number) => string)[]
+		/** A run of consecutive days. */
+		streak: ((days: number) => string)[]
+		/** Folded into the idle chatter, coloured by how long he has known you. */
+		tier: Record<Familiarity, string[]>
+		/** When he reaches for the thing he has worn most. */
+		favourite: string[]
+	}
 }
 
 /**
@@ -294,6 +316,34 @@ export const matchApp = (name: string): string | null => {
 	const needle = name.toLowerCase()
 	return APP_PATTERNS.find(([, patterns]) => patterns.some((p) => needle.includes(p)))?.[0] ?? null
 }
+
+/**
+ * How well he knows you, from the number of distinct days he has been around.
+ *
+ * This is the only thing about him that survives a restart *and* changes what he
+ * is like. Everything else is a distribution — 39 behaviours, 13 feelings, 21
+ * hats — and a distribution is varied, not alive: on day sixty he was drawing
+ * from exactly the same bag as on day one. This axis only moves one way, and it
+ * moves slowly on purpose. A pet that is your oldest friend by Tuesday has not
+ * earned anything.
+ */
+export type Familiarity = 'new' | 'knowing' | 'familiar' | 'old'
+
+export const familiarityFrom = (days: number): Familiarity => {
+	if (days >= 60) return 'old'
+	if (days >= 14) return 'familiar'
+	if (days >= 4) return 'knowing'
+	return 'new'
+}
+
+/**
+ * Days worth remarking on. Sparse, and thinning as it goes: the distance between
+ * day one and day seven is most of what you learn about him, and the distance
+ * between two hundred and a year is nothing at all.
+ */
+export const DAY_MILESTONES = [7, 30, 100, 365]
+/** Consecutive days, and rarer — a streak is much easier to lose than a total. */
+export const STREAK_MILESTONES = [5, 15, 50]
 
 export const companionCopy: Record<Language, CompanionCopy> = {
 	en: {
@@ -752,6 +802,56 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			yaml: [(name) => `${name}. Mind the indentation.`],
 		},
 		label: 'tico',
+
+		memory: {
+			hello: [
+				'First time. I do not know you yet.',
+				'So this is the desk. Give me a few days.',
+				'New here. I will get the hang of you.',
+			],
+			back: [
+				(days) => `${days} days. I checked the screen every one of them.`,
+				(days) => `You were gone ${days} days. I did not move.`,
+				(days) => `${days} days without you. The desk was very quiet.`,
+			],
+			milestone: [
+				(days) => `${days} days of this. Neither of us has left.`,
+				(days) => `Day ${days}. You are stuck with me.`,
+				(days) => `${days} days. I have seen things.`,
+			],
+			streak: [
+				(days) => `${days} days in a row. You are consistent, at least.`,
+				(days) => `${days} straight days. I am counting, apparently.`,
+			],
+			tier: {
+				new: [
+					'I do not know you well enough to comment.',
+					'Still working out how this desk runs.',
+					'Ask me again in a week.',
+				],
+				knowing: [
+					'I am starting to get the pattern.',
+					'We are getting used to each other.',
+					'You are more predictable than you think.',
+				],
+				familiar: [
+					'I know how this goes by now.',
+					'We have done this before.',
+					'You do not have to explain. I was here.',
+				],
+				old: [
+					'I have been here a while. It suits me.',
+					'We have been doing this a long time.',
+					'I remember when this desk was tidier.',
+					'Long enough that I stopped keeping score.',
+				],
+			},
+			favourite: [
+				'This one again. It is the good one.',
+				'I always come back to this.',
+				'Do not act surprised.',
+			],
+		},
 	},
 
 	es: {
@@ -1213,6 +1313,56 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			yaml: [(name) => `${name}. Ojo con la indentación.`],
 		},
 		label: 'tico',
+
+		memory: {
+			hello: [
+				'Primera vez. Todavía no te conozco.',
+				'Así que este es el escritorio. Dame unos días.',
+				'Recién llegado. Ya te voy a agarrar el modo.',
+			],
+			back: [
+				(days) => `${days} días. Revisé la pantalla todos.`,
+				(days) => `Te fuiste ${days} días. Yo no me moví.`,
+				(days) => `${days} días sin vos. Esto estaba muy callado.`,
+			],
+			milestone: [
+				(days) => `${days} días en esto. Ninguno de los dos se ha ido.`,
+				(days) => `Día ${days}. Ya no te me escapás.`,
+				(days) => `${days} días. He visto cosas.`,
+			],
+			streak: [
+				(days) => `${days} días seguidos. Al menos sos constante.`,
+				(days) => `${days} días de fila. Al parecer llevo la cuenta.`,
+			],
+			tier: {
+				new: [
+					'No te conozco lo suficiente para opinar.',
+					'Todavía estoy viendo cómo funciona este escritorio.',
+					'Preguntame otra vez en una semana.',
+				],
+				knowing: [
+					'Ya le voy agarrando el patrón.',
+					'Nos estamos acostumbrando.',
+					'Sos más predecible de lo que creés.',
+				],
+				familiar: [
+					'Ya sé cómo va esto.',
+					'Esto ya lo hicimos antes.',
+					'No hace falta que me expliqués. Yo estaba aquí.',
+				],
+				old: [
+					'Llevo rato aquí. Me acomoda.',
+					'Tenemos mucho tiempo haciendo esto.',
+					'Me acuerdo de cuando este escritorio era más ordenado.',
+					'Suficiente tiempo como para dejar de contar.',
+				],
+			},
+			favourite: [
+				'Este otra vez. Es el bueno.',
+				'Siempre vuelvo a este.',
+				'No te hagás el sorprendido.',
+			],
+		},
 	},
 }
 

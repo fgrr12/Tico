@@ -57,6 +57,26 @@ He falls asleep after 90 seconds with no cursor movement anywhere on screen, and
 asleep he is completely still — that is what takes him from 3.2% of a core to
 0.6%, and it is why stillness is not negotiable there.
 
+### What he remembers
+
+He keeps a little history between sessions, in `memory.json` next to his
+settings: how many distinct days he has been around, his current and best run of
+consecutive days, how many times he has been petted or picked up, and how often
+he has worn each hat. That last one gives him a favourite, which then tilts what
+he reaches for — nothing chose it, it emerged from a random draw and then bent
+the draw.
+
+What it changes: the first thing he says on launch is different if he has never
+run before, if you were away for a week, or if today is a round number; and how
+long he has known you colours the idle chatter, in four steps that take two
+months to climb.
+
+**What it does not contain is the point.** No application names, no window
+titles, no track names, no timestamp finer than a date. Everything about what
+*you* do stays in memory and dies with the process, exactly as it did before this
+existed — a pet that remembers last Tuesday's app usage is a tracker wearing a
+costume. Delete the file and he simply meets you again.
+
 ### Reminders
 
 A plain JSON file, and anything at all can write to it:
