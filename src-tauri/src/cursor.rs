@@ -27,6 +27,12 @@ static PINNED: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
 pub fn set_pet_rect(rect: PetRect) {
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "[tico] hit rect: x={:.0} y={:.0} w={:.0} h={:.0}",
+        rect.x, rect.y, rect.width, rect.height
+    );
+
     if let Ok(mut current) = RECT.lock() {
         *current = Some(rect);
     }
@@ -94,6 +100,10 @@ pub fn watch(app: AppHandle) {
 
             if on_pet != interactive {
                 interactive = on_pet;
+
+                #[cfg(debug_assertions)]
+                eprintln!("[tico] interactive: {on_pet} (cursor {x:.0},{y:.0})");
+
                 let _ = window.set_ignore_cursor_events(!on_pet);
             }
         }

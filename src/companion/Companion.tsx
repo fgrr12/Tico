@@ -401,7 +401,12 @@ export const Companion = ({
 		}
 
 		publish()
-		if (!motion) return
+
+		// While he is moving the box moves; while a button is waiting the bubble
+		// *grows*, because the line types in one character at a time. Publishing
+		// once when the bubble appears measured an empty one — which is exactly the
+		// area the button was not yet in.
+		if (!motion && !pending) return
 
 		const id = window.setInterval(publish, 60)
 		return () => clearInterval(id)
