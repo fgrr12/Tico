@@ -6,7 +6,7 @@ import { listen } from '@tauri-apps/api/event'
 import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
-import type { Opening, PetRect, Settings } from './types'
+import type { Ledge, Opening, PetRect, Settings } from './types'
 
 interface Boot extends Settings {
 	x: number
@@ -94,6 +94,10 @@ export default function App() {
 		invoke('set_pet_x', { x })
 	}, [])
 
+	// Asked for at the start of a fall and never polled: he needs to know where
+	// your windows are at one instant, not continuously.
+	const handleLedges = useCallback(() => invoke<Ledge[]>('ledges'), [])
+
 	const handleRemember = useCallback((what: string, key?: string) => {
 		invoke('remember', { what, key: key ?? null })
 	}, [])
@@ -127,6 +131,7 @@ export default function App() {
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}
 			onMoved={handleMoved}
+			onLedges={handleLedges}
 			opening={opening}
 			onRemember={handleRemember}
 		/>

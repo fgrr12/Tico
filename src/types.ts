@@ -41,6 +41,17 @@ export interface PetRect {
 	height: number
 }
 
+/**
+ * The top edge of one of your windows, as somewhere to catch hold of. Already in
+ * his coordinates — `x` from the left of the strip, `lift` above its floor — so
+ * a ledge is a `moveTo` target and nothing has to be converted on this side.
+ */
+export interface Ledge {
+	x: number
+	width: number
+	lift: number
+}
+
 export interface NowPlaying {
 	artist: string
 	song: string

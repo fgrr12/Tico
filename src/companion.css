@@ -1157,6 +1157,104 @@ body,
 	65% { transform: rotate(6deg) translateY(-1px); }
 }
 
+/* ── The ladder ─────────────────────────────────────────────────────────── */
+
+/*
+ * Two rails and a stack of rungs, drawn entirely in CSS.
+ *
+ * A repeating gradient rather than an SVG or a row of elements: the rungs are
+ * identical, evenly spaced and never animated individually, which is exactly the
+ * case a gradient is for. It is also one element instead of fifteen, and while
+ * the measured cost is per composited frame rather than per element, fifteen
+ * nodes that hold still are still fifteen nodes React has to reconcile.
+ *
+ * Anchored to the floor and never moved: he climbs it, it does not carry him.
+ */
+.companion-ladder {
+	position: absolute;
+	bottom: 0;
+	width: 34px;
+	/* Behind him, so he is on the near side of the rungs — in front, the rails
+	   cut across his face and he reads as being *in* the ladder. */
+	z-index: 0;
+	border-left: 4px solid #7a6242;
+	border-right: 4px solid #7a6242;
+	background-image: repeating-linear-gradient(
+		to bottom,
+		#8d7150 0 3px,
+		transparent 3px 16px
+	);
+	border-radius: 2px;
+	transform-origin: 50% 100%;
+	animation: companion-ladder-up 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+/*
+ * It goes out from under him, and it goes *first*. Falling away rather than
+ * fading: a ladder that dissolves reads as a rendering bug, and one that topples
+ * reads as the reason he is now in the air.
+ */
+.companion-ladder[data-falling] {
+	animation: companion-ladder-down 0.5s ease-in forwards;
+}
+
+@keyframes companion-ladder-up {
+	0% { opacity: 0; transform: scaleY(0.2) rotate(-4deg); }
+	100% { opacity: 1; transform: scaleY(1) rotate(0deg); }
+}
+
+@keyframes companion-ladder-down {
+	0% { opacity: 1; transform: rotate(0deg); }
+	100% { opacity: 0; transform: rotate(19deg) translateY(14px); }
+}
+
+/*
+ * Climbing. The body rocks a little and the hands take turns, which at this size
+ * is the entire difference between climbing and being winched. Longhands, so
+ * dozing off mid-ladder does not un-pause him — see the note by the sleep rule.
+ */
+.companion[data-climbing="true"] .companion-body {
+	animation-name: companion-climb;
+	animation-duration: 0.6s;
+}
+
+.companion[data-climbing="true"] .companion-hand[data-side="left"] {
+	animation: companion-reach 0.6s ease-in-out infinite;
+}
+
+.companion[data-climbing="true"] .companion-hand[data-side="right"] {
+	animation: companion-reach 0.6s ease-in-out infinite reverse;
+}
+
+@keyframes companion-climb {
+	0%, 100% { transform: translateX(-1.5px) rotate(-1.5deg); }
+	50% { transform: translateX(1.5px) rotate(1.5deg); }
+}
+
+@keyframes companion-reach {
+	0%, 100% { transform: translateY(3px); }
+	50% { transform: translateY(-4px); }
+}
+
+/*
+ * Hanging off the top edge of one of your windows. Arms up, body long, and a
+ * slow swing — he caught it, he did not land on it.
+ */
+.companion[data-hanging="true"] .companion-anim {
+	transform-origin: 50% 12%;
+	animation: companion-dangle 1.6s ease-in-out infinite;
+}
+
+.companion[data-hanging="true"] .companion-hand {
+	transform: translateY(-13px);
+	transition: transform 0.2s ease;
+}
+
+@keyframes companion-dangle {
+	0%, 100% { transform: rotate(-4deg); }
+	50% { transform: rotate(4deg); }
+}
+
 /* ── The rocket ─────────────────────────────────────────────────────────── */
 
 /*

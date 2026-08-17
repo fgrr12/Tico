@@ -1,6 +1,7 @@
 mod active_app;
 mod call;
 mod cursor;
+mod ledges;
 mod music;
 mod reminders;
 #[cfg(target_os = "macos")]
@@ -139,6 +140,7 @@ pub fn run() {
             state::set_pet_x,
             cursor::set_pet_rect,
             cursor::set_interactive,
+            ledges::ledges,
             reminders::due_reminders,
             reminders::complete_reminder,
             memory::memory,
@@ -441,6 +443,7 @@ pub fn run() {
                 .build(app)?;
 
             anchor_strip(&handle);
+
             cursor::watch(handle.clone());
             active_app::watch(handle.clone());
             call::watch(handle.clone());

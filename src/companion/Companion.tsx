@@ -19,7 +19,7 @@ import {
 	matchApp,
 	timeOfDay,
 } from '../data/companion'
-import type { CompanionMood, Opening, PetRect, Settings } from '../types'
+import type { CompanionMood, Ledge, Opening, PetRect, Settings } from '../types'
 
 /**
  * `tico`, on a real desktop.
@@ -66,6 +66,29 @@ const PROP_LEAVE = 400
 /** Walking and falling pace, in CSS pixels per second. */
 const WALK_SPEED = 74
 const FALL_SPEED = 1_100
+/**
+ * Going up is slower than going along, which is most of what sells a ladder as
+ * effort rather than as a second kind of walking.
+ */
+const CLIMB_SPEED = 46
+/**
+ * How far up a ladder reaches, before the ceiling clamps it.
+ *
+ * The maximum is set by what it has to be able to fall *past*, not by what looks
+ * like a sensible ladder. Ledges are the top edges of your windows, and on a real
+ * desktop those sit high — the two on the machine this was written on were at 791
+ * and 887. A ladder that stopped at 430 could never fall past either, so the
+ * catch would have been dead code that measured fine and never once ran.
+ *
+ * `moveTo` caps any single transition at six seconds, so a tall ladder does not
+ * become a slow one; past about 600 the climb just gets faster per pixel.
+ */
+const LADDER_MIN = 240
+const LADDER_MAX = 620
+/** Chance the ladder goes out from under him once he is at the top. */
+const LADDER_SLIPS = 0.4
+/** A ledge has to be this far below him to be worth reaching for. */
+const LEDGE_GAP = 40
 /** Per-character delay while a line is typed into the bubble. */
 const SAY_REVEAL = 16
 
@@ -150,6 +173,8 @@ interface CompanionProps {
 	/** Pins the window interactive for a drag, so a fast one cannot drop him. */
 	onInteractive: (hold: boolean) => void
 	onMoved: (fraction: number) => void
+	/** The top edges of your windows, right now. Empty off macOS. */
+	onLedges: () => Promise<Ledge[]>
 }
 
 export const Companion = ({
@@ -169,6 +194,7 @@ export const Companion = ({
 	onRectChange,
 	onInteractive,
 	onMoved,
+	onLedges,
 }: CompanionProps) => {
 	const copy = companionCopy[language]
 	/**
@@ -202,6 +228,15 @@ export const Companion = ({
 	const [propLeaving, setPropLeaving] = useState(false)
 	const [feeling, setFeeling] = useState<Feeling>('content')
 	const [flying, setFlying] = useState(false)
+	/** The ladder, while there is one. `falling` is it going out from under him. */
+	const [ladder, setLadder] = useState<{ x: number; height: number; falling: boolean } | null>(
+		null
+	)
+	/** Gripping the top edge of one of your windows, on the way down. */
+	const [hanging, setHanging] = useState(false)
+	/** Owns him for the length of a climb, the way crossing does. */
+	const climbing = useRef(false)
+	const climbTimer = useRef(0)
 	const poseTimer = useRef(0)
 	const propTimer = useRef(0)
 
@@ -480,6 +515,133 @@ export const Companion = ({
 		if (reachable.length === 0) return
 		moveTo(pick(reachable), 0)
 	}, [clampPos, moveTo])
+
+	/**
+	 * Coming down, catching whatever is on the way.
+	 *
+	 * **The catch is chosen before the fall starts, not detected during it.** One
+	 * call to Rust returns the top edges of your windows; the first one under him
+	 * that he actually overlaps becomes the end of a single CSS transition. That
+	 * is the whole trick, and it is what keeps AD-1 intact — testing for a
+	 * collision every frame would need a `requestAnimationFrame` loop, and there
+	 * is deliberately no such loop anywhere in the pet.
+	 *
+	 * Recursive, because hanging and then dropping again is just another fall from
+	 * a lower place. It terminates: every ledge has to be `LEDGE_GAP` below the
+	 * last one, so the lift strictly decreases and the floor is the floor.
+	 */
+	const fall = useCallback(
+		async (from: number) => {
+			const x = posNow.current.x
+			const width = rootRef.current?.offsetWidth ?? 92
+			const height = rootRef.current?.offsetHeight ?? 96
+
+			// Re-asked on every stage rather than cached: a fall takes seconds, and
+			// you are allowed to move a window during them.
+			const ledges = await onLedges().catch(() => [] as Ledge[])
+
+			// Sorted highest-first by Rust, so the first match is the one he meets
+			// soonest. He has to be over it by more than a toe — catching a ledge
+			// his corner barely clips reads as him sticking to the air beside it.
+			const caught = ledges.find(
+				(ledge) =>
+					ledge.lift < from - LEDGE_GAP &&
+					x + width * 0.65 > ledge.x &&
+					x + width * 0.35 < ledge.x + ledge.width
+			)
+
+			if (!caught) {
+				moveTo(x, 0, FALL_SPEED, () => react('wow', 'land', 900))
+				return
+			}
+
+			// Below the edge, not on top of it. Landing *on* a window's top edge reads
+			// as perching, which is a different and calmer idea — he is supposed to
+			// have caught the thing on the way past. So his hands end up on the line
+			// and the rest of him hangs over the front of your window.
+			const grip = Math.max(0, caught.lift - height * 0.8)
+
+			moveTo(x, grip, FALL_SPEED, () => {
+				setHanging(true)
+				react('wow', undefined, 1_600)
+				if (Math.random() < 0.7) say(pick(copy.grab), 3_800)
+
+				clearTimeout(climbTimer.current)
+				climbTimer.current = window.setTimeout(
+					() => {
+						setHanging(false)
+						fall(caught.lift)
+					},
+					1_800 + Math.random() * 2_200
+				)
+			})
+		},
+		[moveTo, react, say, copy, onLedges]
+	)
+
+	/**
+	 * Up a ladder, and sometimes down rather faster.
+	 *
+	 * Every stage is a timer and a transition — the ladder appearing, him going
+	 * up it, the pause at the top, the ladder going out from under him. Nothing
+	 * here simulates anything: the ladder either slips or it does not, and that
+	 * is decided by one roll at the top rather than by physics.
+	 */
+	const climb = useCallback(() => {
+		if (climbing.current) return
+		climbing.current = true
+
+		const x = posNow.current.x
+		const top = Math.min(
+			limits().maxLift - 20,
+			LADDER_MIN + Math.random() * (LADDER_MAX - LADDER_MIN)
+		)
+
+		// Not worth the performance if there is barely any room above him.
+		if (top < LADDER_MIN * 0.6) {
+			climbing.current = false
+			return
+		}
+
+		setLadder({ x, height: top, falling: false })
+		react('happy', 'pop', 1_200)
+
+		const done = () => {
+			climbing.current = false
+			setLadder(null)
+		}
+
+		// A beat to lean it against the air before he trusts it.
+		clearTimeout(climbTimer.current)
+		climbTimer.current = window.setTimeout(() => {
+			moveTo(x, top, CLIMB_SPEED, () => {
+				react('watching', undefined, 2_200)
+				lookAt(0, -0.8, 2_000)
+				if (Math.random() < 0.5) say(pick(copy.climb), 4_000)
+
+				climbTimer.current = window.setTimeout(() => {
+					if (Math.random() < LADDER_SLIPS) {
+						// It goes first, he goes after. The other order reads as him
+						// jumping and the ladder politely following.
+						setLadder((current) => (current ? { ...current, falling: true } : null))
+						react('scared', 'startle', 900)
+						if (Math.random() < 0.6) say(pick(copy.ladderSlips), 3_600)
+
+						climbTimer.current = window.setTimeout(() => {
+							setLadder(null)
+							climbing.current = false
+							fall(top)
+						}, 420)
+						return
+					}
+
+					// Or he simply climbs back down, which is the boring outcome and
+					// therefore has to be the common one.
+					moveTo(x, 0, CLIMB_SPEED, done)
+				}, 2_400)
+			})
+		}, 700)
+	}, [limits, moveTo, react, lookAt, say, copy, fall])
 
 	/** Stand where he stood last time, once the strip has a width to measure. */
 	// biome-ignore lint: runs once, on the remembered position.
@@ -1026,6 +1188,21 @@ export const Companion = ({
 				},
 			},
 
+			/**
+			 * The other way up, and the one with a failure mode.
+			 *
+			 * `rocket` is spectacle and costs a whole day's energy; this is the
+			 * ordinary version — he fetches a ladder, goes up, has a look, and
+			 * two times in five it goes out from under him. The fall is where the
+			 * ledges matter, so this is also the only behaviour that ever asks
+			 * Rust where your windows are.
+			 */
+			climb: {
+				min: 0.5,
+				travels: true,
+				run: climb,
+			},
+
 			/** The rocket with a reason. Away from whatever just appeared. */
 			flee: {
 				min: 0.3,
@@ -1449,6 +1626,7 @@ export const Companion = ({
 		moveTo,
 		limits,
 		peekRestX,
+		climb,
 		opening,
 		familiarity,
 		onRemember,
@@ -1492,6 +1670,7 @@ export const Companion = ({
 			clearTimeout(petTimer.current)
 			clearTimeout(poseTimer.current)
 			clearTimeout(propTimer.current)
+			clearTimeout(climbTimer.current)
 		},
 		[]
 	)
@@ -1576,6 +1755,14 @@ export const Companion = ({
 		setPose(null)
 		clearTimeout(walkTimer.current)
 		setMotion(null)
+
+		// Whatever he was in the middle of up there is over — you have him in your
+		// hand. Without this the climb's timers keep firing and walk him back to a
+		// ladder that is no longer under him.
+		clearTimeout(climbTimer.current)
+		climbing.current = false
+		setLadder(null)
+		setHanging(false)
 		drag.current = {
 			id: event.pointerId,
 			x: event.clientX,
@@ -1642,6 +1829,18 @@ export const Companion = ({
 	// `data-side` is which edge of him the bubble hangs off. Anchored to whichever
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
 	return (
+		<>
+			{/* A sibling, not a child: the ladder stands on the floor and stays there
+			    while he goes up it. Inside `.companion` it would ride along with him,
+			    which is a lift, not a ladder. */}
+			{ladder && (
+				<div
+					className="companion-ladder"
+					data-falling={ladder.falling || undefined}
+					style={{ left: `${ladder.x}px`, height: `${ladder.height + 46}px` }}
+				/>
+			)}
+
 		<div
 			ref={rootRef}
 			className="companion"
@@ -1654,6 +1853,8 @@ export const Companion = ({
 			data-pose={pose ?? undefined}
 			data-feeling={feeling}
 			data-flying={flying ? 'true' : undefined}
+			data-hanging={hanging ? 'true' : undefined}
+			data-climbing={ladder && !ladder.falling ? 'true' : undefined}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{
 				transform: `translate(${pos.x}px, ${-pos.lift}px)`,
@@ -1707,5 +1908,6 @@ export const Companion = ({
 				</span>
 			</button>
 		</div>
+		</>
 	)
 }

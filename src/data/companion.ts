@@ -221,6 +221,16 @@ interface CompanionCopy {
 	 * times he comes back empty, which is most of them.
 	 */
 	behind: string[]
+	/** From the top of a ladder, looking at the desktop from an unusual height. */
+	climb: string[]
+	/** The moment the ladder goes, before he does. */
+	ladderSlips: string[]
+	/**
+	 * Hanging off the top edge of one of your windows. He never says *which*
+	 * window — he can see that a rectangle is there and nothing else about it,
+	 * and the lines have to stay true to that.
+	 */
+	grab: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>
 	/** What frightens him about a particular application, said on sight. */
@@ -688,6 +698,29 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'I have been meaning to do that.',
 			'Do not go back there.',
 			'It is fine. It is just very quiet.',
+		],
+
+		climb: [
+			'The view is not better. It is just different.',
+			'I can see the whole desk from here.',
+			'Nobody up here either.',
+			'I am not sure how I get down.',
+			'This was easier to start than to finish.',
+		],
+
+		ladderSlips: [
+			'No.',
+			'That was the ladder.',
+			'I want to renegotiate.',
+			'Ah.',
+		],
+
+		grab: [
+			'Got it. Got something.',
+			'This will hold. Probably.',
+			'I am going to hang here a moment.',
+			'Do not move this one.',
+			'Solid. Whatever it is.',
 		],
 
 		feelings: {
@@ -1273,6 +1306,29 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Tenía rato de querer hacer eso.',
 			'No vayás allá atrás.',
 			'Todo bien. Solo es muy silencioso.',
+		],
+
+		climb: [
+			'La vista no es mejor. Solo es distinta.',
+			'Desde aquí veo todo el escritorio.',
+			'Aquí arriba tampoco hay nadie.',
+			'No tengo claro cómo bajo.',
+			'Esto fue más fácil de empezar que de terminar.',
+		],
+
+		ladderSlips: [
+			'No.',
+			'Esa era la escalera.',
+			'Quiero renegociar.',
+			'Ah.',
+		],
+
+		grab: [
+			'La agarré. Agarré algo.',
+			'Esto aguanta. Creo.',
+			'Me voy a quedar colgado un ratito.',
+			'No movás esta.',
+			'Firme. Sea lo que sea.',
 		],
 
 		feelings: {
