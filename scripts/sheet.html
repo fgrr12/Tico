@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>tico — sheet</title>
+<style>
+	/* A desktop-ish backdrop. He is never seen on white, so he is never checked
+	   on white either — the case is a dark object on a dark screen, and that is
+	   exactly where a wrong colour hides. */
+	html,
+	body,
+	#root {
+		margin: 0;
+		min-height: 100vh;
+		background: linear-gradient(180deg, #1e2230, #2a2f42) !important;
+	}
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 44px;
+		padding: 34px 34px 44px;
+	}
+	.cell {
+		position: relative;
+	}
+	.lab {
+		margin-top: 16px;
+		text-align: center;
+		font: 10px ui-monospace, Menlo, monospace;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #7b8399;
+	}
+</style>
+<div id="root"></div>
+<script type="module" src="./sheet.tsx"></script>

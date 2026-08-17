@@ -143,10 +143,20 @@ body,
 	transform-origin: 50% 90%;
 }
 
-.companion-hand,
-.companion-foot {
-	fill: var(--bg-raise);
-	stroke: var(--line-strong);
+/*
+ * Scoped through `.companion-svg` for specificity, not for reach. The colour
+ * transition further down is `.companion-svg path`, which is (0,1,1) and so
+ * replaced this whole shorthand — hands and feet were snapping into every pose
+ * instead of easing, because a transition it looked like they had was being
+ * overwritten by a rule that had nothing to do with them.
+ *
+ * Lighter than the case, and lit from the same direction. At `--bg-raise` they
+ * were four shades from the body they hang off and vanished at 92px.
+ */
+.companion-svg .companion-hand,
+.companion-svg .companion-foot {
+	fill: url(#tico-limb);
+	stroke: #414859;
 	stroke-width: 2;
 	transition: transform 0.22s ease;
 }

@@ -47,6 +47,15 @@ that does nothing.** Lyra's `screen_sample.rs` is the pattern: a real Windows
 implementation and a stub elsewhere that returns a neutral value, so the app
 builds and runs everywhere from day one.
 
+**Anything drawn is verified by rendering it, not by reading it.** `pnpm dev` and
+open `/scripts/sheet.html`: every mood, every prop, on a dark backdrop, at the
+sizes he is actually shown at. Three rounds of defects had already survived types,
+lint and `pnpm check` and were obvious within a second of looking — a top hat
+filled with the colour of the desktop behind it, a headphone band drawn inside the
+head, a crown that came out black because `--amber` was undefined and SVG falls
+back to black without complaining. Add the new prop or mood to the sheet in the
+same edit that adds it to the component.
+
 **Permissions are asked for late and never speculatively.** The active
 application's *name* needs no permission on any platform; window *titles* need
 Screen Recording on macOS. v1 reads names only. Do not add an API that triggers a

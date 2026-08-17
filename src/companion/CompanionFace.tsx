@@ -119,10 +119,37 @@ export const CompanionFace = ({
 					<rect width="4" height="1" fill="#ffffff" opacity="0.035" />
 				</pattern>
 				<radialGradient id="tico-shadow">
-					<stop offset="0%" stopColor="#000000" stopOpacity="0.5" />
-					<stop offset="70%" stopColor="#000000" stopOpacity="0.22" />
+					<stop offset="0%" stopColor="#000000" stopOpacity="0.55" />
+					<stop offset="70%" stopColor="#000000" stopOpacity="0.2" />
 					<stop offset="100%" stopColor="#000000" stopOpacity="0" />
 				</radialGradient>
+
+				{/*
+				 * Four gradients and a clip, all static — the GPU rasterises them once.
+				 * They are what turns a flat rounded rectangle into an object with a
+				 * near side and a far side, which is the whole difference between a
+				 * sticker on the desktop and something standing on it.
+				 */}
+				<linearGradient id="tico-case" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stopColor="#2c313d" />
+					<stop offset="55%" stopColor="#21242c" />
+					<stop offset="100%" stopColor="#1a1d24" />
+				</linearGradient>
+				<linearGradient id="tico-limb" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stopColor="#363c4b" />
+					<stop offset="100%" stopColor="#262a34" />
+				</linearGradient>
+				<linearGradient id="tico-inset" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stopColor="#000000" stopOpacity="0.45" />
+					<stop offset="35%" stopColor="#000000" stopOpacity="0" />
+				</linearGradient>
+				<linearGradient id="tico-glare" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0%" stopColor="#ffffff" stopOpacity="0.07" />
+					<stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+				</linearGradient>
+				<clipPath id="tico-glass">
+					<rect x="15" y="32" width="66" height="42" rx="9" />
+				</clipPath>
 			</defs>
 
 			{/*
@@ -134,63 +161,83 @@ export const CompanionFace = ({
 			 * also more correct: something standing on a ledge casts a shadow on the
 			 * ledge, it does not glow.
 			 */}
-			<ellipse cx="48" cy="88" rx="30" ry="6" fill="url(#tico-shadow)" />
+			{/* Tucked under the feet rather than spread across them — it used to sit
+			    high enough to wash them out, which is why they read as part of it. */}
+			<ellipse cx="48" cy="90" rx="27" ry="4.5" fill="url(#tico-shadow)" />
 
-			{/* Antenna — the status light, and the only part that means something. */}
-			<line x1="48" y1="17" x2="48" y2="8" stroke="var(--line-strong)" strokeWidth="2.5" />
-			<circle cx="48" cy="5" r="3.4" fill={ledColor} className="companion-led companion-tint" />
+			{/*
+			 * Antenna — the status light, and the only part that means something.
+			 *
+			 * It leans. Everything else about him is mirror-symmetric, and perfect
+			 * symmetry is what makes a drawing read as an object instead of a
+			 * creature; one part off-axis is the cheapest character there is.
+			 */}
+			<path
+				d="M48 17 L50.6 8.4"
+				stroke="var(--line-strong)"
+				strokeWidth="2.5"
+				strokeLinecap="round"
+				fill="none"
+			/>
+			<circle
+				cx="51.2"
+				cy="5.4"
+				r="3.4"
+				fill={ledColor}
+				className="companion-led companion-tint"
+			/>
 
-			{/* Hands, so a hop, a wave and covering its ears have something to move. */}
-			<rect
+			{/* Hands, so a hop, a wave and covering its ears have something to move.
+			    They hang low and taper toward the wrist — as vertical pills at mid
+			    height they read as knobs on the side of a device, not as arms. */}
+			<path
 				className="companion-hand"
 				data-side="left"
-				x="1.5"
-				y="50"
-				width="8"
-				height="14"
-				rx="4"
+				d="M2.6 53.2 q3.4-2.6 6.6 0 l0.4 8.4 q0.2 5-3.8 5.2 q-4 0.2-4.4-4.8 z"
 			/>
-			<rect
+			<path
 				className="companion-hand"
 				data-side="right"
-				x="86.5"
-				y="50"
-				width="8"
-				height="14"
-				rx="4"
+				d="M93.4 53.2 q-3.4-2.6-6.6 0 l-0.4 8.4 q-0.2 5 3.8 5.2 q4 0.2 4.4-4.8 z"
 			/>
 
 			{/* Feet stick out below the body, which is what makes it a creature —
-			    and they are what alternate when it walks somewhere. */}
-			<rect
+			    and they are what alternate when it walks somewhere. Square where the
+			    case meets them, round where the floor does. */}
+			<path
 				className="companion-foot"
 				data-side="left"
-				x="24"
-				y="79"
-				width="16"
-				height="8"
-				rx="4"
+				d="M23.5 77 h17 v5.5 q0 4.5-4.5 4.5 h-8 q-4.5 0-4.5-4.5 z"
 			/>
-			<rect
+			<path
 				className="companion-foot"
 				data-side="right"
-				x="56"
-				y="79"
-				width="16"
-				height="8"
-				rx="4"
+				d="M55.5 77 h17 v5.5 q0 4.5-4.5 4.5 h-8 q-4.5 0-4.5-4.5 z"
 			/>
 
-			{/* The window itself. */}
+			{/* The window itself. The gradient is the volume: lit along the top edge,
+			    falling off to the floor. */}
 			<rect
 				x="8"
 				y="16"
 				width="80"
 				height="66"
 				rx="15"
-				fill="var(--bg-chrome)"
+				fill="url(#tico-case)"
 				stroke="var(--line-strong)"
 				strokeWidth="2"
+			/>
+
+			{/* A title bar, so the three lights sit on a surface instead of floating
+			    on the bezel, and a rim light along the top so the light has a source. */}
+			<path d="M9 31 A14 14 0 0 1 23 17 H73 A14 14 0 0 1 87 31 Z" fill="#ffffff" opacity="0.035" />
+			<path d="M9 31 H87" stroke="#000000" strokeOpacity="0.25" strokeWidth="1" />
+			<path
+				d="M10 30 A13 13 0 0 1 23 17.6 H73 A13 13 0 0 1 86 30"
+				fill="none"
+				stroke="#ffffff"
+				strokeOpacity="0.09"
+				strokeWidth="1.6"
 			/>
 
 			<circle cx="20" cy="25" r="2.4" fill="#f7768e" />
@@ -208,6 +255,13 @@ export const CompanionFace = ({
 				stroke="var(--line)"
 			/>
 			<rect x="15" y="32" width="66" height="42" rx="9" fill="url(#tico-scanlines)" />
+
+			{/* Recessed under the bezel, and one soft reflection off the corner. Both
+			    stop short of the eyes on purpose — this is glass, not weather. */}
+			<g clipPath="url(#tico-glass)">
+				<rect x="15" y="32" width="66" height="14" fill="url(#tico-inset)" />
+				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
+			</g>
 
 			{glyph ? (
 				<text x="48" y="61" textAnchor="middle" fontSize="26" className="companion-glyph">
@@ -391,16 +445,18 @@ const Prop = ({ kind }: { kind: string }) => {
 				</g>
 			)
 		case 'coffee':
-			// Sitting on the hand rather than floating beside it, and with steam,
+			// Sitting in the hand rather than floating beside it, and with steam,
 			// which is the only part that says it is hot rather than a white box.
+			// Its y is tied to the hand's — the two moved together when the hands
+			// were lowered, and a cup that misses the hand by five pixels floats.
 			return (
 				<g className="companion-prop">
-					<rect x="-1" y="44" width="15" height="17" rx="3" fill="#e8e8ea" />
-					<path d="M14 48 a5 5 0 0 1 0 9" fill="none" stroke="#e8e8ea" strokeWidth="2.5" />
-					<rect x="-1" y="44" width="15" height="4" rx="2" fill="#6b4a2f" />
+					<rect x="-0.5" y="46" width="13" height="15" rx="3" fill="#e8e8ea" />
+					<path d="M12.5 50 a4.5 4.5 0 0 1 0 8" fill="none" stroke="#e8e8ea" strokeWidth="2.5" />
+					<rect x="-0.5" y="46" width="13" height="3.5" rx="1.8" fill="#6b4a2f" />
 					<g stroke="#e8e8ea" strokeWidth="1.5" strokeLinecap="round" opacity="0.45">
-						<path d="M3 40 q2-4 0-8" fill="none" />
-						<path d="M9 40 q2-4 0-8" fill="none" />
+						<path d="M3 42 q2-4 0-8" fill="none" />
+						<path d="M8.5 42 q2-4 0-8" fill="none" />
 					</g>
 				</g>
 			)
