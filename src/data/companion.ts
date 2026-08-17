@@ -89,6 +89,38 @@ export interface Sensed {
  * Everything above `content` has to be *earned* by a signal. There is no
  * randomness in here: if he looks smug, you petted him a lot.
  */
+/**
+ * Colour as a third channel, after posture and behaviour.
+ *
+ * `face` is the eyes and mouth, `screen` is the little display they sit on. The
+ * pairs are chosen for contrast first: fright blanches the screen and darkens
+ * the face, which is the only inversion here and reads as blood leaving
+ * something.
+ *
+ * Nostalgic is phosphor green on near-black, because that is where he came from
+ * and one of his own lines says so — "más chica, más verde".
+ */
+export const PALETTE: Record<Feeling, { face: string; screen: string; led: string }> = {
+	content: { face: '#bb9af7', screen: '#1a1c23', led: '#9ece6a' },
+	bored: { face: '#6b7489', screen: '#1a1c23', led: '#6b7489' },
+	lonely: { face: '#7aa2f7', screen: '#171a21', led: '#565f78' },
+	pleased: { face: '#9ece6a', screen: '#1a1f21', led: '#9ece6a' },
+	smug: { face: '#e0af68', screen: '#1c1b1e', led: '#e0af68' },
+	worried: { face: '#e0af68', screen: '#1c1a1e', led: '#e0af68' },
+	restless: { face: '#7dcfff', screen: '#1a1d23', led: '#7dcfff' },
+	rattled: { face: '#f7768e', screen: '#1e1a1e', led: '#f7768e' },
+	curious: { face: '#7dcfff', screen: '#181c24', led: '#7dcfff' },
+	// Lifted off #565f78/#15171d, which measured 2.8:1 — under the 3:1 floor for
+	// graphical elements, and a face you have to squint at is not a sleepy face,
+	// it is an unreadable one.
+	sleepy: { face: '#6a7490', screen: '#13151b', led: '#3b4256' },
+	festive: { face: '#f7768e', screen: '#1d1a24', led: '#e0af68' },
+	// The terminal he was born in.
+	nostalgic: { face: '#9ece6a', screen: '#0d140f', led: '#9ece6a' },
+	// The only inversion: pale screen, dark face.
+	scared: { face: '#2a2e3a', screen: '#d9dde8', led: '#f7768e' },
+}
+
 export const feelingFrom = (seen: Sensed): Feeling => {
 	if (seen.drags >= 3) return 'rattled'
 	// Above almost everything: fear is the most interesting thing about any

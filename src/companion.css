@@ -1123,3 +1123,34 @@ body,
 	45% { transform: translateX(1.5px); }
 	70% { transform: translateX(-1px); }
 }
+
+/* ── Colour ─────────────────────────────────────────────────────────────── */
+
+/*
+ * A feeling bleeds in over a second and a half rather than switching. An instant
+ * colour change reads as a bug; a slow one reads as a mood arriving, which is
+ * how moods actually arrive.
+ *
+ * SVG paint properties animate like any other, so this is the whole mechanism.
+ */
+.companion-svg path,
+.companion-svg rect,
+.companion-svg ellipse,
+.companion-svg circle,
+.companion-svg g {
+	transition: fill 1.5s ease, stroke 1.5s ease;
+}
+
+/* The prop and the traffic lights keep their own colours — a party hat that
+   turns green with him is a costume change, not a mood. */
+.companion-prop *,
+.companion-svg circle[fill^="#f7768e"],
+.companion-svg circle[fill^="#e0af68"],
+.companion-svg circle[fill^="#9ece6a"] {
+	transition: none;
+}
+
+/* Fright arrives faster than it leaves, the way it does. */
+.companion[data-feeling="scared"] .companion-screen {
+	transition: fill 0.35s ease;
+}

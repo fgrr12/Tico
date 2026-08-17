@@ -5,6 +5,7 @@ import { CompanionFace } from './CompanionFace'
 import {
 	companionCopy,
 	documentIn,
+	PALETTE,
 	TERRORS,
 	energyAt,
 	type Feeling,
@@ -1274,8 +1275,9 @@ export const Companion = ({
 						glyph={null}
 						singing={nowPlaying !== null && !hidden}
 						prop={prop}
-						faceColor="var(--purple)"
-						ledColor={mood === 'sleep' ? 'var(--fg-muted)' : 'var(--green)'}
+						faceColor={PALETTE[feeling].face}
+						screenColor={PALETTE[feeling].screen}
+						ledColor={mood === 'sleep' ? '#3b4256' : PALETTE[feeling].led}
 					/>
 				</span>
 			</button>

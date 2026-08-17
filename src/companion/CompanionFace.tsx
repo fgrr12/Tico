@@ -65,6 +65,7 @@ export const CompanionFace = ({
 	singing,
 	prop,
 	faceColor,
+	screenColor,
 	ledColor,
 }: CompanionFaceProps) => {
 	const expression: Eyes = blink && EYES[mood] === 'open' ? 'closed' : EYES[mood]
@@ -122,7 +123,7 @@ export const CompanionFace = ({
 
 			{/* Antenna — the status light, and the only part that means something. */}
 			<line x1="48" y1="17" x2="48" y2="8" stroke="var(--line-strong)" strokeWidth="2.5" />
-			<circle cx="48" cy="5" r="3.4" fill={ledColor} className="companion-led" />
+			<circle cx="48" cy="5" r="3.4" fill={ledColor} className="companion-led companion-tint" />
 
 			{/* Hands, so a hop, a wave and covering its ears have something to move. */}
 			<rect
@@ -182,12 +183,13 @@ export const CompanionFace = ({
 			<circle cx="36" cy="25" r="2.4" fill="#9ece6a" />
 
 			<rect
+				className="companion-screen"
 				x="15"
 				y="32"
 				width="66"
 				height="42"
 				rx="9"
-				fill="var(--bg-pane)"
+				fill={screenColor}
 				stroke="var(--line)"
 			/>
 			<rect x="15" y="32" width="66" height="42" rx="9" fill="url(#tico-scanlines)" />

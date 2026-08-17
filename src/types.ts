@@ -28,6 +28,8 @@ export interface CompanionFaceProps {
 	/** Something he is wearing or holding, for no reason he would explain. */
 	prop: string | null
 	faceColor: string
+	/** The little screen behind the face. Blanches when he is frightened. */
+	screenColor: string
 	ledColor: string
 }
 
