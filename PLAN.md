@@ -377,21 +377,47 @@ over. What is lost with tao's subclass is a `canBecomeKeyWindow` override a
 borderless window gets anyway and a `sendEvent:` override that only serves
 `movableByWindowBackground`, which he does not use.
 
-## Known: the idle animation costs ~9% of a core
+## What he actually costs
 
-Measured, not estimated: continuous CSS animation is 78% of everything he costs
-(9.4% of a core with it, 2.1% without). It is inherent to animating an overlay
-sixty times a second, and three attempts at optimising around it changed nothing
-— compositing layer promotion, dropping the drop-shadow filter, halving the blur
-passes.
+Re-measured properly, because the number that used to be here was wrong twice
+over. **3.1% of a core awake, 0.6% asleep, 229 MB, 10 MB on disk.**
 
-Already done: **everything pauses while he sleeps**, which covers the case that
-matters, since he falls asleep exactly when you have walked away.
+The old entry claimed 9.4% awake and said the sleep pause fixed it. Both halves
+were wrong, and each for its own reason.
 
-If it ever becomes a problem awake, the only real lever left is not animating
-continuously — letting the idle bob run in bursts with stillness between, the way
-a creature actually stands. That would cost some of the aliveness, which is why
-it has not been done.
+**It counted one process.** tico is four: the binary, plus the WebContent, GPU
+and Networking XPC services WebKit spawns for it. They are parented to launchd,
+so they do not show up under him in a process tree — but they are his, they die
+with him (verified by killing him and watching all three go), and the GPU one is
+where the compositing actually lands. Counting only the binary makes the number
+meaningless in both directions: it missed most of the cost, and the *total* still
+came out lower than the old figure once measured with `top` deltas rather than
+`ps`, which reports a lifetime average.
+
+**The sleep pause was saving nothing.** It named six elements and deliberately
+left the two `z` text nodes running, so that something would say "asleep" rather
+than "hung". Measured: asleep was 3.1%, exactly the same as awake. The cost model
+behind the exception was wrong — the price is per composited frame, not per
+animated element, so one animation anywhere in a 1280x320 transparent overlay
+keeps the compositor running over the whole surface at 60fps. Two text nodes cost
+what the entire pet costs. Pausing everything, `z`s included, gets 3.1% → 0.6%.
+
+Two things follow that are worth keeping in mind before optimising anything else
+here:
+
+- **Animation cost is all-or-nothing per frame.** Halving the number of animated
+  elements buys nothing. This is also why the three earlier attempts — layer
+  promotion, dropping the drop-shadow filter, halving blur passes — all measured
+  as no change. They were the right kind of idea aimed at the wrong model.
+- **Bursts do not work in CSS.** A compositor animation ticks every frame whether
+  or not its values change, so a `z` puffing every twenty seconds costs what one
+  puffing every two does. Doing it properly needs a JS timer adding and removing
+  a class — which is why the idle bob is *not* run in bursts either, and that
+  idea, recorded here for a year as the remaining lever, does not work as stated.
+
+Awake, 3.1% of one core is small enough not to chase. The 229 MB is the real
+number to weigh, and roughly 90% of it is the WebKit baseline any app built this
+way pays before drawing anything.
 
 ## Feelings: the second axis
 

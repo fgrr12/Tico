@@ -38,6 +38,16 @@ derives the duration from the distance; dragging sets that duration to `0ms` so 
 same property follows the pointer. There is no `requestAnimationFrame` in the pet,
 and adding one means AD-1 was misread.
 
+**An animation anywhere costs a frame everywhere.** He is a 1280x320 transparent
+overlay, and one running animation keeps the compositor redrawing the whole
+surface at 60fps — so cost is per frame, not per element, and halving the number
+of animated things buys exactly nothing. Measured: 3.1% of a core awake, 0.6%
+with everything stopped, and leaving *two* `z` text nodes running while he slept
+cost the full 3.1%. Anything that runs while nobody is looking has to stop
+completely or not bother. Also why a rule that overrides the body's animation
+uses `animation-name` and `animation-duration`: the `animation` shorthand resets
+`animation-play-state` and quietly wakes him up.
+
 **Copy is data, keyed by language.** Every line lives in the copy file with an `en`
 and an `es` entry. This is inherited from the portfolio and is free to keep — do
 not scatter strings through components, and do not drop Spanish.

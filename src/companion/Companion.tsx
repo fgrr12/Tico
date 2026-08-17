@@ -1261,6 +1261,13 @@ export const Companion = ({
 		}, 0)
 	}
 
+	// Music does not keep him up. `data-singing` was derived from the track alone,
+	// so leaving something playing and walking away got a pet asleep with his eyes
+	// shut, dancing — four animations that the sleep pause could not stop, because
+	// they are written at a higher specificity than it is. Visibly wrong, and it
+	// cost the whole idle saving.
+	const singing = nowPlaying !== null && !hidden && mood !== 'sleep'
+
 	// `data-side` is which edge of him the bubble hangs off. Anchored to whichever
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
 	return (
@@ -1271,7 +1278,7 @@ export const Companion = ({
 			data-size={settings.size}
 			data-walking={motion ? 'true' : undefined}
 			data-side={pos.x > window.innerWidth / 2 ? 'right' : 'left'}
-			data-singing={nowPlaying && !hidden ? 'true' : undefined}
+			data-singing={singing ? 'true' : undefined}
 			data-gesture={gesture ?? undefined}
 			data-pose={pose ?? undefined}
 			data-feeling={feeling}
@@ -1319,7 +1326,7 @@ export const Companion = ({
 						mood={mood}
 						blink={blink}
 						glyph={null}
-						singing={nowPlaying !== null && !hidden}
+						singing={singing}
 						prop={prop}
 						faceColor={PALETTE[feeling].face}
 						screenColor={PALETTE[feeling].screen}

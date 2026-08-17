@@ -101,34 +101,59 @@ body,
 	animation: none;
 }
 
-.companion[data-mood="sleep"] .companion-body {
-	animation: companion-breathe 5s ease-in-out infinite;
-}
-
 /*
- * Asleep, everything stops.
+ * Asleep, everything stops. Everything — and the `*` is the whole point.
  *
- * Measured: continuous CSS animation is 78% of his entire CPU cost — 9.4% of a
- * core with it, 2.1% without. Nothing else came close, and neither promoting him
- * to his own layer nor removing the drop-shadow filter moved it at all.
+ * Measured across all four of his processes: the main one plus the WebContent,
+ * GPU and Networking XPC services, which are his and die with him, and which the
+ * first measurement written here missed entirely.
  *
- * He falls asleep exactly when you have walked away from the machine, which is
- * precisely when nobody is looking and the battery is the only thing still
- * paying. A sleeping thing being still is also just true.
+ *   awake                                3.1% of a core
+ *   asleep, pausing six named elements    3.1%   ← saved nothing whatsoever
+ *   asleep, pausing everything            0.6%
  *
- * The `z`s keep moving. They are two text nodes, and something has to say he is
- * asleep rather than broken.
+ * The rule used to list six elements by name and leave the two `z` text nodes
+ * running, on the reasoning that something has to say he is asleep rather than
+ * broken. The reasoning was fine; the cost model under it was wrong. The price
+ * is per composited frame, not per animated element: one animation anywhere in a
+ * 1280x320 transparent overlay keeps the compositor running at 60fps over the
+ * whole surface, so two text nodes cost exactly what the entire pet costs. The
+ * saving is all-or-nothing, and it had been nothing.
+ *
+ * Nothing replaces the moving `z`s. A static `z z` over a pet with its eyes shut
+ * already reads as asleep, and a sleeping thing being still is just true.
+ * Bursts do not help either — a compositor animation ticks every frame whether
+ * or not its values change, so a puff every twenty seconds costs what a puff
+ * every two does; it would take a JS timer adding and removing a class, which is
+ * a lot of machinery for something that is only ever asleep because you left.
+ *
+ * A `companion-breathe` on the sleeping body was declared just above this and
+ * has never once run: the old pause list covered `.companion-body`, so it was
+ * set and frozen in the same breath. Removed rather than left looking
+ * intentional. The keyframes stay — sitting still uses them.
+ *
+ * Every other rule that puts a *different* animation on the body sets
+ * `animation-name` and `animation-duration` rather than the `animation`
+ * shorthand, and that is not a style preference. The shorthand resets every
+ * longhand it does not mention, `animation-play-state` included, so one more
+ * specific rule written as a shorthand silently wakes him back up. Those rules
+ * inherit timing-function and iteration-count from `.companion-body`.
  */
-.companion[data-mood="sleep"] .companion-body,
-.companion[data-mood="sleep"] .companion-anim,
-.companion[data-mood="sleep"] .companion-led,
-.companion[data-mood="sleep"] .companion-foot,
-.companion[data-mood="sleep"] .companion-hand {
-	animation-play-state: paused;
+/*
+ * The one `!important` in the file, and it is load-bearing. Rules like
+ * `.companion[data-singing="true"] .companion-svg` are more specific than this
+ * one and written as shorthands, so without it a single such rule silently
+ * un-pauses him and takes the whole saving with it. Two already did. "Stopped"
+ * is not a competing opinion about how he should look; it wins.
+ */
+.companion[data-mood="sleep"],
+.companion[data-mood="sleep"] * {
+	animation-play-state: paused !important;
 }
 
 .companion[data-walking="true"] .companion-body {
-	animation: companion-walk 0.36s ease-in-out infinite;
+	animation-name: companion-walk;
+	animation-duration: 0.36s;
 }
 
 .companion-svg {
@@ -751,9 +776,11 @@ body,
 	transform: translateY(-7px);
 }
 
-/* Sitting still is still breathing, just slower and shallower than standing. */
+/* Sitting still is still breathing, just slower and shallower than standing.
+   Longhands, so that dozing off while sat down does not un-pause him. */
 .companion[data-pose="sit"] .companion-body {
-	animation: companion-breathe 6s ease-in-out infinite;
+	animation-name: companion-breathe;
+	animation-duration: 6s;
 }
 
 .companion-anim[data-anim="shake"] {
@@ -940,9 +967,10 @@ body,
 	transition: transform 0.9s cubic-bezier(0.34, 1.5, 0.64, 1);
 }
 
-/* Still settling after being thrown around. */
+/* Still settling after being thrown around. Longhands, as above. */
 .companion[data-feeling="rattled"] .companion-body {
-	animation: companion-unsteady 2.4s ease-in-out infinite;
+	animation-name: companion-unsteady;
+	animation-duration: 2.4s;
 }
 
 .companion[data-feeling="curious"] .companion-anim {
