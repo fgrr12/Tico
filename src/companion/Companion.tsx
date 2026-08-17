@@ -670,7 +670,13 @@ export const Companion = ({
 		 * drawn separately read as a shuffle. Chains are most of what stops the
 		 * fifteenth minute looking like the first.
 		 */
-		type Moment = { min: number; run: () => void; then?: string }
+		type Moment = {
+			min: number
+			run: () => void
+			then?: string
+			/** Only offered when this holds — `adjust` is meaningless bare-headed. */
+			needs?: () => boolean
+		}
 
 		const sit = (ms = 6_000 + Math.random() * 9_000) => {
 			setPose('sit')
@@ -734,6 +740,64 @@ export const Companion = ({
 			dance: { min: 0.7, run: () => react('happy', 'dance', 1_700) },
 			jig: { min: 0.75, run: () => react('happy', 'jig', 1_600), then: 'bounce' },
 			showoff: { min: 0.8, run: () => react('love', 'spin', 1_200), then: 'hop' },
+
+			// ── the quiet end ────────────────────────────────────────────────
+			dream: { min: 0, run: () => react('sleep', 'twitch', 1_400) },
+			settle: { min: 0, run: () => react('idle', 'settle', 1_100) },
+			groom: { min: 0.2, run: () => react('idle', 'groom', 1_600) },
+
+			// ── he lives on a ledge, so let him use it ───────────────────────
+			edge: {
+				min: 0.3,
+				// Whichever edge is nearer. Walking the length of the screen to lean
+				// on the far one is not a whim, it is a commute.
+				run: () => {
+					const here = posNow.current.x
+					const far = limits().maxX
+					moveTo(here < far / 2 ? 0 : far, 0, WALK_SPEED * 1.15)
+				},
+				then: 'lean',
+			},
+			peekover: { min: 0.35, run: () => { react('watching', 'peek', 1_800); lookAt(0, 1, 1_800) } },
+
+			// ── noticing himself ─────────────────────────────────────────────
+			inspect: { min: 0.35, run: () => { react('watching', 'inspect', 1_600); lookAt(0, 0.8, 1_600) } },
+			doubletake: {
+				min: 0.4,
+				run: () => {
+					lookAt(-1, 0, 500)
+					window.setTimeout(() => {
+						lookAt(0.9, -0.3, 900)
+						react('wow', 'jolt', 900)
+					}, 520)
+				},
+			},
+			startle: { min: 0.45, run: () => react('wow', 'startle', 900), then: 'blinkfast' },
+
+			// ── only with something on ───────────────────────────────────────
+			adjust: {
+				min: 0.3,
+				needs: () => prop !== null,
+				run: () => react('idle', 'adjust', 1_300),
+			},
+			admire: {
+				min: 0.35,
+				needs: () => prop !== null,
+				run: () => { react('love', undefined, 2_000); lookAt(0, -0.9, 2_000) },
+			},
+
+			// ── the loud end ─────────────────────────────────────────────────
+			trip: { min: 0.55, run: () => react('wow', 'trip', 1_100), then: 'shake' },
+			bow: { min: 0.6, run: () => react('happy', 'bow', 1_400) },
+			wave: { min: 0.6, run: () => { react('happy', undefined, 1_600); setGesture('wave'); window.setTimeout(() => setGesture(null), 1_400) } },
+			skip: {
+				min: 0.7,
+				run: () => {
+					const from = posNow.current.x
+					moveTo(from + (Math.random() < 0.5 ? -90 : 90), 0, WALK_SPEED * 1.6)
+					react('happy', 'bounce', 1_300)
+				},
+			},
 		}
 
 		/**
@@ -802,7 +866,13 @@ export const Companion = ({
 				// dance is not a gesture there, it is an entrance.
 				if (now - momentAt.current > MOMENT_EVERY && Math.random() < 0.5) {
 					momentAt.current = now
-					perform(pick(Object.keys(moments).filter((key) => moments[key].min <= 0.35)))
+					perform(
+						pick(
+							Object.keys(moments).filter(
+								(key) => moments[key].min <= 0.35 && (moments[key].needs?.() ?? true)
+							)
+						)
+					)
 				}
 				return
 			}
@@ -895,37 +965,36 @@ export const Companion = ({
 				 */
 				const BY_FEELING: Record<Feeling, string[] | null> = {
 					content: null,
-					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup'],
-					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling'],
-					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch'],
-					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan'],
-					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan'],
-					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean'],
-					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou'],
-					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase'],
-					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare'],
-					festive: ['dance', 'jig', 'bounce', 'hop', 'spin'],
-					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean'],
+					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom'],
+					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling', 'edge', 'settle', 'wave'],
+					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch', 'bow', 'skip', 'wave'],
+					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan', 'settle', 'groom'],
+					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan', 'startle', 'doubletake', 'trip', 'skip'],
+					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean', 'settle', 'startle'],
+					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou', 'bow', 'admire', 'adjust'],
+					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake'],
+					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare', 'dream', 'settle'],
+					festive: ['dance', 'jig', 'bounce', 'hop', 'spin', 'skip', 'bow', 'wave'],
+					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean', 'settle', 'inspect'],
 				}
 
-				const preferred = BY_FEELING[feelingNow.current]
-				const willing = Object.keys(moments).filter(
-					(key) =>
-						moments[key].min <= energy && (!preferred || preferred.includes(key))
+				const possible = Object.keys(moments).filter(
+					(key) => moments[key].min <= energy && (moments[key].needs?.() ?? true)
 				)
+
+				const preferred = BY_FEELING[feelingNow.current]
+				const willing = possible.filter((key) => !preferred || preferred.includes(key))
 
 				// A feeling that leaves nothing possible at this energy falls back to
 				// everything, rather than to standing still.
-				const pool = willing.length > 0
-					? willing
-					: Object.keys(moments).filter((key) => moments[key].min <= energy)
+				const pool = willing.length > 0 ? willing : possible
 
 				perform(pick(pool))
 			}
 		}, 3_500)
 
 		return () => clearInterval(id)
-	}, [copy, say, react, lookAt, wander, motion, nowPlaying, prop, moveTo])
+	}, [copy, say, react, lookAt, wander, motion, nowPlaying, prop, moveTo, limits])
 
 	// biome-ignore lint: greets once, in whatever language the OS asked for.
 	useEffect(() => {

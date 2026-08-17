@@ -397,8 +397,11 @@ doing a jig is not the same sight as one in sunglasses sitting down.
 
 | | day | evening | 2am |
 | --- | --- | --- | --- |
-| behaviours available | 22 | 17 | 5 |
-| × props | 198 | 153 | 45 |
+| behaviours available | 34 | 26 | 7 |
+| × props | 306 | 234 | 63 |
+
+Each behaviour now comes up about 1.5 times in a quarter of an hour, against six
+in the version this started from.
 
 **Chains** are the other half. A yawn that becomes a sit that becomes a nod reads
 as one creature getting tired; the same three drawn separately read as a shuffle.
