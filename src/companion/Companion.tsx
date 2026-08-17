@@ -182,6 +182,8 @@ export const Companion = ({
 	const lastCursorX = useRef<number | null>(null)
 	/** Raised by being handled, decaying on its own. The only input he gets. */
 	const attention = useRef(0)
+	const dragTimes = useRef<number[]>([])
+	const seenApps = useRef(new Set<string>())
 	const feelingNow = useRef<Feeling>('content')
 	const peekingNow = useRef(false)
 	const homeX = useRef<number | null>(null)
@@ -540,6 +542,10 @@ export const Companion = ({
 		appNow.current = activeApp
 		dwellDone.current.clear()
 
+		// Marked as seen a beat after arriving, which is what gives `curious` a
+		// window to exist in.
+		const seen = window.setTimeout(() => seenApps.current.add(activeApp.name), 30_000)
+
 		const timer = window.setTimeout(() => {
 			const now = Date.now()
 
@@ -578,7 +584,10 @@ export const Companion = ({
 			say(line, 6_000)
 		}, NOTICE_AFTER)
 
-		return () => clearTimeout(timer)
+		return () => {
+			clearTimeout(timer)
+			clearTimeout(seen)
+		}
 	}, [activeApp, copy, canSpeak, react, say, lookAt])
 
 	/**
@@ -844,11 +853,25 @@ export const Companion = ({
 			// on the table at all.
 			const energy = energyAt()
 
+			dragTimes.current = dragTimes.current.filter((at) => now - at < 120_000)
+
+			const inFront = appNow.current
+			const appKey = inFront ? matchApp(inFront.name) : null
+
 			const felt = feelingFrom({
 				neglect: quiet / 60_000,
 				attention: attention.current,
-				dwell: appNow.current ? (now - appNow.current.since) / 3_600_000 : 0,
+				dwell: inFront ? (now - inFront.since) / 3_600_000 : 0,
 				switches: switches.current.length,
+				drags: dragTimes.current.length,
+				// New only for the first half minute, or every glance at a fresh app
+				// would leave him permanently curious about it.
+				newApp: Boolean(
+					inFront && !seenApps.current.has(inFront.name) && now - inFront.since < 30_000
+				),
+				music: nowPlaying !== null,
+				appKey,
+				energy,
 				hour: new Date().getHours(),
 			})
 			if (felt !== feelingNow.current) setFeeling(felt)
@@ -877,6 +900,12 @@ export const Companion = ({
 					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch'],
 					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan'],
 					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan'],
+					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean'],
+					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou'],
+					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase'],
+					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare'],
+					festive: ['dance', 'jig', 'bounce', 'hop', 'spin'],
+					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean'],
 				}
 
 				const preferred = BY_FEELING[feelingNow.current]
@@ -969,6 +998,7 @@ export const Companion = ({
 		if (!dragged.current) {
 			if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
 			dragged.current = true
+			dragTimes.current = [...dragTimes.current, Date.now()]
 			clearTimeout(petTimer.current)
 			setAim(null)
 			react('held', undefined, 0)

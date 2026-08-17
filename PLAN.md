@@ -343,14 +343,32 @@ Energy is how *much* he does. A feeling is what *kind*. Together they are the tw
 axes emotion is usually modelled on — arousal and valence — and two axes is a far
 larger space than one, which is the reason for having both.
 
-Six feelings, chosen by a ladder rather than a score, ordered by which fact about
-the moment is most interesting: `lonely` (ignored for ten minutes) → `pleased`
-(just petted) → `bored` → `worried` (hours in one app, or an hour of it after
-11pm) → `restless` (bouncing between apps) → `content`.
+Twelve feelings, chosen by a ladder rather than a score, ordered by which fact
+about the moment is the most interesting one:
 
-The only input he has is the cursor and being handled. Attention rises when he is
-clicked or petted and decays about a tenth a minute, so a good moment colours the
-next five minutes rather than the next hour.
+    rattled     picked up three times in two minutes
+    lonely      ignored for eight
+    smug        petted a great deal
+    pleased     petted
+    curious     an application he has not seen today, for its first 30s
+    sleepy      energy under a quarter
+    festive     music, with a day behind it
+    bored       ignored for three
+    worried     two hours in one app, or one after 11pm
+    nostalgic   a terminal is open, which is where he comes from
+    restless    bouncing between applications
+    content     none of the above
+
+Being thrown around beats being ignored, being ignored beats having been petted
+an hour ago, and which application is open sits near the bottom because it is
+true all day and therefore says the least.
+
+**Everything above `content` is earned by a signal — there is no randomness in
+here.** If he looks smug, you petted him a lot.
+
+The inputs are only the cursor, being handled, the frontmost app and the music.
+Attention rises on a click or a pet and decays about a tenth a minute, so a good
+moment colours the next five minutes rather than the next hour.
 
 **The rule that keeps this honest: a feeling that cannot be seen is bookkeeping,
 not life.** Each one changes three things you can observe without being told —

@@ -43,7 +43,19 @@ export const energyAt = (hour: number = new Date().getHours()): number =>
  * not life. Each of these changes his posture, which behaviours he will pick,
  * and what he says. If it only changed a variable it would not be here.
  */
-export type Feeling = 'content' | 'bored' | 'lonely' | 'pleased' | 'worried' | 'restless'
+export type Feeling =
+	| 'content'
+	| 'bored'
+	| 'lonely'
+	| 'pleased'
+	| 'worried'
+	| 'restless'
+	| 'rattled'
+	| 'smug'
+	| 'curious'
+	| 'sleepy'
+	| 'festive'
+	| 'nostalgic'
 
 export interface Sensed {
 	/** Minutes since the cursor moved anywhere on screen. */
@@ -54,20 +66,38 @@ export interface Sensed {
 	dwell: number
 	/** Application switches in the last two minutes. */
 	switches: number
+	/** Times he has been picked up in the last two minutes. */
+	drags: number
+	/** This application is one he has not seen yet today. */
+	newApp: boolean
+	music: boolean
+	/** The id `matchApp` resolved, so a feeling can be about a kind of app. */
+	appKey: string | null
+	energy: number
 	hour: number
 }
 
 /**
- * A ladder, not a score. Ordered by which fact about the moment is the most
- * interesting one — being ignored for ten minutes matters more than what app is
- * open, and having just been petted matters more than either.
+ * A ladder, not a score, ordered by which fact about the moment is the most
+ * interesting one. Being thrown around beats being ignored, being ignored beats
+ * being petted an hour ago, and what application is open is near the bottom
+ * because it is true all day and therefore says the least.
+ *
+ * Everything above `content` has to be *earned* by a signal. There is no
+ * randomness in here: if he looks smug, you petted him a lot.
  */
-export const feelingFrom = ({ neglect, attention, dwell, switches, hour }: Sensed): Feeling => {
-	if (neglect > 8) return 'lonely'
-	if (attention > 0.5) return 'pleased'
-	if (neglect > 3) return 'bored'
-	if (dwell >= 2 || (dwell >= 1 && (hour >= 23 || hour < 5))) return 'worried'
-	if (switches > 6) return 'restless'
+export const feelingFrom = (seen: Sensed): Feeling => {
+	if (seen.drags >= 3) return 'rattled'
+	if (seen.neglect > 8) return 'lonely'
+	if (seen.attention > 0.85) return 'smug'
+	if (seen.attention > 0.5) return 'pleased'
+	if (seen.newApp) return 'curious'
+	if (seen.energy < 0.25) return 'sleepy'
+	if (seen.music && seen.energy > 0.5) return 'festive'
+	if (seen.neglect > 3) return 'bored'
+	if (seen.dwell >= 2 || (seen.dwell >= 1 && (seen.hour >= 23 || seen.hour < 5))) return 'worried'
+	if (seen.appKey === 'terminal') return 'nostalgic'
+	if (seen.switches > 6) return 'restless'
 	return 'content'
 }
 
@@ -382,26 +412,80 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
 
 		feelings: {
-			content: ['This is fine, actually.', 'No notes.'],
+			content: [
+				'This is fine, actually.',
+				'No notes.',
+				'Everything is where I left it.',
+				'A perfectly ordinary afternoon down here.',
+			],
 			bored: [
 				'Nothing is happening. I have checked.',
 				'I have counted the pixels twice now.',
 				'Move something. Anything.',
+				'I have read the whole bottom of your screen.',
+				'This is the part where I invent a hobby.',
 			],
 			lonely: [
 				'Still here, in case that matters.',
 				'It has been a while.',
 				'I do not mind. I am just saying.',
+				'I will keep the place warm.',
+				'Take your time. I have nothing else on.',
 			],
-			pleased: ['That was nice.', 'Best part of my day, and I mean that.'],
+			pleased: [
+				'That was nice.',
+				'Best part of my day, and I mean that.',
+				'Do that again whenever.',
+				'Noted, and appreciated.',
+			],
+			smug: [
+				'I am, objectively, doing very well.',
+				'You like me. I have the data.',
+				'No notes on my performance either.',
+				'I would put this on a CV if I had one.',
+			],
 			worried: [
 				'You have been at this a long time.',
 				'Water exists. Just putting that out there.',
 				'Whatever it is, it will still be broken after a break.',
+				'Your shoulders are up by your ears. I can tell from here.',
+				'Nothing you fix in this state stays fixed.',
 			],
 			restless: [
 				'You are everywhere at once.',
 				'Pick one and stay there for a minute.',
+				'I cannot keep up and I am not even doing anything.',
+				'Six windows. I counted.',
+			],
+			rattled: [
+				'Okay. Put me down for a second.',
+				'I am not a stress toy.',
+				'Everything is still spinning a bit.',
+				'You have made your point.',
+			],
+			curious: [
+				'This one is new.',
+				'I have not been here before.',
+				'Interesting. Carry on.',
+				'What is this, then.',
+			],
+			sleepy: [
+				'It is very late and I am very small.',
+				'I am mostly here in spirit.',
+				'One of us should sleep. Ideally both.',
+				'My thoughts are coming in slowly.',
+			],
+			festive: [
+				'Good. Everything is better with something playing.',
+				'I have no rhythm and I am using all of it.',
+				'This is the correct volume.',
+				'Do not skip it.',
+			],
+			nostalgic: [
+				'A terminal. That is where I come from.',
+				'I lived in one of those. Smaller. Greener.',
+				'That prompt and I go back a while.',
+				'Careful in there. I know what it can do.',
 			],
 		},
 		label: 'tico',
@@ -618,26 +702,80 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
 
 		feelings: {
-			content: ['Esto está bien, en realidad.', 'Sin observaciones.'],
+			content: [
+				'Esto está bien, en realidad.',
+				'Sin observaciones.',
+				'Todo está donde lo dejé.',
+				'Una tarde perfectamente normal aquí abajo.',
+			],
 			bored: [
 				'No está pasando nada. Ya revisé.',
 				'Ya conté los píxeles dos veces.',
 				'Mové algo. Lo que sea.',
+				'Ya me leí todo el borde de tu pantalla.',
+				'Esta es la parte donde me invento un pasatiempo.',
 			],
 			lonely: [
 				'Sigo acá, por si importa.',
 				'Ya tiene rato esto.',
 				'No me molesta. Solo lo digo.',
+				'Te cuido el puesto.',
+				'Tomate tu tiempo. No tengo nada más.',
 			],
-			pleased: ['Eso estuvo bueno.', 'La mejor parte de mi día, y lo digo en serio.'],
+			pleased: [
+				'Eso estuvo bueno.',
+				'La mejor parte de mi día, y lo digo en serio.',
+				'Repetilo cuando querás.',
+				'Anotado, y agradecido.',
+			],
+			smug: [
+				'Objetivamente, me está yendo muy bien.',
+				'Te caigo bien. Tengo los datos.',
+				'Tampoco tengo observaciones sobre mi desempeño.',
+				'Esto lo pondría en un CV, si tuviera.',
+			],
 			worried: [
 				'Llevás un montón en esto.',
 				'El agua existe. Solo lo menciono.',
 				'Sea lo que sea, va a seguir roto después de un descanso.',
+				'Tenés los hombros en las orejas. Se te nota desde acá.',
+				'Nada de lo que arreglés así se queda arreglado.',
 			],
 			restless: [
 				'Estás en todas partes a la vez.',
 				'Elegí una y quedate ahí un minuto.',
+				'No te sigo el paso, y eso que no hago nada.',
+				'Seis ventanas. Las conté.',
+			],
+			rattled: [
+				'Ya. Bajame un segundo.',
+				'No soy una pelota antiestrés.',
+				'Todavía me da vueltas todo.',
+				'Ya quedó claro tu punto.',
+			],
+			curious: [
+				'Esta es nueva.',
+				'Acá no había estado.',
+				'Interesante. Seguí.',
+				'¿Y esto qué es?',
+			],
+			sleepy: [
+				'Es muy tarde y yo soy muy pequeño.',
+				'Estoy más que nada en espíritu.',
+				'Uno de los dos debería dormir. Idealmente los dos.',
+				'Los pensamientos me están llegando despacio.',
+			],
+			festive: [
+				'Bien. Todo mejora con algo sonando.',
+				'No tengo ritmo y lo estoy usando todo.',
+				'Este es el volumen correcto.',
+				'No la saltés.',
+			],
+			nostalgic: [
+				'Una terminal. De ahí vengo yo.',
+				'Yo vivía en una de esas. Más chica. Más verde.',
+				'Ese prompt y yo nos conocemos de antes.',
+				'Cuidado ahí adentro. Yo sé lo que puede hacer.',
 			],
 		},
 		label: 'tico',

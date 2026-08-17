@@ -882,3 +882,39 @@ body,
 .companion[data-feeling="restless"] .companion-body {
 	animation-duration: 2s;
 }
+
+/* The rest of the postures. Small on their own, and read before they are noticed. */
+.companion[data-feeling="sleepy"] .companion-anim {
+	transform: translateY(5px) scale(1.03, 0.94);
+	transition: transform 1.6s ease;
+}
+
+.companion[data-feeling="sleepy"] .companion-body {
+	animation-duration: 8s;
+}
+
+/* Chest out. It is insufferable and that is the joke. */
+.companion[data-feeling="smug"] .companion-anim {
+	transform: translateY(-3px) scale(1.05, 1.02);
+	transition: transform 0.9s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+/* Still settling after being thrown around. */
+.companion[data-feeling="rattled"] .companion-body {
+	animation: companion-unsteady 2.4s ease-in-out infinite;
+}
+
+.companion[data-feeling="curious"] .companion-anim {
+	transform: rotate(4deg) translateY(-2px);
+	transition: transform 0.7s ease;
+}
+
+.companion[data-feeling="festive"] .companion-body {
+	animation-duration: 1.9s;
+}
+
+@keyframes companion-unsteady {
+	0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+	30% { transform: translateY(-3px) rotate(2deg); }
+	65% { transform: translateY(-1px) rotate(-2.5deg); }
+}
