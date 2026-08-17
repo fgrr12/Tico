@@ -348,10 +348,34 @@ wrong for a pet: every interaction cost two clicks, the first of which did
 nothing visible. It is very likely the rest of why the button on a reminder
 bubble felt broken long after its hit rect was already right.
 
-`focusable: false`. tao overrides `canBecomeKeyWindow` with it, so poking him no
-longer takes focus away from whatever you were typing in. Safe because nothing
-in him reads a keystroke: no text field, no shortcut, and no ask box since the
-model went. Holding focus bought nothing and cost the user their cursor.
+`focusable: false`. Safe because nothing in him reads a keystroke: no text
+field, no shortcut, no ask box since the model went, so the ability to hold
+focus is pure cost.
+
+**It was not enough, and the distinction is the whole lesson.** `focusable`
+makes `canBecomeKeyWindow` return NO, which stops the *window* taking key
+status. Clicking any window of a background app still activates the
+*application*, and application activation is what pulls the insertion point out
+of the editor you were typing in. Two different things; the flag fixes the one
+that was not the problem. Shipped, and the user reported focus still moving.
+
+The only mechanism that stops the activation is
+`NSWindowStyleMaskNonactivatingPanel`, which AppKit honours on `NSPanel` and
+ignores on everything else. Tauri builds an `NSWindow`, so `macos.rs` repoints
+the live window at `NSPanel` with `object_setClass` and then sets the bit — the
+swap `tauri-nspanel` exists to perform, at thirty lines against a dependency
+that has to track tao's internals to stay correct.
+
+Three things make that swap safe rather than lucky, and all three are in the
+code: the instance size of the target class is **checked** before the swap, not
+assumed, because repointing at a larger class reads past the allocation and
+produces a crash report with no cause in it; `hidesOnDeactivate` is forced off,
+since panels hide when their app deactivates and this one is deactivated for a
+living; and the level and collection behaviour are re-applied *after*, because
+a style-mask change is exactly the kind of thing AppKit resets a window level
+over. What is lost with tao's subclass is a `canBecomeKeyWindow` override a
+borderless window gets anyway and a `sendEvent:` override that only serves
+`movableByWindowBackground`, which he does not use.
 
 ## Known: the idle animation costs ~9% of a core
 

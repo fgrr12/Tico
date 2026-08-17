@@ -38,3 +38,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # Already in the tree via tao; declared directly so `macos.rs` can reach NSWindow
 # to put the strip above the Dock. Tauri stops at alwaysOnTop.
 objc2-app-kit = "0.3"
+# The Objective-C runtime itself, for the one thing that needs it: repointing the
+# window at NSPanel so that clicking him does not activate the application.
+objc2 = "0.6"
