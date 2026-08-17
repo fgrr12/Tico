@@ -232,15 +232,24 @@ export const Companion = ({
 	 * asked for, and it only stops him interrupting: answer him directly and he
 	 * still answers back, because you started it.
 	 */
-	const say = useCallback((text: string, ms = 5_200, forced = false) => {
-		if (silent.current.presenting) return
-		if (!forced && silent.current.quietUntil > Date.now() / 1_000) return
+	const say = useCallback(
+		(text: string, ms = 5_200, forced = false, pendingId: string | null = null) => {
+			if (silent.current.presenting) return
+			if (!forced && silent.current.quietUntil > Date.now() / 1_000) return
 
-		setPending(null)
-		setBubble(text)
-		clearTimeout(bubbleTimer.current)
-		bubbleTimer.current = window.setTimeout(() => setBubble(null), ms + text.length * SAY_REVEAL)
-	}, [])
+			// Taken as an argument rather than set by the caller beforehand: `say`
+			// has to clear a stale button, so a caller setting one first was always
+			// going to lose the race with it. It did.
+			setPending(pendingId)
+			setBubble(text)
+			clearTimeout(bubbleTimer.current)
+			bubbleTimer.current = window.setTimeout(
+				() => setBubble(null),
+				ms + text.length * SAY_REVEAL
+			)
+		},
+		[]
+	)
 
 	useEffect(() => {
 		if (!bubble) {
@@ -566,8 +575,7 @@ export const Companion = ({
 
 			remindedToday.current.add(next.id)
 			react('watching', 'pop', 3_000)
-			setPending(next.id)
-			say(next.text, 20_000)
+			say(next.text, 20_000, false, next.id)
 		}, 9_000)
 
 		return () => clearInterval(timer)

@@ -557,14 +557,46 @@ body,
  * blink and be petted while a song plays, and stopping any of that to sing would
  * make the music feel like an interruption.
  */
+/*
+ * Four rhythms, none of them a multiple of another: 1.7s sway, 0.83s bounce,
+ * 0.41s feet, 0.55s mouth. A single period reads as a metronome no matter how
+ * nice the easing is, and periods that share a factor re-align every few bars
+ * and read as a loop. These drift against each other and never quite repeat.
+ *
+ * They also live on four different elements, which is what lets them compound —
+ * the body leans, the whole drawing bounces inside that lean, and the feet tap
+ * inside both.
+ */
 .companion[data-singing="true"] .companion-body {
-	animation: companion-sway 1.6s ease-in-out infinite;
+	animation: companion-sway 1.7s ease-in-out infinite;
+}
+
+.companion[data-singing="true"] .companion-svg {
+	animation: companion-bounce 0.83s cubic-bezier(0.3, 0, 0.4, 1) infinite;
+}
+
+/* Walking already owns the feet, and it is the more informative of the two. */
+.companion[data-singing="true"]:not([data-walking="true"]) .companion-foot {
+	animation: companion-tap 0.41s ease-in-out infinite;
+}
+
+.companion[data-singing="true"]:not([data-walking="true"])
+	.companion-foot[data-side="right"] {
+	animation-delay: 0.205s;
+}
+
+.companion[data-singing="true"] .companion-hand {
+	animation: companion-conduct 1.1s ease-in-out infinite;
+}
+
+.companion[data-singing="true"] .companion-hand[data-side="right"] {
+	animation-delay: 0.55s;
 }
 
 .companion-sing {
 	transform-box: fill-box;
 	transform-origin: center;
-	animation: companion-sing 0.62s ease-in-out infinite;
+	animation: companion-sing 0.55s ease-in-out infinite;
 }
 
 .companion-notes text:nth-child(1) {
@@ -575,24 +607,74 @@ body,
 	animation: companion-note 2.2s ease-out 1.1s infinite;
 }
 
+/* Asymmetric on purpose: it hangs a beat at each side instead of passing
+   through the middle at a constant speed, which is what a sway actually does. */
 @keyframes companion-sway {
 	0%,
 	100% {
-		transform: translateY(0) rotate(-3deg);
+		transform: rotate(-4deg) translateX(-2px);
 	}
-	50% {
-		transform: translateY(-4px) rotate(3deg);
+	18%,
+	32% {
+		transform: rotate(-4.5deg) translateX(-3px);
+	}
+	68%,
+	82% {
+		transform: rotate(4.5deg) translateX(3px);
 	}
 }
 
-/* Holding a note, not chewing: it opens wide and closes only part way. */
+/* Up fast, down slow — weight falls, it does not float. */
+@keyframes companion-bounce {
+	0%,
+	100% {
+		transform: translateY(0) scaleY(1);
+	}
+	28% {
+		transform: translateY(-7px) scaleY(1.04);
+	}
+	60% {
+		transform: translateY(-1px) scaleY(0.98);
+	}
+}
+
+@keyframes companion-tap {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-5px);
+	}
+}
+
+@keyframes companion-conduct {
+	0%,
+	100% {
+		transform: translateY(-4px) rotate(-6deg);
+	}
+	50% {
+		transform: translateY(-9px) rotate(8deg);
+	}
+}
+
+/*
+ * Vowels, not a pulse. A mouth that scales symmetrically looks like breathing;
+ * one that goes wide-then-tall-then-narrow looks like it is forming words.
+ */
 @keyframes companion-sing {
 	0%,
 	100% {
-		transform: scale(1, 0.45);
+		transform: scale(1.15, 0.4);
 	}
-	40% {
-		transform: scale(1.05, 1.25);
+	22% {
+		transform: scale(0.85, 1.35);
+	}
+	48% {
+		transform: scale(1.25, 0.85);
+	}
+	74% {
+		transform: scale(0.7, 1.1);
 	}
 }
 
