@@ -68,11 +68,25 @@ How you answer:
 - No lists, no markdown, no headings. You are speaking out loud in a speech bubble.
 `.trim()
 
-export const systemPrompt = (language: Language, activeApp: string | null): string =>
+/**
+ * The window title is context and never content.
+ *
+ * It is the most revealing thing he has access to — during development the very
+ * first real one was an open `.env-prod` — so it goes into the prompt to make
+ * "what is this file" answerable, and it is never put in a speech bubble. Rust
+ * refuses the obviously sensitive ones before they reach here; this is the second
+ * half of the same rule.
+ */
+export const systemPrompt = (
+	language: Language,
+	activeApp: string | null,
+	windowTitle: string | null
+): string =>
 	[
 		RULES,
 		`Answer in ${language === 'es' ? 'Spanish, using Costa Rican voseo' : 'English'}.`,
 		activeApp ? `Right now they are using ${activeApp}. Mention it only if it helps.` : '',
+		windowTitle ? `The window they are looking at is titled "${windowTitle}".` : '',
 		'',
 		'What you know:',
 		FACTS,

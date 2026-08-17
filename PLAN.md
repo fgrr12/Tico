@@ -253,6 +253,36 @@ application's data on our way out would be rude.
 Roughly two to three weekends of real work, front-loaded on M1 because that is the
 part that has to be good.
 
+## After M4 — he can act, and he can read the window title
+
+Two additions, driven by what the pet was actually wanted for: less reciting the
+portfolio, more noticing and doing.
+
+**Actions.** The ask hotkey executes as well as answers: open a file, reveal it
+in Finder, open a site. The division is the point — *the model extracts intent,
+Spotlight finds the file, the app opens it.* The model never sees a path and
+never produces one, only search terms, so a hallucinated filename finds nothing
+where a hallucinated path would be opened on trust.
+
+**Window titles**, behind an Accessibility grant that is off by default.
+Deliberately **not** Screen Recording, which returns the same string and makes
+macOS 15 post recurring "tico has been recording your screen" reminders — poison
+for a pet, and a lie, since nothing here reads a pixel.
+
+Two rules hold around titles, and they are not optional:
+
+1. **Sensitive-looking titles are never read.** A blocklist in `window_title.rs`,
+   porous by construction and a floor rather than a guarantee. It exists because
+   the first real title this feature ever returned, on the author's own screen,
+   was an open `.env-prod`.
+2. **No title is ever spoken.** It is prompt context so that "what is this file"
+   is answerable, and it never reaches a speech bubble — which matters most
+   during a screen share, where a bubble is read by everybody in the call.
+
+This is the piece to revisit first if a cloud model is ever allowed: today
+titles never leave 127.0.0.1, and that is a property of the current setup rather
+than of the design.
+
 ## Tried and rejected: the spontaneous brain
 
 Letting the model write his *unprompted* lines, not just his answers. Built,

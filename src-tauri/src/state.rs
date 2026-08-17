@@ -21,6 +21,10 @@ pub struct State {
     pub quiet_until: i64,
     /// What he does while the microphone is live: `peek`, `hide` or `ignore`.
     pub in_call: String,
+    /// Whether he may read the focused window's title. Off until switched on:
+    /// this one costs an Accessibility grant and exposes far more than the app
+    /// name does, so it is never the default.
+    pub read_titles: bool,
 }
 
 impl Default for State {
@@ -36,6 +40,7 @@ impl Default for State {
             // meeting you are in — so it picks the charming one and lets you say
             // otherwise.
             in_call: "peek".into(),
+            read_titles: false,
         }
     }
 }

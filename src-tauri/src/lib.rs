@@ -6,6 +6,7 @@ mod cursor;
 #[cfg(target_os = "macos")]
 mod macos;
 mod state;
+mod window_title;
 mod strip;
 
 use std::sync::Mutex;
@@ -28,6 +29,7 @@ struct Settings {
     size: Vec<(&'static str, CheckMenuItem<Wry>)>,
     in_call: Vec<(&'static str, CheckMenuItem<Wry>)>,
     autostart: CheckMenuItem<Wry>,
+    read_titles: CheckMenuItem<Wry>,
 }
 
 const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
@@ -225,6 +227,20 @@ pub fn run() {
                 None::<&str>,
             )?;
 
+            // Only on if it was chosen *and* the grant is still there — revoking
+            // it in System Settings has to uncheck the box, or the menu lies.
+            let titles_on = saved.read_titles && window_title::trusted();
+            active_app::set_titles(titles_on);
+
+            let read_titles = CheckMenuItem::with_id(
+                app,
+                "titles",
+                "Read window titles",
+                true,
+                titles_on,
+                None::<&str>,
+            )?;
+
             let chattiness_menu = Submenu::with_items(
                 app,
                 "Chattiness",
@@ -275,6 +291,7 @@ pub fn run() {
                     &in_call_menu,
                     &chattiness_menu,
                     &size_menu,
+                    &read_titles,
                     &autostart,
                     &PredefinedMenuItem::separator(app)?,
                     &quit,
@@ -286,6 +303,7 @@ pub fn run() {
                 size,
                 in_call,
                 autostart,
+                read_titles,
             });
 
             // A separate monochrome icon for the menu bar, not the app icon.
@@ -343,6 +361,26 @@ pub fn run() {
                     }
 
                     match id {
+                        "titles" => {
+                            let on = !settings.read_titles.is_checked().unwrap_or(false);
+
+                            // Turning it on without the grant would silently do
+                            // nothing, so send them where it is granted instead of
+                            // firing a prompt that is easy to dismiss and hard to
+                            // find again.
+                            if on && !window_title::trusted() {
+                                let _ = settings.read_titles.set_checked(false);
+                                let _ = std::process::Command::new("open")
+                                    .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                                    .status();
+                                return;
+                            }
+
+                            state::update(app, |current| current.read_titles = on);
+                            active_app::set_titles(on);
+                            let _ = settings.read_titles.set_checked(on);
+                            publish(app);
+                        }
                         "autostart" => {
                             let launcher = app.autolaunch();
                             let on = launcher.is_enabled().unwrap_or(false);

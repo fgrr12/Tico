@@ -24,7 +24,11 @@ export default function App() {
 	const [language] = useState<Language>(detectLanguage)
 	const [boot, setBoot] = useState<Boot | null>(null)
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
-	const [activeApp, setActiveApp] = useState<{ name: string; since: number } | null>(null)
+	const [activeApp, setActiveApp] = useState<{
+		name: string
+		title: string | null
+		since: number
+	} | null>(null)
 	const [asking, setAsking] = useState(false)
 	const [inCall, setInCall] = useState(false)
 
@@ -39,8 +43,15 @@ export default function App() {
 		)
 		// Rust emits only on change, so the timestamp of the event is the moment the
 		// app came forward — which is what the dwell is measured from.
-		const appChanged = listen<{ name: string }>('active-app', (event) =>
-			setActiveApp({ name: event.payload.name, since: Date.now() })
+		const appChanged = listen<{ name: string; title: string | null }>('active-app', (event) =>
+			// A title change inside the same app is not a context switch, so the
+			// dwell clock keeps running rather than restarting every time you
+			// switch file.
+			setActiveApp((current) => ({
+				name: event.payload.name,
+				title: event.payload.title,
+				since: current?.name === event.payload.name ? current.since : Date.now(),
+			}))
 		)
 		const asked = listen('ask', () => setAsking(true))
 		const call = listen<{ active: boolean }>('in-call', (event) =>
@@ -77,7 +88,7 @@ export default function App() {
 			try {
 				return await invoke<{ say: string; mood?: string }>('ask', {
 					request: {
-						system: systemPrompt(language, activeApp?.name ?? null),
+						system: systemPrompt(language, activeApp?.name ?? null, activeApp?.title ?? null),
 						question,
 					},
 				})

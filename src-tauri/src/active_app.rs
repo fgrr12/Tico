@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -7,18 +8,27 @@ use tauri::{AppHandle, Emitter, Manager};
 #[derive(Clone, Serialize)]
 struct ActiveApp {
     name: String,
+    /// The focused window's title, when titles are switched on and permitted and
+    /// the title is not one of the ones we refuse to look at.
+    title: Option<String>,
 }
 
-static LAST: Mutex<Option<String>> = Mutex::new(None);
+static LAST: Mutex<Option<(String, Option<String>)>> = Mutex::new(None);
+/// Set from the tray. Off until asked for — the permission is not taken quietly.
+static TITLES: AtomicBool = AtomicBool::new(false);
 
-/// The **name** of the frontmost application, and deliberately nothing else.
+pub fn set_titles(on: bool) {
+    TITLES.store(on, Ordering::Relaxed);
+}
+
+/// The name of the frontmost application, and its pid.
 ///
-/// Window titles would say much more — but reading them costs a Screen Recording
-/// permission prompt on macOS, and a pet is not worth that. The app name is free
-/// on all three platforms, and knowing you are in an editor is most of what he
-/// needs in order to have an opinion about it.
+/// The name is free on all three platforms and needs no permission at all, which
+/// is why it is the thing he always knows. The pid is only here so
+/// `window_title` can ask Accessibility for the focused window's title — a much
+/// more revealing string, behind a grant, off by default.
 #[cfg(target_os = "macos")]
-fn frontmost() -> Option<String> {
+fn frontmost() -> Option<(String, i32)> {
     use objc2_app_kit::NSWorkspace;
 
     // No unsafe block: objc2 marks these three as safe, because none of them has
@@ -28,7 +38,7 @@ fn frontmost() -> Option<String> {
     let app = workspace.frontmostApplication()?;
     let name = app.localizedName()?;
 
-    Some(name.to_string())
+    Some((name.to_string(), app.processIdentifier()))
 }
 
 /// Not implemented yet, and honestly stubbed rather than guessed at.
@@ -39,7 +49,7 @@ fn frontmost() -> Option<String> {
 /// and FFI that has never been compiled is worse than an empty function: it looks
 /// finished. They land when there is a machine to build them on.
 #[cfg(not(target_os = "macos"))]
-fn frontmost() -> Option<String> {
+fn frontmost() -> Option<(String, i32)> {
     None
 }
 
@@ -55,7 +65,7 @@ pub fn watch(app: AppHandle) {
 
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {
-            let Some(name) = frontmost() else { return };
+            let Some((name, pid)) = frontmost() else { return };
 
             // Taking focus for the ask hotkey makes him the frontmost app, and a
             // pet that notices itself and has no opinion about itself is a bad
@@ -64,21 +74,27 @@ pub fn watch(app: AppHandle) {
                 return;
             }
 
+            let title = if TITLES.load(Ordering::Relaxed) {
+                crate::window_title::read(pid)
+            } else {
+                None
+            };
+
             let Ok(mut last) = LAST.lock() else { return };
-            if last.as_deref() == Some(name.as_str()) {
+            if last.as_ref() == Some(&(name.clone(), title.clone())) {
                 return;
             }
-            *last = Some(name.clone());
+            *last = Some((name.clone(), title.clone()));
             drop(last);
 
             // Kept, in the same spirit as Lyra's geometry logging: a frontmost()
             // that quietly returns None looks exactly like a pet that has not
             // spoken yet, and this is the difference between the two.
             #[cfg(debug_assertions)]
-            eprintln!("[tico] active app: {name}");
+            eprintln!("[tico] active app: {name} · {title:?}");
 
             if let Some(window) = handle.get_webview_window("main") {
-                let _ = window.emit("active-app", ActiveApp { name });
+                let _ = window.emit("active-app", ActiveApp { name, title });
             }
         });
     });
