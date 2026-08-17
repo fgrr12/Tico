@@ -21,6 +21,8 @@ export interface CompanionFaceProps {
 	look: { x: number; y: number }
 	/** Shown instead of the face. Unused until he has something to show. */
 	glyph: string | null
+	/** Music is playing somewhere. Overrides the mouth and adds notes. */
+	singing: boolean
 	faceColor: string
 	ledColor: string
 }
@@ -31,6 +33,11 @@ export interface PetRect {
 	y: number
 	width: number
 	height: number
+}
+
+export interface NowPlaying {
+	artist: string
+	song: string
 }
 
 export type Chattiness = 'quiet' | 'normal' | 'chatty'

@@ -549,3 +549,63 @@ body,
 		transform: translateY(-11px) rotate(24deg);
 	}
 }
+
+/* ── Singing ────────────────────────────────────────────────────────────── */
+
+/*
+ * Layered on top of whatever mood he is in rather than replacing it: he can walk,
+ * blink and be petted while a song plays, and stopping any of that to sing would
+ * make the music feel like an interruption.
+ */
+.companion[data-singing="true"] .companion-body {
+	animation: companion-sway 1.6s ease-in-out infinite;
+}
+
+.companion-sing {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: companion-sing 0.62s ease-in-out infinite;
+}
+
+.companion-notes text:nth-child(1) {
+	animation: companion-note 2.2s ease-out infinite;
+}
+
+.companion-notes text:nth-child(2) {
+	animation: companion-note 2.2s ease-out 1.1s infinite;
+}
+
+@keyframes companion-sway {
+	0%,
+	100% {
+		transform: translateY(0) rotate(-3deg);
+	}
+	50% {
+		transform: translateY(-4px) rotate(3deg);
+	}
+}
+
+/* Holding a note, not chewing: it opens wide and closes only part way. */
+@keyframes companion-sing {
+	0%,
+	100% {
+		transform: scale(1, 0.45);
+	}
+	40% {
+		transform: scale(1.05, 1.25);
+	}
+}
+
+@keyframes companion-note {
+	0% {
+		opacity: 0;
+		transform: translate(0, 6px) rotate(-8deg);
+	}
+	25% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: translate(12px, -22px) rotate(14deg);
+	}
+}

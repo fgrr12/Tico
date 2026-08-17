@@ -45,6 +45,8 @@ interface CompanionCopy {
 	revealing: (name: string) => string
 	openingUrl: (host: string) => string
 	notFound: (query: string) => string
+	/** Said once when a new track starts, and not every time. */
+	track: ((artist: string, song: string) => string)[]
 	label: string
 }
 
@@ -205,6 +207,13 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		openingUrl: (host) => `Off to ${host}.`,
 		notFound: (query) => `Nothing called "${query}" that I can find.`,
 
+		track: [
+			(artist) => `${artist}. Good call.`,
+			(_artist, song) => `"${song}". I know this one.`,
+			(artist) => `More ${artist}, then.`,
+			(_artist, song) => `${song}. I will hum along.`,
+		],
+
 		label: 'tico',
 	},
 
@@ -329,6 +338,13 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		revealing: (name) => `Ahí está — ${name}.`,
 		openingUrl: (host) => `Vamos a ${host}.`,
 		notFound: (query) => `No encontré nada que se llame "${query}".`,
+
+		track: [
+			(artist) => `${artist}. Buena.`,
+			(_artist, song) => `"${song}". Esta me la sé.`,
+			(artist) => `Más ${artist}, entonces.`,
+			(_artist, song) => `${song}. La tarareo con vos.`,
+		],
 
 		label: 'tico',
 	},

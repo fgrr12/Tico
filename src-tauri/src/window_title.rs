@@ -172,6 +172,44 @@ pub fn trusted() -> bool {
     ax::trusted()
 }
 
+/// The window title of an app that is **not** frontmost.
+///
+/// Accessibility does not care which app is in front, which is what makes the
+/// music integration free: Spotify's window title is the track while it plays,
+/// so knowing the song needs no AppleScript, no Automation prompt, and none of
+/// Lyra's media detection — just the grant that is already here.
+#[cfg(target_os = "macos")]
+pub fn title_of(app_names: &[&str]) -> Option<String> {
+    use objc2_app_kit::NSWorkspace;
+
+    if !ax::trusted() {
+        return None;
+    }
+
+    let workspace = NSWorkspace::sharedWorkspace();
+    let running = workspace.runningApplications();
+
+    for app in running.iter() {
+        let Some(name) = app.localizedName() else { continue };
+        let name = name.to_string();
+
+        if !app_names.iter().any(|wanted| name.eq_ignore_ascii_case(wanted)) {
+            continue;
+        }
+
+        if let Some(title) = ax::focused_title(app.processIdentifier()) {
+            return Some(title);
+        }
+    }
+
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn title_of(_app_names: &[&str]) -> Option<String> {
+    None
+}
+
 pub fn read(pid: i32) -> Option<String> {
     let title = ax::focused_title(pid)?;
     let haystack = title.to_lowercase();

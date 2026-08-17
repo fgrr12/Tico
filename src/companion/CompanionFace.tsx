@@ -59,6 +59,7 @@ export const CompanionFace = ({
 	blink,
 	look,
 	glyph,
+	singing,
 	faceColor,
 	ledColor,
 }: CompanionFaceProps) => {
@@ -203,15 +204,40 @@ export const CompanionFace = ({
 					{eye(LEFT)}
 					{eye(RIGHT)}
 
-					<path
-						d={MOUTHS[mood]}
-						fill={OPEN_MOUTHS.includes(mood) ? faceColor : 'none'}
-						stroke={faceColor}
-						strokeWidth={2.6}
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
+					{/* Singing replaces the mouth rather than adding to it: an open
+					    mouth that scales reads as a note being held, and the shape it
+					    would otherwise have is irrelevant while he is doing it. */}
+					{singing ? (
+						<ellipse
+							className="companion-sing"
+							cx="48"
+							cy="63"
+							rx="5"
+							ry="6"
+							fill={faceColor}
+						/>
+					) : (
+						<path
+							d={MOUTHS[mood]}
+							fill={OPEN_MOUTHS.includes(mood) ? faceColor : 'none'}
+							stroke={faceColor}
+							strokeWidth={2.6}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					)}
 				</>
+			)}
+
+			{singing && (
+				<g fill={faceColor} className="companion-notes" aria-hidden="true">
+					<text x="76" y="26" fontSize="13">
+						♪
+					</text>
+					<text x="86" y="18" fontSize="11">
+						♫
+					</text>
+				</g>
 			)}
 
 			{/* Two things that only exist in one state each. */}

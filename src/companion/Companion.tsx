@@ -89,6 +89,8 @@ interface CompanionProps {
 	cursor: { x: number; y: number } | null
 	/** The frontmost application, and when it became frontmost. */
 	activeApp: { name: string; since: number } | null
+	/** Whatever a music player is showing in its window title, if anything. */
+	nowPlaying: { artist: string; song: string } | null
 	/** Unix seconds until which he keeps unprompted remarks to himself. */
 	quietUntil: number
 	/** The microphone is live somewhere — treated as "you are in a call". */
@@ -114,6 +116,7 @@ export const Companion = ({
 	settings,
 	cursor,
 	activeApp,
+	nowPlaying,
 	quietUntil,
 	inCall,
 	inCallMode,
@@ -536,6 +539,24 @@ export const Companion = ({
 		}
 	}, [peeking, moveTo, limits])
 
+	/**
+	 * A new track. The singing itself is not gated by any of the chatter floors —
+	 * it is not speech, it is him reacting to the room — but the *line* about it
+	 * goes through `say` like everything else, so quiet and in-call still hold.
+	 */
+	// biome-ignore lint: reacts to the track changing, not to the copy changing.
+	useEffect(() => {
+		if (!nowPlaying) return
+		if (Math.random() > 0.4) return
+
+		const timer = window.setTimeout(() => {
+			react('happy', 'pop', 2_000)
+			say(pick(copy.track)(nowPlaying.artist, nowPlaying.song), 6_000)
+		}, 2_500)
+
+		return () => clearTimeout(timer)
+	}, [nowPlaying])
+
 	/** Everything unprompted, on one poll. Chattiness stretches every floor. */
 	useEffect(() => {
 		const moments = [
@@ -818,6 +839,7 @@ export const Companion = ({
 			data-size={settings.size}
 			data-walking={motion ? 'true' : undefined}
 			data-side={pos.x > window.innerWidth / 2 ? 'right' : 'left'}
+			data-singing={nowPlaying && !hidden ? 'true' : undefined}
 			data-gesture={gesture ?? undefined}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{
@@ -867,6 +889,7 @@ export const Companion = ({
 						blink={blink}
 						look={aim ?? look}
 						glyph={null}
+						singing={nowPlaying !== null && !hidden}
 						faceColor="var(--purple)"
 						ledColor={mood === 'sleep' ? 'var(--fg-muted)' : 'var(--green)'}
 					/>

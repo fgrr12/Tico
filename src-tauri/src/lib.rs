@@ -3,6 +3,7 @@ mod active_app;
 mod brain;
 mod call;
 mod cursor;
+mod music;
 #[cfg(target_os = "macos")]
 mod macos;
 mod state;
@@ -403,6 +404,7 @@ pub fn run() {
             cursor::watch(handle.clone());
             active_app::watch(handle.clone());
             call::watch(handle.clone());
+            music::watch(handle.clone());
             handle.global_shortcut().register(ask_shortcut).ok();
 
             Ok(())

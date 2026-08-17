@@ -30,6 +30,7 @@ export default function App() {
 		since: number
 	} | null>(null)
 	const [asking, setAsking] = useState(false)
+	const [nowPlaying, setNowPlaying] = useState<{ artist: string; song: string } | null>(null)
 	const [inCall, setInCall] = useState(false)
 
 	useEffect(() => {
@@ -57,6 +58,9 @@ export default function App() {
 		const call = listen<{ active: boolean }>('in-call', (event) =>
 			setInCall(event.payload.active)
 		)
+		const music = listen<{ artist: string; song: string } | null>('now-playing', (event) =>
+			setNowPlaying(event.payload)
+		)
 
 		return () => {
 			cursorMoved.then((off) => off())
@@ -64,6 +68,7 @@ export default function App() {
 			appChanged.then((off) => off())
 			asked.then((off) => off())
 			call.then((off) => off())
+			music.then((off) => off())
 		}
 	}, [])
 
@@ -88,7 +93,12 @@ export default function App() {
 			try {
 				return await invoke<{ say: string; mood?: string }>('ask', {
 					request: {
-						system: systemPrompt(language, activeApp?.name ?? null, activeApp?.title ?? null),
+						system: systemPrompt(
+							language,
+							activeApp?.name ?? null,
+							activeApp?.title ?? null,
+							nowPlaying
+						),
 						question,
 					},
 				})
@@ -120,6 +130,7 @@ export default function App() {
 			settings={{ chattiness: boot.chattiness, size: boot.size }}
 			cursor={cursor}
 			activeApp={activeApp}
+			nowPlaying={nowPlaying}
 			quietUntil={boot.quiet_until}
 			inCall={inCall}
 			inCallMode={boot.in_call}

@@ -80,13 +80,15 @@ How you answer:
 export const systemPrompt = (
 	language: Language,
 	activeApp: string | null,
-	windowTitle: string | null
+	windowTitle: string | null,
+	nowPlaying: { artist: string; song: string } | null = null
 ): string =>
 	[
 		RULES,
 		`Answer in ${language === 'es' ? 'Spanish, using Costa Rican voseo' : 'English'}.`,
 		activeApp ? `Right now they are using ${activeApp}. Mention it only if it helps.` : '',
 		windowTitle ? `The window they are looking at is titled "${windowTitle}".` : '',
+		nowPlaying ? `They are listening to "${nowPlaying.song}" by ${nowPlaying.artist}.` : '',
 		'',
 		'What you know:',
 		FACTS,
