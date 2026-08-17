@@ -175,6 +175,10 @@ interface CompanionCopy {
 	/** Before he takes off, and after he lands. */
 	rocketUp: string[]
 	rocketDown: string[]
+	/** He can see which file you have open. Occasionally he mentions it. */
+	file: ((name: string) => string)[]
+	/** Keyed by extension, for the ones worth a specific remark. */
+	fileByExt: Record<string, ((name: string) => string)[]>
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
@@ -219,6 +223,40 @@ const APP_PATTERNS: [string, string[]][] = [
  * a pet that is always afraid is not afraid of anything.
  */
 export const TERRORS = ['meeting', 'xcode']
+
+/**
+ * The document inside a window title, when there is one.
+ *
+ * Editors all format the title differently — "Companion.tsx — tico", "● app.rs",
+ * "Project — File.swift" — but every one of them puts the filename in there
+ * somewhere, so finding the filename is more reliable than parsing the format.
+ *
+ * Restricted to extensions people actually edit, which is what keeps "Brave
+ * Search - Brave" and a title containing github.com out of it. Anything the
+ * sensitive-title blocklist rejects never reaches here at all.
+ */
+const DOCUMENT_EXTENSIONS = new Set([
+	'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'vue', 'svelte', 'astro',
+	'rs', 'go', 'py', 'rb', 'php', 'java', 'kt', 'swift', 'dart', 'lua', 'ex', 'exs',
+	'c', 'h', 'cpp', 'hpp', 'cs', 'm', 'mm',
+	'html', 'css', 'scss', 'sass', 'json', 'toml', 'yaml', 'yml', 'xml', 'sql', 'sh',
+	'md', 'mdx', 'txt', 'csv', 'pdf', 'docx', 'xlsx',
+	'png', 'jpg', 'jpeg', 'svg', 'webp',
+])
+
+export const documentIn = (title: string | null): string | null => {
+	if (!title) return null
+
+	for (const raw of title.split(/[\s—–|:]+/)) {
+		// The leading dot some editors use for "unsaved" is not part of the name.
+		const token = raw.replace(/^[●•*]+/, '').trim()
+		const dot = token.lastIndexOf('.')
+		if (dot <= 0 || dot === token.length - 1) continue
+		if (DOCUMENT_EXTENSIONS.has(token.slice(dot + 1).toLowerCase())) return token
+	}
+
+	return null
+}
 
 export const matchApp = (name: string): string | null => {
 	const needle = name.toLowerCase()
@@ -619,6 +657,26 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Arrived. Do not ask about the fuel.',
 			'That was a lot of effort for four hundred pixels.',
 		],
+
+		file: [
+			(name) => `${name} again.`,
+			(name) => `You and ${name} have history.`,
+			(name) => `Back in ${name}.`,
+			(name) => `${name}. Of course.`,
+			(name) => `Still ${name}, then.`,
+			(name) => `I have seen ${name} before.`,
+		],
+
+		fileByExt: {
+			sql: [(name) => `${name}. Careful in there.`],
+			md: [(name) => `${name} — writing, not building. It counts.`],
+			json: [(name) => `${name}. Somebody will forget a comma.`],
+			css: [(name) => `${name}. Two pixels, four hours.`],
+			rs: [(name) => `${name}. The compiler is going to have opinions.`],
+			toml: [(name) => `${name}. Nobody edits this for fun.`],
+			yml: [(name) => `${name}. Mind the indentation.`],
+			yaml: [(name) => `${name}. Mind the indentation.`],
+		},
 		label: 'tico',
 	},
 
@@ -1018,6 +1076,26 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Llegué. No preguntés por el combustible.',
 			'Mucho esfuerzo para cuatrocientos píxeles.',
 		],
+
+		file: [
+			(name) => `${name} otra vez.`,
+			(name) => `Vos y ${name} tienen historia.`,
+			(name) => `De vuelta en ${name}.`,
+			(name) => `${name}. Obvio.`,
+			(name) => `Todavía ${name}, entonces.`,
+			(name) => `A ${name} ya lo había visto.`,
+		],
+
+		fileByExt: {
+			sql: [(name) => `${name}. Cuidado ahí.`],
+			md: [(name) => `${name} — escribiendo, no construyendo. También cuenta.`],
+			json: [(name) => `${name}. Alguien va a olvidar una coma.`],
+			css: [(name) => `${name}. Dos píxeles, cuatro horas.`],
+			rs: [(name) => `${name}. El compilador va a tener opiniones.`],
+			toml: [(name) => `${name}. Nadie edita esto por gusto.`],
+			yml: [(name) => `${name}. Ojo con la indentación.`],
+			yaml: [(name) => `${name}. Ojo con la indentación.`],
+		},
 		label: 'tico',
 	},
 }

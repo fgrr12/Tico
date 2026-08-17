@@ -4,6 +4,7 @@ import { CompanionFace } from './CompanionFace'
 
 import {
 	companionCopy,
+	documentIn,
 	TERRORS,
 	energyAt,
 	type Feeling,
@@ -81,6 +82,9 @@ const REVEAL_BY_FEELING: Partial<Record<Feeling, number>> = {
  */
 const NOTICE_AFTER = 1_800
 const APP_LINE_EVERY = 180_000
+/** Between two remarks about which file is open. Rarer than app remarks: you
+ *  change file far more often than you change application. */
+const FILE_LINE_EVERY = 420_000
 const APP_REPEAT_AFTER = 900_000
 /** More switches than this inside the window and he says something about it. */
 const SWITCH_WINDOW = 120_000
@@ -110,8 +114,8 @@ interface CompanionProps {
 	/** Anything due today that has not been marked done. */
 	reminders: { id: string; text: string }[]
 	onReminderDone: (id: string) => void
-	/** The frontmost application, and when it became frontmost. */
-	activeApp: { name: string; since: number } | null
+	/** The frontmost application, its focused window's title, and since when. */
+	activeApp: { name: string; title: string | null; since: number } | null
 	/** Whatever a music player is showing in its window title, if anything. */
 	nowPlaying: { artist: string; song: string } | null
 	/** Unix seconds until which he keeps unprompted remarks to himself. */
@@ -195,7 +199,9 @@ export const Companion = ({
 	const switches = useRef<number[]>([])
 	const switchLineAt = useRef(0)
 	const dwellDone = useRef(new Set<number>())
-	const appNow = useRef<{ name: string; since: number } | null>(null)
+	const appNow = useRef<{ name: string; title: string | null; since: number } | null>(null)
+	const lastDocument = useRef<string | null>(null)
+	const fileLineAt = useRef(0)
 	const motionNow = useRef<Motion | null>(null)
 	const remindedToday = useRef(new Set<string>())
 	const lastCursorX = useRef<number | null>(null)
@@ -558,8 +564,16 @@ export const Companion = ({
 	useEffect(() => {
 		if (!activeApp) return
 
+		const switchedApp = appNow.current?.name !== activeApp.name
 		appNow.current = activeApp
-		dwellDone.current.clear()
+
+		// Only a real app change resets these. Changing file inside the same editor
+		// used to clear the dwell marks, which is the same bug as the one that used
+		// to restart the dwell *clock* — fixed there, missed here.
+		if (switchedApp) {
+			dwellDone.current.clear()
+			switches.current = [...switches.current, Date.now()]
+		}
 
 		// Marked as seen a beat after arriving, which is what gives `curious` a
 		// window to exist in.
@@ -568,8 +582,31 @@ export const Companion = ({
 		const timer = window.setTimeout(() => {
 			const now = Date.now()
 
-			switches.current = [...switches.current, now].filter((at) => now - at < SWITCH_WINDOW)
+			switches.current = switches.current.filter((at) => now - at < SWITCH_WINDOW)
 			if (!canSpeak()) return
+
+			/**
+			 * The file, when he can see one. More observant than the app by a long
+			 * way — "estás en VS Code" is true all day, and "Companion.tsx otra vez"
+			 * is about this minute.
+			 */
+			const document = documentIn(activeApp.title)
+			if (
+				document &&
+				document !== lastDocument.current &&
+				now - fileLineAt.current > FILE_LINE_EVERY * rate.current
+			) {
+				lastDocument.current = document
+				fileLineAt.current = now
+				appLineAt.current = now
+
+				const ext = document.slice(document.lastIndexOf('.') + 1).toLowerCase()
+				const specific = copy.fileByExt[ext]
+				react('watching', undefined, 1_600)
+				lookAt(0, -0.8, 1_400)
+				say(pick(specific ?? copy.file)(document), 5_500)
+				return
+			}
 
 			// Bouncing between windows outranks any one of them: it is the more
 			// interesting thing to have noticed.
