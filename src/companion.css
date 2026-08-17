@@ -17,6 +17,10 @@
 	--green: #9ece6a;
 	--pink: #f7768e;
 	--purple: #bb9af7;
+	/* Missing until the crown came out black. The props were written against the
+	   portfolio's full token set and only part of it was carried over. */
+	--amber: #e0af68;
+	--cyan: #7dcfff;
 
 	--mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 

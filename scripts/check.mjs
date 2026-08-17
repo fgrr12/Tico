@@ -166,6 +166,23 @@ check('the face is readable on its screen in every feeling', () => {
 	return `worst is ${worst.feeling} at ${worst.ratio.toFixed(1)}:1`
 })
 
+check('every custom property used is defined somewhere', () => {
+	const sources = [css, companion, readFileSync(new URL('../src/companion/CompanionFace.tsx', import.meta.url), 'utf8')]
+
+	// `var(--x, fallback)` is fine undefined — the fallback is the point.
+	const used = new Set(
+		sources.flatMap((source) => [...source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map((m) => m[1]))
+	)
+	const defined = new Set([...css.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]))
+
+	const missing = [...used].filter((name) => !defined.has(name))
+	// An undefined paint variable is not an error anywhere — SVG quietly falls
+	// back to black, which is how the crown shipped black.
+	assert(missing.length === 0, `used but never defined: ${missing.join(', ')}`)
+
+	return `${used.size} used, all defined`
+})
+
 // ── copy ────────────────────────────────────────────────────────────────────
 
 check('both languages carry the same keys', () => {

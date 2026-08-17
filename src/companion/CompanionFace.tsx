@@ -310,16 +310,19 @@ const Prop = ({ kind }: { kind: string }) => {
 			return (
 				<g className="companion-prop">
 					<path d="M48 -12 L62 20 L34 20 Z" fill="var(--pink)" />
-					<path d="M48 -12 L55 4 L41 4 Z" fill="var(--amber)" opacity="0.8" />
+					<path d="M40 12 L56 12 L58 17 L38 17 Z" fill="var(--amber)" />
 					<circle cx="48" cy="-14" r="4" fill="var(--cyan)" />
 				</g>
 			)
 		case 'tophat':
+			// Not black. A black hat on a dark desktop is a purple stripe floating
+			// over nothing, which is what this was.
 			return (
 				<g className="companion-prop">
-					<rect x="30" y="14" width="36" height="5" rx="2.5" fill="#1a1c23" />
-					<rect x="36" y="-12" width="24" height="27" rx="3" fill="#1a1c23" />
-					<rect x="36" y="2" width="24" height="5" fill="var(--purple)" />
+					<rect x="28" y="13" width="40" height="6" rx="3" fill="#3a4054" />
+					<rect x="36" y="-13" width="24" height="28" rx="3" fill="#2e3444" />
+					<rect x="36" y="1" width="24" height="6" fill="var(--purple)" />
+					<rect x="36" y="-13" width="6" height="28" fill="#3a4054" opacity="0.5" />
 				</g>
 			)
 		case 'shades':
@@ -332,17 +335,21 @@ const Prop = ({ kind }: { kind: string }) => {
 				</g>
 			)
 		case 'headphones':
+			// The band has to clear the top of his head, not run through it, and at
+			// #2a2e3a it was the same colour as the body it was hiding inside.
 			return (
 				<g className="companion-prop">
 					<path
-						d="M14 34 A34 34 0 0 1 82 34"
+						d="M10 46 A38 38 0 0 1 86 46"
 						fill="none"
-						stroke="#2a2e3a"
+						stroke="#4a5164"
 						strokeWidth="7"
 						strokeLinecap="round"
 					/>
-					<rect x="6" y="32" width="14" height="22" rx="6" fill="#2a2e3a" />
-					<rect x="76" y="32" width="14" height="22" rx="6" fill="#2a2e3a" />
+					<rect x="2" y="42" width="15" height="24" rx="7" fill="#4a5164" />
+					<rect x="79" y="42" width="15" height="24" rx="7" fill="#4a5164" />
+					<rect x="5" y="47" width="9" height="14" rx="4" fill="#20242e" />
+					<rect x="82" y="47" width="9" height="14" rx="4" fill="#20242e" />
 				</g>
 			)
 		case 'crown':
@@ -353,35 +360,48 @@ const Prop = ({ kind }: { kind: string }) => {
 				</g>
 			)
 		case 'flower':
+			// Tucked against the corner of his head. Out at x=74 it read as a
+			// separate object hovering beside him rather than something worn.
 			return (
 				<g className="companion-prop">
 					<g fill="var(--pink)">
-						<circle cx="70" cy="12" r="5" />
-						<circle cx="79" cy="12" r="5" />
-						<circle cx="74.5" cy="4" r="5" />
-						<circle cx="74.5" cy="20" r="5" />
+						<circle cx="62" cy="14" r="5" />
+						<circle cx="71" cy="14" r="5" />
+						<circle cx="66.5" cy="7" r="5" />
+						<circle cx="66.5" cy="21" r="5" />
 					</g>
-					<circle cx="74.5" cy="12" r="3.5" fill="var(--amber)" />
+					<circle cx="66.5" cy="14" r="3.5" fill="var(--amber)" />
 				</g>
 			)
 		case 'scarf':
+			// A band with a hanging end, rather than the plank across his middle
+			// this used to be. The fringe lines are what make it read as cloth.
 			return (
 				<g className="companion-prop">
-					<rect x="18" y="74" width="60" height="9" rx="4.5" fill="var(--pink)" />
-					<rect x="62" y="78" width="10" height="20" rx="4" fill="var(--pink)" />
+					<path
+						d="M14 72 q34 9 68 0 v10 q-34 9 -68 0 z"
+						fill="var(--pink)"
+					/>
+					<path d="M62 80 q7 3 11 1 l3 20 q-6 3 -12 0 z" fill="#e0637c" />
+					<g stroke="#c9536a" strokeWidth="1.5" strokeLinecap="round">
+						<line x1="65" y1="99" x2="65" y2="103" />
+						<line x1="70" y1="100" x2="70" y2="104" />
+						<line x1="74" y1="99" x2="74" y2="103" />
+					</g>
 				</g>
 			)
 		case 'coffee':
+			// Sitting on the hand rather than floating beside it, and with steam,
+			// which is the only part that says it is hot rather than a white box.
 			return (
 				<g className="companion-prop">
-					<rect x="-4" y="46" width="15" height="17" rx="3" fill="#e8e8ea" />
-					<path
-						d="M11 50 a5 5 0 0 1 0 9"
-						fill="none"
-						stroke="#e8e8ea"
-						strokeWidth="2.5"
-					/>
-					<rect x="-4" y="46" width="15" height="4" rx="2" fill="#6b4a2f" />
+					<rect x="-1" y="44" width="15" height="17" rx="3" fill="#e8e8ea" />
+					<path d="M14 48 a5 5 0 0 1 0 9" fill="none" stroke="#e8e8ea" strokeWidth="2.5" />
+					<rect x="-1" y="44" width="15" height="4" rx="2" fill="#6b4a2f" />
+					<g stroke="#e8e8ea" strokeWidth="1.5" strokeLinecap="round" opacity="0.45">
+						<path d="M3 40 q2-4 0-8" fill="none" />
+						<path d="M9 40 q2-4 0-8" fill="none" />
+					</g>
 				</g>
 			)
 		default:
