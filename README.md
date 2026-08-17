@@ -72,8 +72,26 @@ saying something, and never while quiet or in a call.
 
 ## Stack
 
-Tauri v2 · Rust · React 19 · TypeScript · llama.cpp sidecar
+Tauri v2 · Rust · React 19 · TypeScript. No model, no network, no runtime
+dependency — 10 MB that runs on its own.
 
-The shell is lifted from [Lyra](../Lyrics-app): the same transparent always-on-top
-overlay, tray, autostart, global shortcut and multi-monitor handling, which is
-already solved and shipped there.
+The shell is lifted from [Lyra](../Lyrics-app): the same transparent
+always-on-top overlay, tray, autostart and multi-monitor handling, already solved
+and shipped there.
+
+A local model was built and then removed — six attempts at having it write his
+voice in Spanish, all recorded in [PLAN.md](PLAN.md). Everything he says is
+written by hand, which turned out to be both the cheaper and the better answer.
+
+## Permissions
+
+Two, both optional, neither asked for at launch.
+
+- **Automation → Spotify**, so he knows the track and can sing along. Requested
+  the first time something is playing.
+- **Accessibility**, only if you switch on *Read window titles*. It is what lets
+  him say "Companion.tsx otra vez" instead of "estás en VS Code". Titles that
+  look sensitive are never read at all, and no title is ever spoken out loud —
+  it is context, never content.
+
+Nothing here reads a pixel, and nothing leaves the machine.
