@@ -89,6 +89,10 @@ interface CompanionCopy {
 	switching: string[]
 	/** Said once when a new track starts, and not every time. */
 	track: ((artist: string, song: string) => string)[]
+	/** Keyed by prop. Putting something on is an event, so it gets a line. */
+	props: Record<string, string[]>
+	/** Taking it off again, which is less of an event and says so. */
+	propOff: string[]
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
@@ -306,6 +310,35 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			(_artist, song) => `${song}. I will hum along.`,
 		],
 
+
+		props: {
+			party: [
+				'There is nothing to celebrate. Still.',
+				'Somebody had to put it on.',
+				'Whose birthday? Nobody\u2019s.',
+			],
+			tophat: ['Formal.', 'I feel important today.', 'Do not ask.'],
+			shades: [
+				'That screen is very bright.',
+				'Now you cannot tell whether I am looking at you.',
+				'Everything looks better through these.',
+			],
+			crown: [
+				'I earned this.',
+				'Nobody gave it to me. I put it on.',
+				'King of one strip of pixels.',
+			],
+			flower: ['Found it.', 'It matches. Do not argue.'],
+			scarf: ['It is cold down here.', 'It gives me character.'],
+			coffee: [
+				'I cannot drink it. It is decorative.',
+				'Holding it already helps.',
+				'You have not had water today either.',
+			],
+			headphones: ['Now we both hear it.', 'Lend me a song.'],
+		},
+
+		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
 		label: 'tico',
 	},
 
@@ -489,6 +522,35 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			(_artist, song) => `${song}. La tarareo con vos.`,
 		],
 
+
+		props: {
+			party: [
+				'No hay nada que celebrar. Igual.',
+				'Alguien tenía que ponérselo.',
+				'¿Cumpleaños de quién? De nadie.',
+			],
+			tophat: ['Formal.', 'Hoy me siento importante.', 'No preguntés.'],
+			shades: [
+				'Esa pantalla brilla demasiado.',
+				'Ahora no sabés si te estoy viendo.',
+				'Todo se ve mejor a través de estos.',
+			],
+			crown: [
+				'Me la gané.',
+				'Nadie me la dio. Me la puse yo.',
+				'Rey de una franja de píxeles.',
+			],
+			flower: ['Me la encontré.', 'Combina. No discutás.'],
+			scarf: ['Hace frío aquí abajo.', 'Me da carácter.'],
+			coffee: [
+				'No me lo puedo tomar. Es decorativo.',
+				'Sostenerlo ya ayuda.',
+				'Vos tampoco has tomado agua hoy.',
+			],
+			headphones: ['Ahora lo escuchamos los dos.', 'Prestame una canción.'],
+		},
+
+		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
 		label: 'tico',
 	},
 }

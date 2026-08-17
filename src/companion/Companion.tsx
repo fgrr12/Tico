@@ -717,11 +717,20 @@ export const Companion = ({
 			// reason, which is what makes the rest read as having none.
 			const kind = nowPlaying && Math.random() < 0.6 ? 'headphones' : pick(PROPS)
 			setProp(kind)
+
+			// A beat after it appears, not with it. He puts the thing on and *then*
+			// has an opinion about it, which is the order those two happen in.
+			const lines = copy.props[kind]
+			if (lines && Math.random() < 0.65) {
+				window.setTimeout(() => say(pick(lines), 5_000), 1_200)
+			}
+
 			clearTimeout(propTimer.current)
-			propTimer.current = window.setTimeout(
-				() => setProp(null),
-				25_000 + Math.random() * 70_000
-			)
+			propTimer.current = window.setTimeout(() => {
+				setProp(null)
+				// Taking it off is the smaller event and gets commented on less.
+				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
+			}, 25_000 + Math.random() * 70_000)
 		}
 
 		const perform = (key: string) => {
