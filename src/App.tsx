@@ -31,10 +31,18 @@ export default function App() {
 	} | null>(null)
 	const [asking, setAsking] = useState(false)
 	const [nowPlaying, setNowPlaying] = useState<{ artist: string; song: string } | null>(null)
+	const [reminders, setReminders] = useState<{ id: string; text: string }[]>([])
 	const [inCall, setInCall] = useState(false)
 
 	useEffect(() => {
 		invoke<Boot>('boot').then(setBoot)
+
+		// Re-read on a slow clock so anything that writes to reminders.json is
+		// noticed without tico having to be restarted.
+		const readReminders = () =>
+			invoke<{ id: string; text: string }[]>('due_reminders').then(setReminders)
+		readReminders()
+		const remindersTimer = setInterval(readReminders, 300_000)
 
 		const cursorMoved = listen<{ x: number; y: number }>('cursor', (event) =>
 			setCursor(event.payload)
@@ -69,6 +77,7 @@ export default function App() {
 			asked.then((off) => off())
 			call.then((off) => off())
 			music.then((off) => off())
+			clearInterval(remindersTimer)
 		}
 	}, [])
 
@@ -109,6 +118,12 @@ export default function App() {
 		[language, activeApp]
 	)
 
+	const handleReminderDone = useCallback((id: string) => {
+		invoke('complete_reminder', { id }).then(() =>
+			invoke<{ id: string; text: string }[]>('due_reminders').then(setReminders)
+		)
+	}, [])
+
 	const handleAction = useCallback(
 		(action: string, query: string) =>
 			invoke<{ ok: boolean; label: string }>('run_action', { action, query }),
@@ -131,6 +146,8 @@ export default function App() {
 			cursor={cursor}
 			activeApp={activeApp}
 			nowPlaying={nowPlaying}
+			reminders={reminders}
+			onReminderDone={handleReminderDone}
 			quietUntil={boot.quiet_until}
 			inCall={inCall}
 			inCallMode={boot.in_call}

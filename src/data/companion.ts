@@ -47,6 +47,8 @@ interface CompanionCopy {
 	notFound: (query: string) => string
 	/** Said once when a new track starts, and not every time. */
 	track: ((artist: string, song: string) => string)[]
+	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
+	reminderDone: string
 	label: string
 }
 
@@ -207,6 +209,8 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		openingUrl: (host) => `Off to ${host}.`,
 		notFound: (query) => `Nothing called "${query}" that I can find.`,
 
+		reminderDone: 'done',
+
 		track: [
 			(artist) => `${artist}. Good call.`,
 			(_artist, song) => `"${song}". I know this one.`,
@@ -338,6 +342,8 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		revealing: (name) => `Ahí está — ${name}.`,
 		openingUrl: (host) => `Vamos a ${host}.`,
 		notFound: (query) => `No encontré nada que se llame "${query}".`,
+
+		reminderDone: 'ya está',
 
 		track: [
 			(artist) => `${artist}. Buena.`,

@@ -87,6 +87,9 @@ interface CompanionProps {
 	settings: Settings
 	/** Global cursor, in CSS pixels relative to the strip. `y` is negative above it. */
 	cursor: { x: number; y: number } | null
+	/** Anything due today that has not been marked done. */
+	reminders: { id: string; text: string }[]
+	onReminderDone: (id: string) => void
 	/** The frontmost application, and when it became frontmost. */
 	activeApp: { name: string; since: number } | null
 	/** Whatever a music player is showing in its window title, if anything. */
@@ -116,6 +119,8 @@ export const Companion = ({
 	settings,
 	cursor,
 	activeApp,
+	reminders,
+	onReminderDone,
 	nowPlaying,
 	quietUntil,
 	inCall,
@@ -140,6 +145,8 @@ export const Companion = ({
 	const [pos, setPos] = useState({ x: 0, lift: 0 })
 	const [motion, setMotion] = useState<Motion | null>(null)
 	const [bubble, setBubble] = useState<string | null>(null)
+	// Set only for a reminder: the bubble grows a button and waits to be dismissed.
+	const [pending, setPending] = useState<string | null>(null)
 	const [typed, setTyped] = useState('')
 	const [fx, setFx] = useState<{ name: string; n: number } | null>(null)
 	const [question, setQuestion] = useState('')
@@ -175,6 +182,7 @@ export const Companion = ({
 	const dwellDone = useRef(new Set<number>())
 	const appNow = useRef<{ name: string; since: number } | null>(null)
 	const motionNow = useRef<Motion | null>(null)
+	const remindedToday = useRef(new Set<string>())
 	const peekingNow = useRef(false)
 	const homeX = useRef<number | null>(null)
 	const waveAt = useRef(0)
@@ -228,6 +236,7 @@ export const Companion = ({
 		if (silent.current.presenting) return
 		if (!forced && silent.current.quietUntil > Date.now() / 1_000) return
 
+		setPending(null)
 		setBubble(text)
 		clearTimeout(bubbleTimer.current)
 		bubbleTimer.current = window.setTimeout(() => setBubble(null), ms + text.length * SAY_REVEAL)
@@ -538,6 +547,31 @@ export const Companion = ({
 			moveTo(back, 0)
 		}
 	}, [peeking, moveTo, limits])
+
+	/**
+	 * A reminder waits for a gap rather than taking one: it fires from the same
+	 * poll as everything else unprompted, so quiet, in-call and "he is already
+	 * saying something" all apply without a second set of rules. Once a day per
+	 * reminder — more than that is nagging, and nagging is how a reminder gets
+	 * ignored on the day it matters.
+	 */
+	useEffect(() => {
+		if (reminders.length === 0) return
+
+		const timer = window.setInterval(() => {
+			if (!canSpeak()) return
+
+			const next = reminders.find((item) => !remindedToday.current.has(item.id))
+			if (!next) return
+
+			remindedToday.current.add(next.id)
+			react('watching', 'pop', 3_000)
+			setPending(next.id)
+			say(next.text, 20_000)
+		}, 9_000)
+
+		return () => clearInterval(timer)
+	}, [reminders, canSpeak, react, say])
 
 	/**
 	 * A new track. The singing itself is not gated by any of the chatter floors —
@@ -869,6 +903,21 @@ export const Companion = ({
 					<div className="companion-bubble">
 						{typed}
 						{typed.length < bubble.length && <span className="caret">▌</span>}
+
+						{pending && typed.length === bubble.length && (
+							<button
+								type="button"
+								className="companion-done"
+								onClick={() => {
+									onReminderDone(pending)
+									setPending(null)
+									setBubble(null)
+									react('happy', 'hop', 2_000)
+								}}
+							>
+								{copy.reminderDone}
+							</button>
+						)}
 					</div>
 				)
 			)}

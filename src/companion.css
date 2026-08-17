@@ -609,3 +609,21 @@ body,
 		transform: translate(12px, -22px) rotate(14deg);
 	}
 }
+
+/* The one button he ever shows: dismissing a reminder. */
+.companion-done {
+	display: block;
+	margin-top: 0.5rem;
+	padding: 0.2rem 0.55rem;
+	font-family: var(--mono);
+	font-size: 11px;
+	color: var(--bg-pane);
+	background: var(--purple);
+	border: 0;
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+.companion-done:hover {
+	background: #c7aaf8;
+}

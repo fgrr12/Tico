@@ -283,6 +283,35 @@ This is the piece to revisit first if a cloud model is ever allowed: today
 titles never leave 127.0.0.1, and that is a property of the current setup rather
 than of the design.
 
+## Talking to his own apps
+
+**Music.** Spotify and Music are asked directly over AppleScript, the way Lyra
+does it. The first attempt read Spotify's *window title* instead, on the theory
+that it holds the track while playing and would therefore need no new
+permission — it does not, and with a track loaded and paused the title is
+"Spotify Premium". AppleScript is the better tool anyway: it returns the track
+instead of a string to be parsed back into one, it knows whether the player is
+actually playing, and "tico wants to control Spotify" is a narrower thing to ask
+than "tico wants to control your computer". Singing is layered over whatever he
+is already doing — he keeps walking and blinking, because stopping for a song
+would make the music an interruption.
+
+**Reminders are a drop box, not an integration.** My-Finances keeps its data in
+Supabase, so the obvious version — tico reading it — means credentials, network,
+and coupling two apps that have no reason to know about each other. Instead:
+`reminders.json`, beside his own settings, which anything at all can write.
+My-Finances can start writing to it whenever it likes; until then the seeded
+monthly IVA entry already covers the case that prompted this.
+
+A reminder waits for a gap rather than taking one — it fires from the same idle
+poll as everything else, so quiet, in-call and "he is already talking" all apply
+without a second set of rules. Once a day per reminder, and it is dismissed with
+a **button** rather than by saying "ya lo pagué": one click cannot be
+misclassified, and the classifier has already opened one padlock.
+
+Marking a monthly reminder done rolls it to next month rather than retiring it.
+Paying August's IVA does not mean September's is handled.
+
 ## Tried and rejected: the spontaneous brain
 
 Letting the model write his *unprompted* lines, not just his answers. Built,

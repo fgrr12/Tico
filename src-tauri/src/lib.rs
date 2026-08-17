@@ -4,6 +4,7 @@ mod brain;
 mod call;
 mod cursor;
 mod music;
+mod reminders;
 #[cfg(target_os = "macos")]
 mod macos;
 mod state;
@@ -143,6 +144,8 @@ pub fn run() {
             brain::brain_status,
             brain::ask,
             actions::run_action,
+            reminders::due_reminders,
+            reminders::complete_reminder,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
