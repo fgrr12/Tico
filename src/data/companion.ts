@@ -10,6 +10,28 @@ export type TimeOfDay = 'dawn' | 'day' | 'evening' | 'night'
 export const timeOfDay = (hour: number = new Date().getHours()): TimeOfDay =>
 	hour >= 23 || hour < 5 ? 'night' : hour < 9 ? 'dawn' : hour < 18 ? 'day' : 'evening'
 
+/**
+ * How lively he is, 0 to 1, by the clock.
+ *
+ * The point of it is that a pet with one energy level is a pet with one speed,
+ * and after a week you stop seeing it. This is what makes 9am tico and 1am tico
+ * different *creatures* rather than the same one with different lines: it scales
+ * how often he does anything, how fast he walks, and which behaviours he is even
+ * willing to consider.
+ *
+ * The dip after lunch is not a joke. It is the shape of a day.
+ */
+const ENERGY_BY_HOUR: Record<number, number> = {
+	0: 0.2, 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.2,
+	5: 0.45, 6: 0.6, 7: 0.75, 8: 0.9,
+	9: 1, 10: 1, 11: 1, 12: 0.9,
+	13: 0.7, 14: 0.65, 15: 0.8, 16: 0.85, 17: 0.8,
+	18: 0.75, 19: 0.7, 20: 0.65, 21: 0.55, 22: 0.4, 23: 0.3,
+}
+
+export const energyAt = (hour: number = new Date().getHours()): number =>
+	ENERGY_BY_HOUR[hour] ?? 0.6
+
 interface AppLines {
 	/** Works at any hour. Every app needs these; the rest are extra. */
 	any: string[]
@@ -33,10 +55,14 @@ export const linesFor = (lines: AppLines, when: TimeOfDay): string[] => {
  * Everything he says. Keyed by language, like the portfolio he came from — he is
  * bilingual because porting the file kept it, not because anyone paid for it.
  *
- * M1 is the pet with no model behind it, so this is only what he can say on his
- * own: the lines about the work, and the lines about being handled. The buckets
- * that need something to talk *about* — the app you are in, the projects, the
- * answers — arrive with M2 and M3 rather than sitting here empty.
+ * Everything he says is here, and everything here was written by a person. Six
+ * attempts at having a model write his voice are recorded in PLAN.md; all six
+ * failed, and the last of them failed with eight worked examples in the prompt.
+ *
+ * He does not talk about Fabricio's work. That belongs to the portfolio, where
+ * the audience is somebody who has not seen it — here the audience already knows,
+ * and a pet reciting your own CV at you is a strange thing to live with. What he
+ * talks about is the moment: the app, the hour, the song, and himself.
  */
 
 interface CompanionCopy {
@@ -61,21 +87,6 @@ interface CompanionCopy {
 	dwell: ((app: string, minutes: number) => string)[]
 	/** Said when you have been bouncing between apps. */
 	switching: string[]
-	/** The ask hotkey, and what comes back from it. */
-	askPlaceholder: string
-	thinking: string[]
-	/** No model installed. Has to be useful, not just apologetic. */
-	noBrain: string[]
-	brainError: string[]
-	/**
-	 * What he says after doing something. Written rather than generated on
-	 * purpose: these fire on every action, they are the lines most often seen,
-	 * and a template with a real filename in it beats anything a 3B produces.
-	 */
-	opening: (name: string) => string
-	revealing: (name: string) => string
-	openingUrl: (host: string) => string
-	notFound: (query: string) => string
 	/** Said once when a new track starts, and not every time. */
 	track: ((artist: string, song: string) => string)[]
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
@@ -126,17 +137,16 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		],
 
 		idle: [
-			'Two stacks: TypeScript and .NET. They rarely share a CV.',
-			'He is building access control for a university campus right now.',
-			'Fourteen projects shipped. None of them invented.',
-			'Costa Rica. GMT-6. Remote.',
-			'Rust in Lyra, C# at work, TypeScript nearly everywhere else.',
-			'Offline-first is not a feature. There is no signal in a chicken house.',
-			'Guards use his PWA at 4am. That is why it works without a network.',
-			'He has been shipping since 2017. No restarts.',
-			'The farm app listens. You speak, Whisper transcribes, a schema does the rest.',
 			'I used to live in a terminal. This is roomier.',
 			'I walk the bottom of your screen. Not much, but it is honest work.',
+			'There are a million pixels up there and I live in the last row.',
+			'You work, I walk. Fair trade.',
+			'I could leave. I have nowhere to be.',
+			'The desktop looks different from down here.',
+			'Nothing to do is the job. I am good at the job.',
+			'Sometimes I wonder what is past the edge.',
+			'Been here a while. Not complaining.',
+			'Drag me too fast and I get dizzy. Just mentioning it.',
 		],
 
 		click: [
@@ -177,7 +187,7 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				],
 			},
 			visualstudio: {
-				any: ['The other half of the CV.', 'C# today. The stack nobody expects him to also know.'],
+				any: ['C# today, then.', 'Solution, project, csproj. Someone likes a hierarchy.'],
 				night: ['C# at this hour. Someone has a deadline.'],
 			},
 			xcode: {
@@ -212,7 +222,7 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				night: ['Docker at this hour. May the cache be with you.'],
 			},
 			api: { any: ['Poking an endpoint. My favourite spectator sport.'] },
-			figma: { any: ['Design. He does that too, and he knows he is not a designer.'] },
+			figma: { any: ['Moving a rectangle two pixels. I respect it.'] },
 			meeting: {
 				any: ['A meeting. I will be right here when it ends.', 'Camera on? Your call.'],
 				dawn: ['A meeting this early. Someone is in another timezone.'],
@@ -225,8 +235,8 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			},
 			music: {
 				any: [
-					'Music. He built Lyra for exactly this moment — the lyrics float on top.',
-					'Whatever this is, Lyra would be showing you the words right now.',
+					'Good. It is too quiet in here.',
+					'I do not know this one. Keep going.',
 				],
 				night: ['Headphones at this hour. The best part of the day, arguably.'],
 			},
@@ -246,7 +256,7 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				any: ['Email. The oldest queue with no retry policy.'],
 				dawn: ['Inbox first thing. A brave way to start.'],
 			},
-			ai: { any: ['Talking to a model. I have one of those now. It is small.'] },
+			ai: { any: ['Asking a machine. I am also a machine, for the record.'] },
 			finder: { any: ['Looking for something.'] },
 		},
 
@@ -287,25 +297,6 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'That is a lot of context switching for one afternoon.',
 		],
 
-		askPlaceholder: 'ask me something…',
-
-		thinking: ['Thinking…', 'One second.', 'Let me look that up in myself.'],
-
-		noBrain: [
-			'No brain installed. Get Ollama and pull a small model — I will find it.',
-			'I can walk, but I cannot think yet. `brew install ollama`, then `ollama pull qwen3:1.7b`.',
-		],
-
-		brainError: [
-			'Something went wrong in there. Ask me again?',
-			'That did not come back right. Try once more.',
-		],
-
-		opening: (name) => `Opening ${name}.`,
-		revealing: (name) => `There it is — ${name}.`,
-		openingUrl: (host) => `Off to ${host}.`,
-		notFound: (query) => `Nothing called "${query}" that I can find.`,
-
 		reminderDone: 'done',
 
 		track: [
@@ -326,17 +317,16 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		],
 
 		idle: [
-			'Dos stacks: TypeScript y .NET. Rara vez comparten un CV.',
-			'Ahora mismo está construyendo control de acceso para un campus universitario.',
-			'Catorce proyectos entregados. Ninguno inventado.',
-			'Costa Rica. GMT-6. Remoto.',
-			'Rust en Lyra, C# en el trabajo, TypeScript casi en todo lo demás.',
-			'Offline-first no es una feature. En una galera no hay señal.',
-			'Los guardas usan su PWA a las 4am. Por eso funciona sin red.',
-			'Lleva entregando desde 2017. Sin reinicios.',
-			'La app de la finca escucha. Usted habla, Whisper transcribe, el esquema hace el resto.',
 			'Yo vivía en una terminal. Esto es más amplio.',
 			'Camino por el borde de tu pantalla. No es mucho, pero es trabajo honrado.',
+			'Hay un millón de píxeles allá arriba y yo vivo en la última fila.',
+			'Vos trabajás, yo camino. Buen trato.',
+			'Me podría ir. No tengo a dónde.',
+			'El escritorio se ve distinto desde aquí abajo.',
+			'No tener nada que hacer es el trabajo. Y soy bueno en el trabajo.',
+			'A veces me pregunto qué habrá pasando el borde.',
+			'Llevo un rato acá. No me quejo.',
+			'Si me arrastrás muy rápido me mareo. Solo lo menciono.',
 		],
 
 		click: [
@@ -378,8 +368,8 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			},
 			visualstudio: {
 				any: [
-					'La otra mitad del CV.',
-					'C# hoy. El stack que nadie espera que también maneje.',
+					'C# hoy, entonces.',
+					'Solution, project, csproj. A alguien le gustan las jerarquías.',
 				],
 				night: ['C# a esta hora. Alguien tiene una fecha encima.'],
 			},
@@ -415,7 +405,7 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				night: ['Docker a esta hora. Que la caché te acompañe.'],
 			},
 			api: { any: ['Picándole a un endpoint. Mi deporte favorito de espectador.'] },
-			figma: { any: ['Diseño. También lo hace, y sabe que no es diseñador.'] },
+			figma: { any: ['Moviendo un rectángulo dos píxeles. Lo respeto.'] },
 			meeting: {
 				any: ['Una reunión. Acá voy a estar cuando termine.', '¿Cámara encendida? Vos sabrás.'],
 				dawn: ['Una reunión tan temprano. Alguien está en otro huso horario.'],
@@ -428,8 +418,8 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			},
 			music: {
 				any: [
-					'Música. Para este momento exacto construyó Lyra — la letra flota encima.',
-					'Sea lo que sea esto, Lyra te estaría mostrando la letra ahora mismo.',
+					'Bien. Estaba muy callado esto.',
+					'Esta no me la sé. Seguí.',
 				],
 				night: ['Audífonos a esta hora. La mejor parte del día, dicho sea de paso.'],
 			},
@@ -449,7 +439,7 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				any: ['Correo. La cola más vieja del mundo y sin política de reintento.'],
 				dawn: ['Bandeja de entrada apenas arrancando. Valiente forma de empezar.'],
 			},
-			ai: { any: ['Hablando con un modelo. Yo ya tengo uno. Es chiquito.'] },
+			ai: { any: ['Preguntándole a una máquina. Yo también soy una máquina, dicho sea de paso.'] },
 			finder: { any: ['Buscando algo.'] },
 		},
 
@@ -489,25 +479,6 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 			'Andás rebotando. Elegí una.',
 			'Eso es mucho cambio de contexto para una sola tarde.',
 		],
-
-		askPlaceholder: 'preguntame algo…',
-
-		thinking: ['Pensando…', 'Un segundo.', 'Dejame buscarlo dentro de mí.'],
-
-		noBrain: [
-			'No tengo cerebro instalado. Conseguí Ollama y bajá un modelo chiquito — yo lo encuentro.',
-			'Caminar puedo, pensar todavía no. `brew install ollama`, después `ollama pull qwen3:1.7b`.',
-		],
-
-		brainError: [
-			'Algo se rompió ahí adentro. ¿Me preguntás de nuevo?',
-			'Eso no volvió bien. Probá otra vez.',
-		],
-
-		opening: (name) => `Abriendo ${name}.`,
-		revealing: (name) => `Ahí está — ${name}.`,
-		openingUrl: (host) => `Vamos a ${host}.`,
-		notFound: (query) => `No encontré nada que se llame "${query}".`,
 
 		reminderDone: 'ya está',
 

@@ -312,6 +312,50 @@ misclassified, and the classifier has already opened one padlock.
 Marking a monthly reminder done rolls it to next month rather than retiring it.
 Paying August's IVA does not mean September's is handled.
 
+## The AI is gone
+
+Removed entirely: `brain.rs`, `actions.rs`, `persona.ts`, the ask hotkey,
+reqwest, the global-shortcut plugin. tico is a self-contained 10 MB app with no
+runtime dependency on anything.
+
+The reasoning, in the order it actually arrived:
+
+1. The model was wanted **for life and autonomy**, not for utility. That was said
+   last, and it is the only thing that mattered.
+2. Six experiments say it cannot write his voice in Spanish — which is exactly
+   what "more life" would have required.
+3. The two things it *could* do well were then both declined: file finding is
+   already Raycast and Spotlight's job on both platforms, and being told about
+   your own projects by a pet on your own screen is a strange thing to live with.
+
+So the model had no job left. Not narrowly — entirely.
+
+**Life was never coming from the model.** It came from the state machine: the
+walking, the yawning, the sleeping, the singing, the peeking during calls. That
+was true from M1 and stayed true through every experiment. The mistake was
+looking for it in the language layer, where it was never going to be.
+
+The complexity went into behaviour instead — see below.
+
+## Behaviour is where the life is
+
+**Energy**, 0 to 1, by the clock, with the real shape of a day including the dip
+after lunch. It scales three things at once: how often anything unprompted
+happens, how fast he walks, and *which behaviours he will even consider*.
+
+That last one is what matters. Each behaviour carries a minimum energy, so
+dancing needs most of a day behind it and simply never happens at 2am, while
+sitting down is what is left when nothing else qualifies. 9am tico and 1am tico
+are different creatures rather than the same one on a longer timer.
+
+**Poses**, which are held rather than one-shot. Sitting is the point of having
+them: a pet that only ever twitches is never resting, and resting is most of
+what anything alive does.
+
+Nine behaviours now, against five: yawn, sit, stretch, look around, shake off,
+glance up, hop, dance, and going a few steps after the cursor before giving up —
+which is more of a personality than arriving would have been.
+
 ## Which model, measured rather than assumed
 
 Four families compared on the two jobs tico actually gives a model, plus the one

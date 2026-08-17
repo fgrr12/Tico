@@ -3,10 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
-import { type AskResult, Companion } from './companion/Companion'
+import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
-import { systemPrompt } from './data/persona'
 import type { PetRect, Settings } from './types'
 
 interface Boot extends Settings {
@@ -29,7 +28,6 @@ export default function App() {
 		title: string | null
 		since: number
 	} | null>(null)
-	const [asking, setAsking] = useState(false)
 	const [nowPlaying, setNowPlaying] = useState<{ artist: string; song: string } | null>(null)
 	const [reminders, setReminders] = useState<{ id: string; text: string }[]>([])
 	const [inCall, setInCall] = useState(false)
@@ -62,7 +60,6 @@ export default function App() {
 				since: current?.name === event.payload.name ? current.since : Date.now(),
 			}))
 		)
-		const asked = listen('ask', () => setAsking(true))
 		const call = listen<{ active: boolean }>('in-call', (event) =>
 			setInCall(event.payload.active)
 		)
@@ -74,7 +71,6 @@ export default function App() {
 			cursorMoved.then((off) => off())
 			settingsChanged.then((off) => off())
 			appChanged.then((off) => off())
-			asked.then((off) => off())
 			call.then((off) => off())
 			music.then((off) => off())
 			clearInterval(remindersTimer)
@@ -93,46 +89,10 @@ export default function App() {
 		invoke('set_pet_x', { x })
 	}, [])
 
-	/**
-	 * The prompt is built here rather than in Rust because it is personality, and
-	 * personality lives beside the rest of the copy. Rust only does the HTTP.
-	 */
-	const handleAsk = useCallback(
-		async (question: string): Promise<AskResult> => {
-			try {
-				return await invoke<{ say: string; mood?: string }>('ask', {
-					request: {
-						system: systemPrompt(
-							language,
-							activeApp?.name ?? null,
-							activeApp?.title ?? null,
-							nowPlaying
-						),
-						question,
-					},
-				})
-			} catch (error) {
-				return String(error).includes('no-brain') ? 'no-brain' : 'error'
-			}
-		},
-		[language, activeApp]
-	)
-
 	const handleReminderDone = useCallback((id: string) => {
 		invoke('complete_reminder', { id }).then(() =>
 			invoke<{ id: string; text: string }[]>('due_reminders').then(setReminders)
 		)
-	}, [])
-
-	const handleAction = useCallback(
-		(action: string, query: string) =>
-			invoke<{ ok: boolean; label: string }>('run_action', { action, query }),
-		[]
-	)
-
-	const handleAskDone = useCallback(() => {
-		setAsking(false)
-		invoke('set_interactive', { hold: false })
 	}, [])
 
 	// Nothing is drawn until Rust says where he was left, so he never appears in
@@ -151,10 +111,6 @@ export default function App() {
 			quietUntil={boot.quiet_until}
 			inCall={inCall}
 			inCallMode={boot.in_call}
-			asking={asking}
-			onAsk={handleAsk}
-			onAction={handleAction}
-			onAskDone={handleAskDone}
 			initialX={boot.x}
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}

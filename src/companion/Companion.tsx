@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
 
-import { type Language, companionCopy, linesFor, matchApp, timeOfDay } from '../data/companion'
+import {
+	companionCopy,
+	energyAt,
+	type Language,
+	linesFor,
+	matchApp,
+	timeOfDay,
+} from '../data/companion'
 import type { CompanionMood, PetRect, Settings } from '../types'
 
 /**
@@ -74,13 +81,6 @@ const clamp = (value: number) => Math.max(-1, Math.min(1, value))
 
 type Motion = { ms: number; facing: 'left' | 'right' }
 
-export type AskResult =
-	| { say: string; mood?: string; action?: string; query?: string }
-	| 'no-brain'
-	| 'error'
-
-/** Moods the model is allowed to pick. Rust constrains it too; this is the belt. */
-const ANSWER_MOODS: CompanionMood[] = ['idle', 'happy', 'wow', 'love', 'dizzy', 'watching']
 
 interface CompanionProps {
 	language: Language
@@ -99,13 +99,6 @@ interface CompanionProps {
 	/** The microphone is live somewhere — treated as "you are in a call". */
 	inCall: boolean
 	inCallMode: 'peek' | 'hide' | 'ignore'
-	/** The ask hotkey was pressed. The window is already focused when this flips. */
-	asking: boolean
-	onAsk: (question: string) => Promise<AskResult>
-	/** Executes an intent and reports back what actually happened. */
-	onAction: (action: string, query: string) => Promise<{ ok: boolean; label: string }>
-	/** Hands the window back: click-through again, focus returned to whatever had it. */
-	onAskDone: () => void
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	onRectChange: (rect: PetRect) => void
@@ -125,10 +118,6 @@ export const Companion = ({
 	quietUntil,
 	inCall,
 	inCallMode,
-	asking,
-	onAsk,
-	onAction,
-	onAskDone,
 	initialX,
 	onRectChange,
 	onInteractive,
@@ -150,10 +139,11 @@ export const Companion = ({
 	const [pending, setPending] = useState<string | null>(null)
 	const [typed, setTyped] = useState('')
 	const [fx, setFx] = useState<{ name: string; n: number } | null>(null)
-	const [question, setQuestion] = useState('')
 	const [gesture, setGesture] = useState<string | null>(null)
+	/** A held pose, unlike `fx` which is a one-shot. Sitting lasts. */
+	const [pose, setPose] = useState<string | null>(null)
+	const poseTimer = useRef(0)
 
-	const inputRef = useRef<HTMLInputElement>(null)
 
 	const moodTimer = useRef(0)
 	const bubbleTimer = useRef(0)
@@ -184,6 +174,7 @@ export const Companion = ({
 	const appNow = useRef<{ name: string; since: number } | null>(null)
 	const motionNow = useRef<Motion | null>(null)
 	const remindedToday = useRef(new Set<string>())
+	const lastCursorX = useRef<number | null>(null)
 	const peekingNow = useRef(false)
 	const homeX = useRef<number | null>(null)
 	const waveAt = useRef(0)
@@ -318,6 +309,8 @@ export const Companion = ({
 	 */
 	const moveTo = useCallback(
 		(x: number, lift: number, speed = WALK_SPEED, after?: () => void) => {
+			// A tired walk is a slower walk, and it is the cheapest tell there is.
+			speed = speed * (0.65 + energyAt() * 0.35)
 			const from = posNow.current
 			const to = clampPos(x, lift)
 			const distance = Math.hypot(to.x - from.x, to.lift - from.lift)
@@ -326,6 +319,7 @@ export const Companion = ({
 			const ms = Math.min(6_000, Math.max(260, (distance / speed) * 1_000))
 			const facing = to.x < from.x ? 'left' : 'right'
 
+			setPose(null)
 			setMotion({ ms, facing })
 			setPos(to)
 			lookAt(facing === 'left' ? -0.9 : 0.9, 0, ms)
@@ -430,6 +424,8 @@ export const Companion = ({
 
 		const element = rootRef.current
 		if (!element) return
+
+		lastCursorX.current = cursor.x
 
 		const box = element.getBoundingClientRect()
 		const cx = box.x + box.width / 2
@@ -628,17 +624,58 @@ export const Companion = ({
 
 	/** Everything unprompted, on one poll. Chattiness stretches every floor. */
 	useEffect(() => {
-		const moments = [
-			() => react('yawn', 'yawn', 1_500),
-			() => react('happy', 'stretch', 1_200),
-			() => {
-				lookAt(-1, -0.2, 700)
-				window.setTimeout(() => lookAt(1, -0.2, 700), 720)
+		/**
+		 * What he does with himself, and how awake he has to be to consider it.
+		 *
+		 * `min` is the floor: dancing needs most of a day's energy behind it and
+		 * simply never happens at 2am, while sitting down is what is left when
+		 * nothing else qualifies. That single number is what makes late tico a
+		 * different creature rather than the same one on a longer timer.
+		 */
+		const moments: { min: number; run: () => void }[] = [
+			{ min: 0, run: () => react('yawn', 'yawn', 1_500) },
+			{
+				min: 0,
+				// Sitting down. A pose, not a twitch: he stays down for a while,
+				// which is the part that reads as resting rather than glitching.
+				run: () => {
+					setPose('sit')
+					clearTimeout(poseTimer.current)
+					poseTimer.current = window.setTimeout(
+						() => setPose(null),
+						6_000 + Math.random() * 9_000
+					)
+				},
 			},
-			() => react('happy', 'dance', 1_700),
-			() => {
-				react('watching', undefined, 1_200)
-				lookAt(0, -1, 1_200)
+			{ min: 0.3, run: () => react('happy', 'stretch', 1_200) },
+			{
+				min: 0.3,
+				run: () => {
+					lookAt(-1, -0.2, 700)
+					window.setTimeout(() => lookAt(1, -0.2, 700), 720)
+				},
+			},
+			{ min: 0.35, run: () => react('idle', 'shake', 900) },
+			{
+				min: 0.4,
+				run: () => {
+					react('watching', undefined, 1_200)
+					lookAt(0, -1, 1_200)
+				},
+			},
+			{ min: 0.55, run: () => react('happy', 'hop', 900) },
+			{ min: 0.7, run: () => react('happy', 'dance', 1_700) },
+			{
+				min: 0.6,
+				// Goes after the cursor for a few steps and gives up, which is more
+				// of a personality than arriving would be.
+				run: () => {
+					const target = lastCursorX.current
+					if (target === null) return
+					const from = posNow.current.x
+					const step = Math.max(-140, Math.min(140, target - from))
+					moveTo(from + step, 0, WALK_SPEED * 1.4)
+				},
 			},
 		]
 
@@ -667,9 +704,11 @@ export const Companion = ({
 					return
 				}
 
+				// Calm ones only. He is half off-screen at the edge of a call — a
+				// dance is not a gesture there, it is an entrance.
 				if (now - momentAt.current > MOMENT_EVERY && Math.random() < 0.5) {
 					momentAt.current = now
-					pick(moments)()
+					pick(moments.filter((moment) => moment.min <= 0.35)).run()
 				}
 				return
 			}
@@ -703,15 +742,27 @@ export const Companion = ({
 				return
 			}
 
-			if (quiet > 8_000 && now - wanderAt.current > WANDER_EVERY * rate.current) {
+			if (
+				quiet > 8_000 &&
+				now - wanderAt.current > (WANDER_EVERY * rate.current) / Math.max(0.25, energyAt())
+			) {
 				wanderAt.current = now
 				wander()
 				return
 			}
 
-			if (now - momentAt.current > MOMENT_EVERY * rate.current && Math.random() < 0.65) {
+			// Everything unprompted slows down as the day does. At 2am the floors
+			// are four times what they are at 10am, and half the behaviours are not
+			// on the table at all.
+			const energy = energyAt()
+
+			if (
+				now - momentAt.current > (MOMENT_EVERY * rate.current) / Math.max(0.25, energy) &&
+				Math.random() < 0.4 + energy * 0.4
+			) {
 				momentAt.current = now
-				pick(moments)()
+				const willing = moments.filter((moment) => moment.min <= energy)
+				pick(willing).run()
 			}
 		}, 3_500)
 
@@ -731,97 +782,10 @@ export const Companion = ({
 			clearTimeout(aimTimer.current)
 			clearTimeout(walkTimer.current)
 			clearTimeout(petTimer.current)
+			clearTimeout(poseTimer.current)
 		},
 		[]
 	)
-
-	// ── Being asked ──────────────────────────────────────────────────────────
-
-	/** The hotkey already focused the window; this is only about the caret. */
-	useEffect(() => {
-		if (!asking) return
-		activityAt.current = Date.now()
-		asleep.current = false
-		setQuestion('')
-		react('watching', 'pop', 0)
-		lookAt(0, -1, 4_000)
-		// One frame, so the input exists before it is asked to take focus.
-		const timer = window.setTimeout(() => inputRef.current?.focus(), 30)
-		return () => clearTimeout(timer)
-	}, [asking, react, lookAt])
-
-	/**
-	 * Only ever cancels the *asking*. Submitting closes the input too, and whether
-	 * the browser fires a blur at an element being unmounted is not something to
-	 * bet a state machine on — so this refuses to touch any mood but the one the
-	 * question itself put him in. Without the guard, sending a question drops him
-	 * out of `thinking` a frame after he enters it.
-	 */
-	const closeAsk = useCallback(() => {
-		setQuestion('')
-		setMood((current) => (current === 'watching' ? 'idle' : current))
-		onAskDone()
-	}, [onAskDone])
-
-	const submitAsk = useCallback(async () => {
-		const asked = question.trim()
-		if (!asked) {
-			closeAsk()
-			return
-		}
-
-		// The window goes back to click-through before the answer arrives: he can
-		// think with his hands free, and you can keep working while he does.
-		setQuestion('')
-		onAskDone()
-
-		react('thinking', undefined, 0)
-		say(pick(copy.thinking), 120_000, true)
-
-		const answer = await onAsk(asked)
-
-		if (answer === 'no-brain') {
-			react('wow', 'pop', 2_400)
-			say(pick(copy.noBrain), 12_000, true)
-			return
-		}
-
-		if (answer === 'error') {
-			react('error', 'shake', 2_400)
-			say(pick(copy.brainError), 6_000, true)
-			return
-		}
-
-		// Something to do rather than something to say. The line describing it is
-		// written, not generated: it fires on every action, so it is the line seen
-		// most often, and a template holding a real filename beats anything a 3B
-		// writes about a file it never saw.
-		if (answer.action && answer.action !== 'answer' && answer.query) {
-			const done = await onAction(answer.action, answer.query)
-
-			if (!done.ok) {
-				react('error', 'shake', 2_400)
-				say(copy.notFound(done.label), 6_000, true)
-				return
-			}
-
-			react('happy', 'hop', 2_400)
-			say(
-				answer.action === 'reveal_file'
-					? copy.revealing(done.label)
-					: answer.action === 'open_url'
-						? copy.openingUrl(done.label)
-						: copy.opening(done.label),
-				5_000,
-				true
-			)
-			return
-		}
-
-		const mood = ANSWER_MOODS.find((allowed) => allowed === answer.mood) ?? 'happy'
-		react(mood, 'pop', 3_000)
-		say(answer.say, 9_000, true)
-	}, [question, closeAsk, onAsk, onAction, onAskDone, react, say, copy])
 
 	// ── Being handled ────────────────────────────────────────────────────────
 
@@ -848,6 +812,7 @@ export const Companion = ({
 
 	const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
 		dragged.current = false
+		setPose(null)
 		clearTimeout(walkTimer.current)
 		setMotion(null)
 		drag.current = {
@@ -915,31 +880,14 @@ export const Companion = ({
 			data-side={pos.x > window.innerWidth / 2 ? 'right' : 'left'}
 			data-singing={nowPlaying && !hidden ? 'true' : undefined}
 			data-gesture={gesture ?? undefined}
+			data-pose={pose ?? undefined}
 			data-hidden={hidden ? 'true' : undefined}
 			style={{
 				transform: `translate(${pos.x}px, ${-pos.lift}px)`,
 				transitionDuration: motion ? `${motion.ms}ms` : '0ms',
 			}}
 		>
-			{asking ? (
-				<div className="companion-bubble companion-ask">
-					<input
-						ref={inputRef}
-						value={question}
-						onChange={(event) => setQuestion(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === 'Enter') submitAsk()
-							if (event.key === 'Escape') closeAsk()
-						}}
-						onBlur={closeAsk}
-						placeholder={copy.askPlaceholder}
-						spellCheck={false}
-						autoComplete="off"
-						aria-label={copy.askPlaceholder}
-					/>
-				</div>
-			) : (
-				bubble && (
+			{bubble && (
 					<div ref={bubbleRef} className="companion-bubble" data-pending={pending ?? undefined}>
 						{typed}
 						{typed.length < bubble.length && <span className="caret">▌</span>}
@@ -959,7 +907,6 @@ export const Companion = ({
 							</button>
 						)}
 					</div>
-				)
 			)}
 
 			<button

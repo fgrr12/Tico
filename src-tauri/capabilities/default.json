@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "The strip window the pet lives in",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:event:default",
@@ -13,7 +15,6 @@
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-inner-size",
     "core:window:allow-scale-factor",
-    "autostart:default",
-    "global-shortcut:default"
+    "autostart:default"
   ]
 }
