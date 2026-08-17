@@ -1,6 +1,35 @@
 export type Language = 'en' | 'es'
 
 /**
+ * Four buckets, not twenty-four. What is different about a person at 02:00 is
+ * not subtly different from 01:00 — it is a different kind of evening — and
+ * lines written per hour would be twenty-four sets of nearly the same joke.
+ */
+export type TimeOfDay = 'dawn' | 'day' | 'evening' | 'night'
+
+export const timeOfDay = (hour: number = new Date().getHours()): TimeOfDay =>
+	hour >= 23 || hour < 5 ? 'night' : hour < 9 ? 'dawn' : hour < 18 ? 'day' : 'evening'
+
+interface AppLines {
+	/** Works at any hour. Every app needs these; the rest are extra. */
+	any: string[]
+	dawn?: string[]
+	day?: string[]
+	evening?: string[]
+	night?: string[]
+}
+
+/**
+ * Prefers the lines written for this hour without always taking them. Always
+ * would make the same two night lines the only thing he says after eleven, and
+ * a good joke heard nightly is wallpaper.
+ */
+export const linesFor = (lines: AppLines, when: TimeOfDay): string[] => {
+	const timed = lines[when]
+	return timed && timed.length > 0 && Math.random() < 0.7 ? timed : lines.any
+}
+
+/**
  * Everything he says. Keyed by language, like the portfolio he came from — he is
  * bilingual because porting the file kept it, not because anyone paid for it.
  *
@@ -22,8 +51,10 @@ interface CompanionCopy {
 	wake: string[]
 	/** After the cursor has been gone a while. */
 	back: string[]
-	/** Keyed by the id `matchApp` resolves a window's owner to. */
-	apps: Record<string, string[]>
+	/** Keyed by the id `matchApp` resolves a window's owner to, then by the hour. */
+	apps: Record<string, AppLines>
+	/** About the hour itself, whatever is open. Folded into the idle chatter. */
+	hours: Record<TimeOfDay, ((hour: number) => string)[]>
 	/** For an app he has no opinion about. He still knows its name. */
 	unknownApp: ((app: string) => string)[]
 	/** Said once when you have been in the same app for a long time. */
@@ -132,46 +163,112 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		],
 
 		apps: {
-			vscode: [
-				'VS Code. Home.',
-				'Another TypeScript file. Naturally.',
-				'Whatever you are about to name that variable — name it better.',
-			],
-			visualstudio: [
-				'The other half of the CV.',
-				'C# today. The stack nobody expects him to also know.',
-			],
-			xcode: ['Xcode. Pour a coffee, this takes a minute.'],
-			terminal: [
-				'A terminal. That is where I was born, you know.',
-				'I lived in one of those before I got out here.',
-				'Careful with that prompt. I know what it can do.',
-			],
-			sql: [
-				'SQL Server or Postgres today?',
-				'A query window. Someone is about to say "it worked locally".',
-			],
-			github: ['Pushing, or just staring at the graph?', 'Commit the thing. Go on.'],
-			docker: ['Something is about to take four minutes.', 'Containers. Ask me again later.'],
-			api: ['Poking an endpoint. My favourite spectator sport.'],
-			figma: ['Design. He does that too, and he knows he is not a designer.'],
-			meeting: ['A meeting. I will be right here when it ends.', 'Camera on? Your call.'],
-			chat: ['Someone needs something.', 'Answer it or do not, but stop reading it twice.'],
-			music: [
-				'Music. He built Lyra for exactly this moment — the lyrics float on top.',
-				'Whatever this is, Lyra would be showing you the words right now.',
-			],
-			browser: [
-				'Documentation, or Stack Overflow? Be honest.',
-				'Fourteen tabs. I counted the sound of it.',
-			],
-			notes: ['Writing it down. That is more than most people do.'],
-			sheets: ['A spreadsheet. Somewhere a database is crying.'],
-			mail: ['Email. The oldest queue with no retry policy.'],
-			ai: ['Talking to a model. I am getting one of those in M3.'],
-			finder: ['Looking for something.'],
+			vscode: {
+				any: [
+					'VS Code. Home.',
+					'Another TypeScript file. Naturally.',
+					'Whatever you are about to name that variable — name it better.',
+				],
+				dawn: ['Early. The morning code is usually the good code.'],
+				evening: ['That commit can wait until tomorrow. It will still be there.'],
+				night: [
+					'Two in the morning and still TypeScript. This will read differently later.',
+					'Whatever you are writing now, you will rename it tomorrow.',
+				],
+			},
+			visualstudio: {
+				any: ['The other half of the CV.', 'C# today. The stack nobody expects him to also know.'],
+				night: ['C# at this hour. Someone has a deadline.'],
+			},
+			xcode: {
+				any: ['Xcode. Pour a coffee, this takes a minute.'],
+				night: ['Xcode at night. That is a build and a prayer.'],
+			},
+			terminal: {
+				any: [
+					'A terminal. That is where I was born, you know.',
+					'I lived in one of those before I got out here.',
+					'Careful with that prompt. I know what it can do.',
+				],
+				dawn: ['First terminal of the day. Nothing has broken yet.'],
+				night: [
+					'At this hour the commands come easily. So do the mistakes.',
+					'Nothing typed after midnight has ever needed a --force.',
+				],
+			},
+			sql: {
+				any: [
+					'SQL Server or Postgres today?',
+					'A query window. Someone is about to say "it worked locally".',
+				],
+				night: ['Queries at three in the morning. I hope that is a SELECT.'],
+			},
+			github: {
+				any: ['Pushing, or just staring at the graph?', 'Commit the thing. Go on.'],
+				night: ['Pushing at this hour. Tomorrow you will read that message and wince.'],
+			},
+			docker: {
+				any: ['Something is about to take four minutes.', 'Containers. Ask me again later.'],
+				night: ['Docker at this hour. May the cache be with you.'],
+			},
+			api: { any: ['Poking an endpoint. My favourite spectator sport.'] },
+			figma: { any: ['Design. He does that too, and he knows he is not a designer.'] },
+			meeting: {
+				any: ['A meeting. I will be right here when it ends.', 'Camera on? Your call.'],
+				dawn: ['A meeting this early. Someone is in another timezone.'],
+				night: ['A call at this hour means somebody is very far away.'],
+			},
+			chat: {
+				any: ['Someone needs something.', 'Answer it or do not, but stop reading it twice.'],
+				evening: ['Whatever that is, it will still be there tomorrow.'],
+				night: ['Reply to that tomorrow. Genuinely.'],
+			},
+			music: {
+				any: [
+					'Music. He built Lyra for exactly this moment — the lyrics float on top.',
+					'Whatever this is, Lyra would be showing you the words right now.',
+				],
+				night: ['Headphones at this hour. The best part of the day, arguably.'],
+			},
+			browser: {
+				any: [
+					'Documentation, or Stack Overflow? Be honest.',
+					'Fourteen tabs. I counted the sound of it.',
+				],
+				night: ['Nobody reads documentation at this hour. I know what that tab is.'],
+			},
+			notes: {
+				any: ['Writing it down. That is more than most people do.'],
+				evening: ['Writing tomorrow down. That is the trick, actually.'],
+			},
+			sheets: { any: ['A spreadsheet. Somewhere a database is crying.'] },
+			mail: {
+				any: ['Email. The oldest queue with no retry policy.'],
+				dawn: ['Inbox first thing. A brave way to start.'],
+			},
+			ai: { any: ['Talking to a model. I have one of those now. It is small.'] },
+			finder: { any: ['Looking for something.'] },
 		},
 
+		hours: {
+			dawn: [
+				(hour) => `${hour} in the morning. The good hours, if you can stand them.`,
+				() => 'Early. Nothing has gone wrong yet today.',
+			],
+			day: [
+				() => 'Middle of the day. Peak everything.',
+				() => 'Stand up at some point. That is all I will say.',
+			],
+			evening: [
+				() => 'It got dark and nobody told you.',
+				() => 'Whatever it is, it will compile tomorrow too.',
+			],
+			night: [
+				(hour) => `It is ${hour}. I am only noting it.`,
+				() => 'Nobody is going to message you now. That is the good part.',
+				() => 'This is the hour where the bug is obvious and the fix is not.',
+			],
+		},
 		unknownApp: [
 			(app) => `${app}. New to me.`,
 			(app) => `${app}, then. I have no opinion yet.`,
@@ -266,46 +363,115 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 		],
 
 		apps: {
-			vscode: [
-				'VS Code. Casa.',
-				'Otro archivo TypeScript. Obvio.',
-				'Como sea que vayás a llamar esa variable — llamala mejor.',
-			],
-			visualstudio: [
-				'La otra mitad del CV.',
-				'C# hoy. El stack que nadie espera que también maneje.',
-			],
-			xcode: ['Xcode. Servite un café, esto tarda.'],
-			terminal: [
-				'Una terminal. Ahí nací yo, por si no sabías.',
-				'Yo vivía en una de esas antes de salir acá afuera.',
-				'Cuidado con ese prompt. Yo sé lo que puede hacer.',
-			],
-			sql: [
-				'¿SQL Server o Postgres hoy?',
-				'Una ventana de consultas. Alguien está por decir "en local funcionaba".',
-			],
-			github: ['¿Empujando, o solo viendo el grafo?', 'Hacé el commit. Dale.'],
-			docker: ['Algo está por tardar cuatro minutos.', 'Contenedores. Preguntame después.'],
-			api: ['Picándole a un endpoint. Mi deporte favorito de espectador.'],
-			figma: ['Diseño. También lo hace, y sabe que no es diseñador.'],
-			meeting: ['Una reunión. Acá voy a estar cuando termine.', '¿Cámara encendida? Vos sabrás.'],
-			chat: ['Alguien necesita algo.', 'Contestá o no, pero dejá de leerlo dos veces.'],
-			music: [
-				'Música. Para este momento exacto construyó Lyra — la letra flota encima.',
-				'Sea lo que sea esto, Lyra te estaría mostrando la letra ahora mismo.',
-			],
-			browser: [
-				'¿Documentación, o Stack Overflow? Sé honesto.',
-				'Catorce pestañas. Las conté por el ruido.',
-			],
-			notes: ['Anotándolo. Eso ya es más de lo que hace la mayoría.'],
-			sheets: ['Una hoja de cálculo. En algún lado una base de datos está llorando.'],
-			mail: ['Correo. La cola más vieja del mundo y sin política de reintento.'],
-			ai: ['Hablando con un modelo. A mí me ponen uno en M3.'],
-			finder: ['Buscando algo.'],
+			vscode: {
+				any: [
+					'VS Code. Casa.',
+					'Otro archivo TypeScript. Obvio.',
+					'Como sea que vayás a llamar esa variable — llamala mejor.',
+				],
+				dawn: ['Temprano. El código de la mañana suele ser el bueno.'],
+				evening: ['Ese commit puede esperar a mañana. No se va a ir.'],
+				night: [
+					'Dos de la mañana y todavía TypeScript. Mañana esto se lee distinto.',
+					'Lo que estés escribiendo ahora, mañana lo renombrás.',
+				],
+			},
+			visualstudio: {
+				any: [
+					'La otra mitad del CV.',
+					'C# hoy. El stack que nadie espera que también maneje.',
+				],
+				night: ['C# a esta hora. Alguien tiene una fecha encima.'],
+			},
+			xcode: {
+				any: ['Xcode. Servite un café, esto tarda.'],
+				night: ['Xcode de noche. Eso es un build y una oración.'],
+			},
+			terminal: {
+				any: [
+					'Una terminal. Ahí nací yo, por si no sabías.',
+					'Yo vivía en una de esas antes de salir acá afuera.',
+					'Cuidado con ese prompt. Yo sé lo que puede hacer.',
+				],
+				dawn: ['Primera terminal del día. Todavía no se ha roto nada.'],
+				night: [
+					'A esta hora los comandos salen solos. Los errores también.',
+					'Nada tecleado después de medianoche necesitó nunca un --force.',
+				],
+			},
+			sql: {
+				any: [
+					'¿SQL Server o Postgres hoy?',
+					'Una ventana de consultas. Alguien está por decir "en local funcionaba".',
+				],
+				night: ['Consultas a las tres de la mañana. Ojalá sea un SELECT.'],
+			},
+			github: {
+				any: ['¿Empujando, o solo viendo el grafo?', 'Hacé el commit. Dale.'],
+				night: ['Push a esta hora. Mañana leés ese mensaje y hacés una mueca.'],
+			},
+			docker: {
+				any: ['Algo está por tardar cuatro minutos.', 'Contenedores. Preguntame después.'],
+				night: ['Docker a esta hora. Que la caché te acompañe.'],
+			},
+			api: { any: ['Picándole a un endpoint. Mi deporte favorito de espectador.'] },
+			figma: { any: ['Diseño. También lo hace, y sabe que no es diseñador.'] },
+			meeting: {
+				any: ['Una reunión. Acá voy a estar cuando termine.', '¿Cámara encendida? Vos sabrás.'],
+				dawn: ['Una reunión tan temprano. Alguien está en otro huso horario.'],
+				night: ['Una llamada a esta hora significa que alguien está muy lejos.'],
+			},
+			chat: {
+				any: ['Alguien necesita algo.', 'Contestá o no, pero dejá de leerlo dos veces.'],
+				evening: ['Sea lo que sea, mañana va a seguir ahí.'],
+				night: ['Contestá eso mañana. En serio.'],
+			},
+			music: {
+				any: [
+					'Música. Para este momento exacto construyó Lyra — la letra flota encima.',
+					'Sea lo que sea esto, Lyra te estaría mostrando la letra ahora mismo.',
+				],
+				night: ['Audífonos a esta hora. La mejor parte del día, dicho sea de paso.'],
+			},
+			browser: {
+				any: [
+					'¿Documentación, o Stack Overflow? Sé honesto.',
+					'Catorce pestañas. Las conté por el ruido.',
+				],
+				night: ['Nadie lee documentación a esta hora. Yo sé qué es esa pestaña.'],
+			},
+			notes: {
+				any: ['Anotándolo. Eso ya es más de lo que hace la mayoría.'],
+				evening: ['Anotando el mañana. Ese es el truco, en realidad.'],
+			},
+			sheets: { any: ['Una hoja de cálculo. En algún lado una base de datos está llorando.'] },
+			mail: {
+				any: ['Correo. La cola más vieja del mundo y sin política de reintento.'],
+				dawn: ['Bandeja de entrada apenas arrancando. Valiente forma de empezar.'],
+			},
+			ai: { any: ['Hablando con un modelo. Yo ya tengo uno. Es chiquito.'] },
+			finder: { any: ['Buscando algo.'] },
 		},
 
+		hours: {
+			dawn: [
+				(hour) => `${hour} de la mañana. Las buenas horas, si las aguantás.`,
+				() => 'Temprano. Todavía no se ha caído nada hoy.',
+			],
+			day: [
+				() => 'Mitad del día. Todo al máximo.',
+				() => 'Parate en algún momento. No digo más.',
+			],
+			evening: [
+				() => 'Se hizo de noche y nadie te avisó.',
+				() => 'Sea lo que sea, mañana también compila.',
+			],
+			night: [
+				(hour) => `Son las ${hour}. Solo lo hago constar.`,
+				() => 'Ya nadie te va a escribir. Esa es la parte buena.',
+				() => 'Esta es la hora donde el bug es obvio y el arreglo no.',
+			],
+		},
 		unknownApp: [
 			(app) => `${app}. No la conocía.`,
 			(app) => `${app}, entonces. Todavía no tengo opinión.`,

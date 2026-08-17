@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
 
-import { type Language, companionCopy, matchApp } from '../data/companion'
+import { type Language, companionCopy, linesFor, matchApp, timeOfDay } from '../data/companion'
 import type { CompanionMood, PetRect, Settings } from '../types'
 
 /**
@@ -546,7 +546,9 @@ export const Companion = ({
 			if (now - said < APP_REPEAT_AFTER * rate.current) return
 
 			const lines = copy.apps[key]
-			const line = lines ? pick(lines) : pick(copy.unknownApp)(activeApp.name)
+			const line = lines
+				? pick(linesFor(lines, timeOfDay()))
+				: pick(copy.unknownApp)(activeApp.name)
 
 			saidAbout.current.set(key, now)
 			appLineAt.current = now
@@ -692,7 +694,12 @@ export const Companion = ({
 
 			if (!busy.current && now - chatterAt.current > CHATTER_EVERY * rate.current) {
 				chatterAt.current = now
-				say(pick(copy.idle), 8_000)
+
+				// The hour is its own subject, and at 2am it is the more interesting
+				// one — so it joins the pool rather than replacing it.
+				const hour = new Date().getHours()
+				const timed = copy.hours[timeOfDay(hour)].map((line) => line(hour))
+				say(pick([...copy.idle, ...timed, ...timed]), 8_000)
 				return
 			}
 
