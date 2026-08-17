@@ -4,7 +4,7 @@ import { CompanionFace } from './CompanionFace'
 
 import {
 	companionCopy,
-	FEARED_APPS,
+	TERRORS,
 	energyAt,
 	type Feeling,
 	feelingFrom,
@@ -830,12 +830,21 @@ export const Companion = ({
 				min: 0.75,
 				run: () => {
 					const far = posNow.current.x < limits().maxX / 2 ? limits().maxX : 0
+
+					// Announced about half the time. Always announcing it makes it a
+					// routine with a countdown; never announcing it makes it a glitch.
+					if (Math.random() < 0.5) say(pick(copy.rocketUp), 2_200)
+
 					setFlying(true)
 					react('wow', undefined, 2_400)
 					moveTo(far, 60, 900, () => {
 						moveTo(far, 0, FALL_SPEED, () => {
 							setFlying(false)
 							react('wow', 'land', 900)
+							// The landing is the funnier half, so it talks more often.
+							if (Math.random() < 0.7) {
+								window.setTimeout(() => say(pick(copy.rocketDown), 5_000), 500)
+							}
 						})
 					})
 				},
@@ -1004,7 +1013,9 @@ export const Companion = ({
 				),
 				// Half a minute of fright, then he gets over it. A permanent terror
 				// of Teams would be a bug rather than a personality.
-				feared: Boolean(appKey && FEARED_APPS.includes(appKey) && now - inFront!.since < 30_000),
+				// Only the two that hold it. Everything in copy.fears still gets a
+				// fright on sight; this is what decides whether it lingers.
+				feared: Boolean(appKey && TERRORS.includes(appKey) && now - inFront!.since < 30_000),
 				music: nowPlaying !== null,
 				appKey,
 				energy,

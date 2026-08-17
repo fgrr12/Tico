@@ -172,6 +172,9 @@ interface CompanionCopy {
 	feelings: Record<Feeling, string[]>
 	/** What frightens him about a particular application, said on sight. */
 	fears: Record<string, string[]>
+	/** Before he takes off, and after he lands. */
+	rocketUp: string[]
+	rocketDown: string[]
 	/** The button on a reminder bubble. One click beats parsing "ya lo pagué". */
 	reminderDone: string
 	label: string
@@ -207,13 +210,15 @@ const APP_PATTERNS: [string, string[]][] = [
 ]
 
 /**
- * The applications he is afraid of, and how much.
+ * The applications that frighten him enough to *stay* frightened — the ones that
+ * hold the `scared` feeling for half a minute rather than producing one startled
+ * line and moving on.
  *
- * Meetings terrify him. Spreadsheets and email are a lesser dread. It is not a
- * joke about productivity — it is that a pet with *preferences* reads as having
- * an inner life, and preferences need something on the disliked end.
+ * Deliberately short. Everything in `copy.fears` gets a fright on sight, but if
+ * a database client held him in terror he would spend a working day scared, and
+ * a pet that is always afraid is not afraid of anything.
  */
-export const FEARED_APPS = ['meeting', 'sheets', 'mail']
+export const TERRORS = ['meeting', 'xcode']
 
 export const matchApp = (name: string): string | null => {
 	const needle = name.toLowerCase()
@@ -517,13 +522,45 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'No. No no no.',
 				'Someone is about to say "quick sync".',
 				'I will be under the dock if anyone asks.',
+				'Forty minutes that could have been four lines.',
+			],
+			xcode: [
+				'Not this one. Anything but this one.',
+				'It has already started doing something and it has not said what.',
+				'The last time this opened, an hour went missing.',
+			],
+			sql: [
+				'Please have a WHERE in it. Please.',
+				'That is the real data, is it not.',
+				'One keystroke between you and a very long evening.',
+			],
+			docker: [
+				'It is going to eat the disk again.',
+				'Something in there is nine gigabytes and nobody knows which.',
+			],
+			ai: [
+				'Another machine. And that one thinks.',
+				'I used to have one of those inside me. It did not go well.',
 			],
 			sheets: [
 				'A grid. It goes on forever in both directions.',
 				'Every cell is a decision. There are nine hundred of them.',
 			],
-			mail: ['The inbox. It is never actually empty, you know.', 'How many are unread. Do not tell me.'],
+			mail: [
+				'The inbox. It is never actually empty, you know.',
+				'How many are unread. Do not tell me.',
+			],
 		},
+
+		rocketUp: ['Watch this.', 'I need to be over there.', 'Stand back.', 'Launching.'],
+
+		rocketDown: [
+			'I do not know why I did that.',
+			'I could have walked.',
+			'Perfect landing. Nearly.',
+			'Arrived. Do not ask about the fuel.',
+			'That was a lot of effort for four hundred pixels.',
+		],
 		label: 'tico',
 	},
 
@@ -826,13 +863,45 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'No. No no no.',
 				'Alguien está por decir "un quick sync".',
 				'Voy a estar debajo del dock si alguien pregunta.',
+				'Cuarenta minutos que pudieron ser cuatro líneas.',
+			],
+			xcode: [
+				'Este no. Cualquiera menos este.',
+				'Ya empezó a hacer algo y todavía no dijo qué.',
+				'La última vez que se abrió esto, se perdió una hora.',
+			],
+			sql: [
+				'Que tenga un WHERE. Por favor.',
+				'Esa es la base de verdad, ¿cierto?',
+				'Una tecla entre vos y una noche muy larga.',
+			],
+			docker: [
+				'Se va a comer el disco otra vez.',
+				'Algo ahí adentro pesa nueve gigas y nadie sabe cuál.',
+			],
+			ai: [
+				'Otra máquina. Y esa sí piensa.',
+				'Yo tenía una de esas adentro. No terminó bien.',
 			],
 			sheets: [
 				'Una cuadrícula. Sigue para siempre en las dos direcciones.',
 				'Cada celda es una decisión. Hay novecientas.',
 			],
-			mail: ['La bandeja. Nunca está vacía de verdad, ¿sabías?', 'Cuántos sin leer. No me digás.'],
+			mail: [
+				'La bandeja. Nunca está vacía de verdad, ¿sabías?',
+				'Cuántos sin leer. No me digás.',
+			],
 		},
+
+		rocketUp: ['Mirá esto.', 'Necesito estar allá.', 'Hacete a un lado.', 'Despegando.'],
+
+		rocketDown: [
+			'No sé por qué hice eso.',
+			'Pude haber caminado.',
+			'Aterrizaje perfecto. Casi.',
+			'Llegué. No preguntés por el combustible.',
+			'Mucho esfuerzo para cuatrocientos píxeles.',
+		],
 		label: 'tico',
 	},
 }
