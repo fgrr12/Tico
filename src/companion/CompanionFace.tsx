@@ -63,6 +63,7 @@ export const CompanionFace = ({
 	glyph,
 	singing,
 	prop,
+	propLeaving,
 	faceColor,
 	screenColor,
 	ledColor,
@@ -312,7 +313,21 @@ export const CompanionFace = ({
 				</>
 			)}
 
-			{prop && <Prop kind={prop} />}
+			{/*
+			 * Keyed by kind, so swapping one prop for another remounts and replays
+			 * the entrance. React would otherwise keep the same node and reuse the
+			 * finished animation, and the new thing would appear already worn.
+			 */}
+			{prop && (
+				<g
+					key={prop}
+					className="companion-worn"
+					data-prop={prop}
+					data-leaving={propLeaving || undefined}
+				>
+					<Prop kind={prop} />
+				</g>
+			)}
 
 			{singing && (
 				<g fill={faceColor} className="companion-notes" aria-hidden="true">

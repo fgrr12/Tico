@@ -25,6 +25,8 @@ export interface CompanionFaceProps {
 	singing: boolean
 	/** Something he is wearing or holding, for no reason he would explain. */
 	prop: string | null
+	/** Still the same prop — playing its exit for a beat before it unmounts. */
+	propLeaving: boolean
 	faceColor: string
 	/** The little screen behind the face. Blanches when he is frightened. */
 	screenColor: string

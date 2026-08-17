@@ -198,6 +198,14 @@ interface CompanionCopy {
 	track: ((artist: string, song: string) => string)[]
 	/** Keyed by prop. Putting something on is an event, so it gets a line. */
 	props: Record<string, string[]>
+	/**
+	 * Keyed by prop, and said while straightening it rather than while putting it
+	 * on. A second, later opinion about the same object: the novelty has worn off
+	 * and what is left is the experience of wearing the thing. Most of them are
+	 * complaints about a body he does not have, which is the joke — he is a
+	 * rectangle reporting that his ears hurt.
+	 */
+	propFuss: Record<string, string[]>
 	/** Taking it off again, which is less of an event and says so. */
 	propOff: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
@@ -591,6 +599,39 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Prepared.',
 				'It is for the sun, if you must know.',
 			],
+		},
+
+		propFuss: {
+			party: ['The elastic goes under my chin. I have no chin.', 'It will not sit straight.'],
+			tophat: ['It is taller than most of my opinions.', 'Every draught in here finds it.'],
+			shades: [
+				'They keep sliding down my nose. I have no nose.',
+				'I can see almost nothing. Worth it.',
+			],
+			crown: ['Heavy is the head. I do not have one of those either.', 'Royalty is maintenance.'],
+			flower: ['It keeps falling forward.', 'It is wilting against my screen.'],
+			scarf: ['Too tight. I do not breathe, but still.', 'One end is longer. It always is.'],
+			coffee: ['It has gone cold. It was never hot.', 'My arm is tired. I have no arm.'],
+			headphones: [
+				'My ears hurt. I do not have ears.',
+				'The band is squeezing my case.',
+				'One side is louder. It is the same side as always.',
+			],
+
+			afro: ['It is in my eyes.', 'This took commitment and it itches.'],
+			mohawk: ['One spike has given up.', 'It is holding. Barely.'],
+			longhair: ['It gets in my face. All of me is face.', 'I need something to tie this back.'],
+			beanie: ['It has ridden up again.', 'My head is warm. I do not have a temperature.'],
+			cap: ['The brim is in the way.', 'Backwards was the right call.'],
+			hood: ['I cannot see anything to the sides.', 'It has fallen off twice already.'],
+			catears: ['One of them is bent.', 'They do not do anything. I checked.'],
+			glasses: ['Smudged. By what.', 'Nothing on me is shaped to hold these up.'],
+			moustache: ['It tickles. I have no upper lip.', 'It is coming unstuck on one side.'],
+			tie: ['The knot is crooked.', 'Too tight, and I have no neck.'],
+			bowtie: ['It has gone sideways again.', 'Straight. There. No. Sideways.'],
+			cape: ['It caught on something.', 'It only works when I am moving.'],
+			duck: ['He is heavier than he looks.', 'He has not blinked once.'],
+			umbrella: ['My wrist hurts. Do not ask.', 'Holding this all day was a decision.'],
 		},
 
 		propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
@@ -1102,6 +1143,39 @@ export const companionCopy: Record<Language, CompanionCopy> = {
 				'Precavido.',
 				'Es para el sol, si tanto querés saber.',
 			],
+		},
+
+		propFuss: {
+			party: ['El elástico va bajo la barbilla. No tengo barbilla.', 'No se queda derecho.'],
+			tophat: ['Es más alto que casi todas mis opiniones.', 'Toda corriente de aire lo encuentra.'],
+			shades: [
+				'Se me resbalan por la nariz. No tengo nariz.',
+				'No veo casi nada. Vale la pena.',
+			],
+			crown: ['Pesada es la cabeza. Tampoco tengo una de esas.', 'Ser rey es mantenimiento.'],
+			flower: ['Se me viene hacia adelante.', 'Se está marchitando contra mi pantalla.'],
+			scarf: ['Muy apretada. No respiro, pero igual.', 'Una punta quedó más larga. Siempre pasa.'],
+			coffee: ['Ya se enfrió. Nunca estuvo caliente.', 'Me cansé del brazo. No tengo brazo.'],
+			headphones: [
+				'Me duelen los oídos. No tengo oídos.',
+				'La diadema me aprieta la carcasa.',
+				'Un lado suena más fuerte. Siempre el mismo lado.',
+			],
+
+			afro: ['Se me mete en los ojos.', 'Esto costó compromiso y ahora pica.'],
+			mohawk: ['Una púa se dio por vencida.', 'Aguanta. Apenas.'],
+			longhair: ['Se me mete en la cara. Todo yo soy cara.', 'Necesito algo para amarrarlo.'],
+			beanie: ['Se me volvió a subir.', 'Tengo la cabeza caliente. No tengo temperatura.'],
+			cap: ['La visera estorba.', 'Al revés fue la decisión correcta.'],
+			hood: ['No veo nada a los lados.', 'Ya se me cayó dos veces.'],
+			catears: ['Una quedó doblada.', 'No hacen nada. Ya revisé.'],
+			glasses: ['Sucios. ¿De qué.', 'Nada en mí tiene forma de sostener esto.'],
+			moustache: ['Me da cosquillas. No tengo labio.', 'Se está despegando de un lado.'],
+			tie: ['El nudo quedó torcido.', 'Muy apretada, y no tengo cuello.'],
+			bowtie: ['Se volvió a ir de lado.', 'Derecho. Listo. No. De lado.'],
+			cape: ['Se me enganchó en algo.', 'Solo funciona cuando me muevo.'],
+			duck: ['Pesa más de lo que aparenta.', 'No ha parpadeado ni una vez.'],
+			umbrella: ['Me duele la muñeca. No preguntés.', 'Sostener esto todo el día fue una decisión.'],
 		},
 
 		propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],

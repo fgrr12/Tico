@@ -52,6 +52,11 @@ const NOTICE_WITHIN = 220
 const PET_AFTER = 1_600
 /** Pointer travel that turns a click into a drag. */
 const DRAG_THRESHOLD = 5
+/**
+ * How long a prop stays mounted after it is taken off, so its exit can play.
+ * Longer than the slowest exit in `companion.css`, which is the 0.36s one.
+ */
+const PROP_LEAVE = 400
 /** Walking and falling pace, in CSS pixels per second. */
 const WALK_SPEED = 74
 const FALL_SPEED = 1_100
@@ -187,6 +192,8 @@ export const Companion = ({
 	/** A held pose, unlike `fx` which is a one-shot. Sitting lasts. */
 	const [pose, setPose] = useState<string | null>(null)
 	const [prop, setProp] = useState<string | null>(null)
+	/** Taking it off is an animation, so the prop outlives the decision to drop it. */
+	const [propLeaving, setPropLeaving] = useState(false)
 	const [feeling, setFeeling] = useState<Feeling>('content')
 	const [flying, setFlying] = useState(false)
 	const poseTimer = useRef(0)
@@ -884,10 +891,26 @@ export const Companion = ({
 			startle: { min: 0.45, run: () => react('wow', 'startle', 900), then: 'blinkfast' },
 
 			// ── only with something on ───────────────────────────────────────
+			/**
+			 * Straightening the thing he is wearing, and complaining about it.
+			 *
+			 * The line is the point. The wiggle on its own is a tic; the wiggle plus
+			 * "my ears hurt — I do not have ears" is a creature that has noticed it
+			 * is wearing something and has an opinion about the experience, which is
+			 * a different opinion from the one it had when it put the thing on.
+			 * Hence a second keyed list rather than reusing `copy.props`.
+			 */
 			adjust: {
 				min: 0.3,
 				needs: () => prop !== null,
-				run: () => react('idle', 'adjust', 1_300),
+				run: () => {
+					react('idle', 'adjust', 1_300)
+					const lines = prop === null ? undefined : copy.propFuss[prop]
+					// After the wiggle, not with it — he fidgets and then decides why.
+					if (lines && Math.random() < 0.6) {
+						window.setTimeout(() => say(pick(lines), 4_500), 900)
+					}
+				},
 			},
 			admire: {
 				min: 0.35,
@@ -997,6 +1020,10 @@ export const Companion = ({
 					: pick(PROPS)
 
 			setProp(kind)
+			// In case the last one was still on its way out. Whatever is arriving
+			// wins, and it should arrive putting itself on rather than taking itself
+			// off.
+			setPropLeaving(false)
 			onRemember('prop', kind)
 
 			// A beat after it appears, not with it. He puts the thing on and *then*
@@ -1009,9 +1036,17 @@ export const Companion = ({
 
 			clearTimeout(propTimer.current)
 			propTimer.current = window.setTimeout(() => {
-				setProp(null)
+				// Two steps: the exit plays, and only then does the node go. The
+				// second timer reuses the same ref, so the unmount cleanup already
+				// covers both halves and there is nothing new to tear down.
+				setPropLeaving(true)
 				// Taking it off is the smaller event and gets commented on less.
 				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
+
+				propTimer.current = window.setTimeout(() => {
+					setProp(null)
+					setPropLeaving(false)
+				}, PROP_LEAVE)
 			}, 25_000 + Math.random() * 70_000)
 		}
 
@@ -1403,6 +1438,7 @@ export const Companion = ({
 						glyph={null}
 						singing={singing}
 						prop={prop}
+						propLeaving={propLeaving}
 						faceColor={PALETTE[feeling].face}
 						screenColor={PALETTE[feeling].screen}
 						ledColor={mood === 'sleep' ? '#3b4256' : PALETTE[feeling].led}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { CompanionFace } from '../src/companion/CompanionFace'
@@ -70,6 +71,7 @@ const face = (extra: Partial<CompanionFaceProps> = {}): CompanionFaceProps => ({
 	glyph: null,
 	singing: false,
 	prop: null,
+	propLeaving: false,
 	faceColor: '#c8d0e0',
 	screenColor: '#1a1c23',
 	ledColor: '#9ece6a',
@@ -89,6 +91,46 @@ const Cell = ({ width, label, ...rest }: CompanionFaceProps & { width: number; l
 	</div>
 )
 
+/**
+ * The one row that cannot be a screenshot.
+ *
+ * Putting something on and taking it off are animations, and an animation is
+ * exactly the kind of thing that survives types and lint and is wrong the
+ * moment you look at it — hair that grows out of the middle of his screen
+ * instead of his scalp, an exit that flickers back to full opacity before the
+ * node goes. So: press the buttons and watch. `key` on the cell is what forces
+ * the remount, since that is also how the real component replays an entrance.
+ */
+const Replay = ({ kind }: { kind: string }) => {
+	const [run, setRun] = useState(0)
+	const [leaving, setLeaving] = useState(false)
+
+	return (
+		<div className="cell">
+			<Cell
+				key={`${kind}-${run}`}
+				width={140}
+				label={kind}
+				{...face({ prop: kind, propLeaving: leaving })}
+			/>
+			<div>
+				<button
+					type="button"
+					onClick={() => {
+						setLeaving(false)
+						setRun((n) => n + 1)
+					}}
+				>
+					on
+				</button>
+				<button type="button" onClick={() => setLeaving(true)}>
+					off
+				</button>
+			</div>
+		</div>
+	)
+}
+
 createRoot(document.getElementById('root') as HTMLElement).render(
 	<>
 		<div className="row">
@@ -104,6 +146,12 @@ createRoot(document.getElementById('root') as HTMLElement).render(
 		<div className="row">
 			{PROPS.map((prop) => (
 				<Cell key={prop} width={140} label={prop} {...face({ prop })} />
+			))}
+		</div>
+		{/* Growing and cutting, plus one ordinary prop for the contrast. */}
+		<div className="row">
+			{['afro', 'mohawk', 'longhair', 'tophat'].map((kind) => (
+				<Replay key={kind} kind={kind} />
 			))}
 		</div>
 		<div className="row">

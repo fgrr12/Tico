@@ -211,6 +211,13 @@ check('every prop is drawn, written and on the sheet', () => {
 		assert(onSheet.includes(kind), `${kind} is missing from the sheet, so nobody has looked at it`)
 		for (const language of ['en', 'es']) {
 			assert(companionCopy[language].props[kind]?.length > 0, `${language} has no line for ${kind}`)
+			// `adjust` is offered whenever anything is on, so a prop with no fuss
+			// line makes him straighten it in silence — the animation without the
+			// half that carries it.
+			assert(
+				companionCopy[language].propFuss[kind]?.length > 0,
+				`${language} has no fuss line for ${kind}`
+			)
 		}
 	}
 
