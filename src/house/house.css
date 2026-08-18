@@ -1,110 +1,253 @@
 /*
- * The house, and the room behind it.
+ * The hatch in the floor, and the map of what is under it.
  *
  * Its own file because it is its own feature — `companion.css` had passed 1,500
  * lines and every new thing was landing wherever there was room. Imported from
- * there so there is still one stylesheet as far as the app is concerned.
+ * there, so there is still one stylesheet as far as the app is concerned.
  *
- * Nothing in here animates while the door is shut, and the room does not animate
- * at all. That is deliberate and it is the same rule as everywhere else: the
- * measured cost is per composited frame over the whole surface, so a still
- * picture is free and one moving thing anywhere is not.
+ * Nothing here animates while it is shut, and the map does not animate at all
+ * beyond opening. Same rule as everywhere else: the measured price is per
+ * composited frame over the whole surface, so a still picture is free and one
+ * moving thing anywhere is not.
  */
 
-.tico-house {
+.tico-hatch {
 	position: absolute;
-	bottom: 4px;
-	width: 84px;
+	bottom: 0;
+	width: 120px;
 	padding: 0;
 	border: 0;
 	background: transparent;
 	cursor: pointer;
 	pointer-events: auto;
-	/* Behind him, so walking to the door reads as walking *to* it. */
+	/* Behind him, so walking onto it reads as standing on the floor. */
 	z-index: 0;
 }
 
-.tico-house svg {
+.tico-hatch svg {
 	display: block;
 	width: 100%;
 	height: auto;
-}
-
-/* Dark when he is out, lit when he is in. The only state the outside shows, and
-   enough of one that you can tell from across the desk whether he is home. */
-.tico-house-pane {
-	fill: #171a22;
-	transition: fill 0.6s ease;
-}
-
-.tico-house[data-home="true"] .tico-house-pane {
-	fill: var(--amber);
-}
-
-/* ── The room ───────────────────────────────────────────────────────────── */
-
-.tico-room {
-	position: absolute;
-	bottom: 84px;
-	width: 260px;
-	padding: 8px 8px 10px;
-	background: var(--bg-chrome);
-	border: 1px solid var(--line-strong);
-	border-radius: 12px;
-	box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
-	pointer-events: auto;
-	z-index: 2;
-	/* One entrance, and it ends. `forwards` because the panel is unmounted by a
-	   click rather than by the animation finishing. */
-	animation: tico-room-open 0.22s ease-out;
-}
-
-@keyframes tico-room-open {
-	0% { opacity: 0; transform: translateY(6px) scale(0.96); }
-	100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.tico-room svg {
-	display: block;
-	width: 100%;
-	height: auto;
-	border-radius: 6px;
-}
-
-.tico-room-line {
-	margin: 8px 4px 0;
-	font-family: var(--mono);
-	font-size: 12px;
-	line-height: 1.5;
-	color: var(--fg);
-}
-
-.tico-room-call {
-	margin: 8px 4px 0;
-	padding: 4px 10px;
-	font-family: var(--mono);
-	font-size: 11px;
-	color: var(--fg);
-	background: var(--bg-raise);
-	border: 1px solid var(--line-strong);
-	border-radius: 7px;
-	cursor: pointer;
-}
-
-.tico-room-call:hover {
-	border-color: var(--amber);
+	overflow: visible;
 }
 
 /*
- * Indoors he is not on the strip at all. `display: none` rather than opacity,
- * because a hidden-but-present pet keeps its animations running and the measured
+ * Shut, the lid lies flat in the boards. Open, it swings up on its hinge and
+ * stands over the hole.
+ *
+ * **The first version squashed it in place and that was the bug.** Scaling the
+ * lid down toward its middle keeps every edge of it exactly where it was, so it
+ * read as still lying in the floor — flattened rather than lifted. A door has to
+ * leave the frame it was sitting in.
+ *
+ * The hinge is the *far* edge, and the flip goes toward the viewer, which is the
+ * only arrangement that leaves the opening visible: hinged at the near edge it
+ * would stand between you and the hole it just uncovered. So the origin is the
+ * top of the shape and the lid folds up and over it — `scaleY` with a negative
+ * factor, which is a 180° turn about that edge stopped part of the way.
+ *
+ * Two dimensions rather than a real `rotateX`: the whole strip is drawn in one
+ * shallow projection and a genuine 3D rotation here would be the only thing on
+ * screen with a vanishing point of its own.
+ */
+.tico-hatch-lid {
+	/*
+	 * In viewBox units, not percentages. `transform-box` defaults to `view-box`
+	 * for SVG, so `50% 0%` resolves against the whole 120x52 canvas rather than
+	 * against the lid — the flip happened about y=0 and threw the door clean off
+	 * the top of the drawing. (60, 26) is the lid's own far edge, which is the
+	 * hinge it actually turns on.
+	 */
+	transform-origin: 60px 26px;
+	transition: transform 0.45s cubic-bezier(0.34, 1.35, 0.6, 1);
+}
+
+.tico-hatch[data-open="true"] .tico-hatch-lid {
+	transform: scaleY(-0.88) skewX(7deg);
+}
+
+/* ── The map ────────────────────────────────────────────────────────────── */
+
+.tico-map {
+	position: absolute;
+	bottom: 46px;
+	width: 340px;
+	padding: 7px 7px 0;
+	background: #241a14;
+	border: 1px solid #4d3820;
+	border-radius: 5px;
+	box-shadow: 0 20px 44px rgba(0, 0, 0, 0.6);
+	pointer-events: auto;
+	z-index: 2;
+	/*
+	 * Opens out of the hatch rather than over it — the corner nearest the
+	 * trapdoor stays put, which is what makes it read as something lifted out of
+	 * the hole rather than as a dialog.
+	 */
+	transform-origin: 12% 100%;
+	animation: tico-map-open 0.26s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes tico-map-open {
+	0% { opacity: 0; transform: scale(0.15) translateY(14px); }
+	100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.tico-map svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/*
+ * A hole in the ground, seen from the side.
+ *
+ * The palette is earth and lamplight rather than parchment: this stopped being
+ * a document when it stopped being a map. It is still the brightest thing on the
+ * strip, because a lit room underground *is* the bright thing.
+ */
+.tico-burrow-earth {
+	fill: #2b201a;
+}
+
+/* The back wall of a room — what you see through the missing fourth wall. */
+.tico-burrow-wall {
+	fill: #4a3728;
+	stroke: #21180f;
+	stroke-width: 1.2;
+}
+
+/* The room he is in, lit. Everything else is a room with the light off, which
+   is what makes one of them read as occupied. */
+.tico-burrow-wall[data-here="true"] {
+	fill: #6b4f36;
+}
+
+.tico-burrow-panel {
+	fill: none;
+	stroke: #3b2b1e;
+	stroke-width: 0.9;
+	opacity: 0.75;
+}
+
+.tico-burrow-floor {
+	fill: #8a6a44;
+	stroke: #4d3820;
+	stroke-width: 1;
+}
+
+/*
+ * The palette for everything inside.
+ *
+ * Colour lives here rather than in the drawing, so a piece is a shape and only a
+ * shape — which is what makes it cheap to add another one. Every object gets at
+ * least a lit face and a dark face, because at this size volume is entirely a
+ * matter of two tones next to each other; a single flat fill is a cut-out no
+ * matter how good the outline is.
+ */
+.tico-map svg .w-lit { fill: #d0a468; }
+.tico-map svg .w-mid { fill: #a87f4e; }
+.tico-map svg .w-dark { fill: #6b4f2f; }
+
+.tico-map svg .cloth { fill: #8c5a52; }
+.tico-map svg .cloth-lit { fill: #a86d63; }
+.tico-map svg .fringe {
+	fill: none;
+	stroke: #6f463f;
+	stroke-width: 1.1;
+	stroke-linecap: round;
+}
+
+.tico-map svg .metal { fill: #7d8496; }
+.tico-map svg .metal-lit { fill: #9aa1b3; }
+
+/* The lampshade is the brightest thing down there, which is the point of the
+   room being called the warm one. */
+.tico-map svg .shade { fill: #e8b75a; }
+.tico-map svg .shade-dark { fill: #c2913c; }
+.tico-map svg .glow { fill: #ffe6a8; }
+
+.tico-map svg .book { fill: #5c7a8c; }
+.tico-map svg .book-spine { fill: #3f5a6b; }
+.tico-map svg .glass { fill: #7fa8a0; opacity: 0.85; }
+
+.tico-map svg .brace,
+.tico-map svg .hoop {
+	fill: none;
+	stroke: #55401f;
+	stroke-width: 1.2;
+}
+
+.tico-map svg .canvas { fill: #4a6a7d; }
+.tico-map svg .canvas-ink { fill: #38566a; }
+.tico-map svg .canvas-sun { fill: #f0d18a; }
+
+.tico-map svg .pot { fill: #a8613f; }
+.tico-map svg .pot-dark { fill: #7f462c; }
+.tico-map svg .pot-rim { fill: #bd7049; }
+.tico-map svg .leaf {
+	fill: #6f9455;
+	stroke: #4f6d3c;
+	stroke-width: 0.9;
+}
+
+.tico-map svg .wax { fill: #e8dcc0; }
+.tico-map svg .flame { fill: #f5b83c; }
+.tico-map svg .flame-halo { fill: #f5b83c; opacity: 0.14; }
+
+.tico-map-foot {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 7px 3px 9px;
+}
+
+.tico-map-line {
+	flex: 1;
+	margin: 0;
+	font-family: var(--mono);
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: #d8c8ab;
+}
+
+/* The chamber name above the remark, so the line reads as a label and a
+   sentence rather than one run-on. */
+.tico-map-where {
+	display: block;
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #a2865c;
+}
+
+.tico-map-call {
+	flex: none;
+	padding: 4px 11px;
+	font-family: var(--mono);
+	font-size: 11px;
+	color: #e4d5b0;
+	background: #4a3728;
+	border: 1px solid #7a5f3e;
+	border-radius: 5px;
+	cursor: pointer;
+}
+
+.tico-map-call:hover {
+	background: #5c4633;
+	border-color: #b58a55;
+}
+
+/*
+ * Underground he is not on the strip at all. `display: none` rather than
+ * opacity, because a hidden-but-present pet keeps its animations running and the
  * price is per composited frame whether or not anyone can see the result.
  */
 .companion[data-indoors="true"] {
 	display: none;
 }
 
-/* The room hangs above the house rather than from the pet, so it stays put while
+/* The map hangs above the hatch rather than off the pet, so it stays put while
    he walks away from it. */
 .tico-room-anchor {
 	position: absolute;

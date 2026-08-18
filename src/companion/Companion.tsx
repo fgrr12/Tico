@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
-import { House, Room } from '../house/House.tsx'
+import { BurrowMap, Hatch } from '../house/House.tsx'
 import { FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
 
 import {
@@ -271,8 +271,15 @@ export const Companion = ({
 	const [falling, setFalling] = useState(false)
 	/** Indoors since this timestamp, or `null` for out here with you. */
 	const [home, setHome] = useState<number | null>(null)
-	/** You are looking in. Independent of `home` — you can look at an empty room. */
-	const [looking, setLooking] = useState(false)
+	/**
+	 * You are looking in, and the instant you opened it.
+	 *
+	 * The instant is the point. The scene used to be derived from `Date.now()`
+	 * during render, which meant it was recomputed on every single one — the room
+	 * churned while you stared at it and the promise that looking twice shows the
+	 * same thing was quietly false. Frozen at the moment the hatch comes up.
+	 */
+	const [looking, setLooking] = useState<number | null>(null)
 	const homeAt = useRef(0)
 	const homeTimer = useRef(0)
 	const houseRef = useRef<HTMLButtonElement>(null)
@@ -802,7 +809,7 @@ export const Companion = ({
 			// The house and the open room are their own regions rather than one
 			// union: the union of a pet on one side and a house on the other is
 			// most of the screen, and the desktop underneath has to stay usable.
-			const also = [houseRef.current, looking ? roomRef.current : null]
+			const also = [houseRef.current, looking !== null ? roomRef.current : null]
 				.filter((node) => node !== null)
 				.map((node) => {
 					const rect = node.getBoundingClientRect()
@@ -814,14 +821,29 @@ export const Companion = ({
 
 		publish()
 
+		/*
+		 * And once more after the map has finished opening.
+		 *
+		 * `getBoundingClientRect` reports the *transformed* box, and the map scales
+		 * up from 0.15 over a quarter of a second. The single publish above fires at
+		 * the start of that, so the region Rust was given was 53px wide instead of
+		 * 340 — the sheet was on screen and almost none of it took clicks, the
+		 * button included. Nothing in the layout is wrong; the measurement was
+		 * simply taken during the animation.
+		 */
+		const settle = window.setTimeout(publish, 320)
+
 		// While he is moving the box moves; while a button is waiting the bubble
 		// *grows*, because the line types in one character at a time. Publishing
 		// once when the bubble appears measured an empty one — which is exactly the
 		// area the button was not yet in.
-		if (!motion && !pending) return
+		if (!motion && !pending) return () => clearTimeout(settle)
 
 		const id = window.setInterval(publish, 60)
-		return () => clearInterval(id)
+		return () => {
+			clearInterval(id)
+			clearTimeout(settle)
+		}
 	}, [motion, pos, pending, bubble, looking, home, onRectChange])
 
 	// ── Senses ───────────────────────────────────────────────────────────────
@@ -2010,28 +2032,30 @@ export const Companion = ({
 
 	// `data-side` is which edge of him the bubble hangs off. Anchored to whichever
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
-	// The scene is derived at the moment of looking, from how long he has been in
-	// and which chair he favours. Nothing was running in there to produce it.
-	const scene = looking ? sceneAt(home ?? Date.now(), Date.now(), opening.chair) : null
+	// Derived once, at the moment of looking, from how long he has been down there
+	// and which chamber he favours. Nothing was running below to produce it.
+	const scene = looking === null ? null : sceneAt(home ?? looking, looking, opening.chair)
 
 	return (
 		<>
-			<House
+			<Hatch
 				x={HOUSE_X}
-				home={home !== null}
+				// Standing open whenever there is a way in being used: he is down
+				// there, or you have lifted it to look.
+				open={home !== null || looking !== null}
 				innerRef={houseRef}
-				onClick={() => setLooking((open) => !open)}
+				onClick={() => setLooking((at) => (at === null ? Date.now() : null))}
 			/>
 
 			{scene && (
 				<div className="tico-room-anchor" style={{ left: `${HOUSE_X}px` }}>
-					<Room
+					<BurrowMap
 						scene={scene}
 						language={language}
 						present={home !== null}
 						innerRef={roomRef}
 						onPetClick={() => {
-							setLooking(false)
+							setLooking(null)
 							if (home !== null) comeOut()
 						}}
 					/>
