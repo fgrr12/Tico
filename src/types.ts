@@ -86,4 +86,6 @@ export interface Opening {
 	drags: number
 	/** What he has worn most, once he has worn it enough to mean it. */
 	favourite: string | null
+	/** The same idea indoors: what he sits on most, once it is a habit. */
+	chair: string | null
 }

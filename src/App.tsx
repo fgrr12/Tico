@@ -82,8 +82,8 @@ export default function App() {
 		}
 	}, [])
 
-	const handleRect = useCallback((rect: PetRect) => {
-		invoke('set_pet_rect', { rect })
+	const handleRect = useCallback((rects: PetRect[]) => {
+		invoke('set_pet_rect', { rects })
 	}, [])
 
 	const handleInteractive = useCallback((hold: boolean) => {

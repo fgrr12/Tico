@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 
+import { FURNITURE, houseCopy, sceneAt } from '../src/house/house.ts'
 import {
 	companionCopy,
 	danceStyle,
@@ -215,6 +216,45 @@ check('every dance has choreography, and every style has a dance', () => {
 	)
 
 	return `${moves.length} moves, ${produced.size} styles reachable`
+})
+
+check('the house is deterministic and reaches every room', () => {
+	// The whole design rests on the house having no clock: what he "did" is
+	// derived when you look, not simulated behind the door. That is only honest
+	// if looking twice shows the same thing — otherwise it is a random number
+	// generator wearing a house.
+	const at = 1_700_000_000_000
+	const a = sceneAt(at, at + 300_000, null)
+	const b = sceneAt(at, at + 300_000, null)
+	assert(a.at === b.at && a.minutes === b.minutes, 'two looks at one moment disagreed')
+
+	// And it has to move as he stays, or the room is a photograph.
+	const later = new Set()
+	for (let m = 0; m < 40; m++) later.add(sceneAt(at, at + m * 60_000, null).at)
+	assert(later.size === FURNITURE.length, `only ${later.size} of ${FURNITURE.length} rooms reachable`)
+
+	// The favourite bends the draw without winning it — the same rule as the
+	// favourite hat. Always winning would be a routine, not a preference.
+	let onFavourite = 0
+	for (let m = 0; m < 90; m++) {
+		if (sceneAt(at, at + m * 60_000, 'chair').at === 'chair') onFavourite++
+	}
+	assert(onFavourite > 45, `the favourite only won ${onFavourite}/90 — it is not bending anything`)
+	assert(onFavourite < 90, 'the favourite won every single time, which is a uniform')
+
+	// Both languages, same shape. The shared copy check cannot see this file.
+	const [en, es] = [houseCopy('en'), houseCopy('es')]
+	assert(
+		JSON.stringify(Object.keys(en.at).sort()) === JSON.stringify(Object.keys(es.at).sort()),
+		'the two languages furnish different houses'
+	)
+	for (const kind of FURNITURE) {
+		for (const [name, copy] of [['en', en], ['es', es]]) {
+			assert(copy.at[kind]?.length > 0, `${name} has nothing to say about the ${kind}`)
+		}
+	}
+
+	return `${FURNITURE.length} rooms, ${onFavourite}/90 on the favourite`
 })
 
 check('every animation has keyframes behind it', () => {

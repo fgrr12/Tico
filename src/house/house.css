@@ -1,0 +1,113 @@
+/*
+ * The house, and the room behind it.
+ *
+ * Its own file because it is its own feature — `companion.css` had passed 1,500
+ * lines and every new thing was landing wherever there was room. Imported from
+ * there so there is still one stylesheet as far as the app is concerned.
+ *
+ * Nothing in here animates while the door is shut, and the room does not animate
+ * at all. That is deliberate and it is the same rule as everywhere else: the
+ * measured cost is per composited frame over the whole surface, so a still
+ * picture is free and one moving thing anywhere is not.
+ */
+
+.tico-house {
+	position: absolute;
+	bottom: 4px;
+	width: 84px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	pointer-events: auto;
+	/* Behind him, so walking to the door reads as walking *to* it. */
+	z-index: 0;
+}
+
+.tico-house svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/* Dark when he is out, lit when he is in. The only state the outside shows, and
+   enough of one that you can tell from across the desk whether he is home. */
+.tico-house-pane {
+	fill: #171a22;
+	transition: fill 0.6s ease;
+}
+
+.tico-house[data-home="true"] .tico-house-pane {
+	fill: var(--amber);
+}
+
+/* ── The room ───────────────────────────────────────────────────────────── */
+
+.tico-room {
+	position: absolute;
+	bottom: 84px;
+	width: 260px;
+	padding: 8px 8px 10px;
+	background: var(--bg-chrome);
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+	box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+	pointer-events: auto;
+	z-index: 2;
+	/* One entrance, and it ends. `forwards` because the panel is unmounted by a
+	   click rather than by the animation finishing. */
+	animation: tico-room-open 0.22s ease-out;
+}
+
+@keyframes tico-room-open {
+	0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tico-room svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	border-radius: 6px;
+}
+
+.tico-room-line {
+	margin: 8px 4px 0;
+	font-family: var(--mono);
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--fg);
+}
+
+.tico-room-call {
+	margin: 8px 4px 0;
+	padding: 4px 10px;
+	font-family: var(--mono);
+	font-size: 11px;
+	color: var(--fg);
+	background: var(--bg-raise);
+	border: 1px solid var(--line-strong);
+	border-radius: 7px;
+	cursor: pointer;
+}
+
+.tico-room-call:hover {
+	border-color: var(--amber);
+}
+
+/*
+ * Indoors he is not on the strip at all. `display: none` rather than opacity,
+ * because a hidden-but-present pet keeps its animations running and the measured
+ * price is per composited frame whether or not anyone can see the result.
+ */
+.companion[data-indoors="true"] {
+	display: none;
+}
+
+/* The room hangs above the house rather than from the pet, so it stays put while
+   he walks away from it. */
+.tico-room-anchor {
+	position: absolute;
+	bottom: 0;
+	pointer-events: none;
+}

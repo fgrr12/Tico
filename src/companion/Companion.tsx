@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
+import { House, Room } from '../house/House.tsx'
+import { FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
 
 import {
 	DAY_MILESTONES,
@@ -88,6 +90,13 @@ const LADDER_MIN = 240
 const LADDER_MAX = 620
 /** Chance the ladder goes out from under him once he is at the top. */
 const LADDER_SLIPS = 0.4
+/** Where the house stands, in strip pixels from the left. Fixed in v1. */
+const HOUSE_X = 24
+/** He will not go home more often than this, whatever the dice say. */
+const HOME_EVERY = 420_000
+/** How long he stays in. Wide, because "as long as he likes" is the feature. */
+const HOME_FOR = [45_000, 300_000]
+
 /** A ledge has to be this far below him to be worth reaching for. */
 const LEDGE_GAP = 40
 /**
@@ -193,7 +202,7 @@ interface CompanionProps {
 	/** Counters that outlive the session. Fire and forget — nothing reads them
 	 *  back until the next launch, so a dropped one costs nothing. */
 	onRemember: (what: string, key?: string) => void
-	onRectChange: (rect: PetRect) => void
+	onRectChange: (rects: PetRect[]) => void
 	/** Pins the window interactive for a drag, so a fast one cannot drop him. */
 	onInteractive: (hold: boolean) => void
 	onMoved: (fraction: number) => void
@@ -260,6 +269,14 @@ export const Companion = ({
 	const [hanging, setHanging] = useState(false)
 	/** Coming down under gravity. Gates the meteor, and nothing else. */
 	const [falling, setFalling] = useState(false)
+	/** Indoors since this timestamp, or `null` for out here with you. */
+	const [home, setHome] = useState<number | null>(null)
+	/** You are looking in. Independent of `home` — you can look at an empty room. */
+	const [looking, setLooking] = useState(false)
+	const homeAt = useRef(0)
+	const homeTimer = useRef(0)
+	const houseRef = useRef<HTMLButtonElement>(null)
+	const roomRef = useRef<HTMLDivElement>(null)
 	/** Owns him for the length of a climb, the way crossing does. */
 	const climbing = useRef(false)
 	const climbTimer = useRef(0)
@@ -697,6 +714,46 @@ export const Companion = ({
 		}, 700)
 	}, [limits, moveTo, react, lookAt, say, copy, fall])
 
+	/**
+	 * Going home, and coming out again.
+	 *
+	 * He walks to the door, stops existing on the strip for a while, and lets
+	 * himself out. Nothing runs while he is in there — see `sceneAt`: the house
+	 * has no clock, and what he "did" is worked out when you open the door, not
+	 * simulated behind it.
+	 *
+	 * `HOME_FOR` is wide on purpose. "As long as he likes" was the ask, and a
+	 * pet that is always back in ninety seconds has a lunch break, not a home.
+	 */
+	const goHome = useCallback(() => {
+		if (home !== null || climbing.current) return
+		homeAt.current = Date.now()
+
+		moveTo(HOUSE_X + 8, 0, WALK_SPEED * 1.1, () => {
+			setHome(Date.now())
+			setBubble(null)
+			// Remembered on the way in rather than on the way out, so a session that
+			// ends while he is indoors still counted the visit.
+			onRemember('furniture', pick(FURNITURE))
+
+			clearTimeout(homeTimer.current)
+			homeTimer.current = window.setTimeout(
+				() => comeOut(),
+				HOME_FOR[0] + Math.random() * (HOME_FOR[1] - HOME_FOR[0])
+			)
+		})
+	}, [home, moveTo, onRemember])
+
+	const comeOut = useCallback(() => {
+		clearTimeout(homeTimer.current)
+		setHome(null)
+		homeAt.current = Date.now()
+		react('happy', 'pop', 1_600)
+		if (Math.random() < 0.6) say(pick(houseCopy(language).leaving), 3_600)
+		// A few steps out of the doorway, so he does not stand in his own porch.
+		moveTo(HOUSE_X + 120 + Math.random() * 160, 0, WALK_SPEED)
+	}, [language, moveTo, react, say])
+
 	/** Stand where he stood last time, once the strip has a width to measure. */
 	// biome-ignore lint: runs once, on the remembered position.
 	useEffect(() => {
@@ -742,7 +799,17 @@ export const Companion = ({
 				height = Math.max(box.bottom, bubble.bottom) - top
 			}
 
-			onRectChange({ x, y, width, height })
+			// The house and the open room are their own regions rather than one
+			// union: the union of a pet on one side and a house on the other is
+			// most of the screen, and the desktop underneath has to stay usable.
+			const also = [houseRef.current, looking ? roomRef.current : null]
+				.filter((node) => node !== null)
+				.map((node) => {
+					const rect = node.getBoundingClientRect()
+					return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+				})
+
+			onRectChange([{ x, y, width, height }, ...also])
 		}
 
 		publish()
@@ -755,7 +822,7 @@ export const Companion = ({
 
 		const id = window.setInterval(publish, 60)
 		return () => clearInterval(id)
-	}, [motion, pos, pending, bubble, onRectChange])
+	}, [motion, pos, pending, bubble, looking, home, onRectChange])
 
 	// ── Senses ───────────────────────────────────────────────────────────────
 
@@ -1184,6 +1251,22 @@ export const Companion = ({
 			peekover: { min: 0.35, run: () => { react('watching', 'peek', 1_800); lookAt(0, 1, 1_800) } },
 
 			/**
+			 * Home. Rare, and behind its own floor rather than the shared moment
+			 * clock — the whole point is that he is gone for a while, and a thing
+			 * that removes him from the screen has to be much rarer than one that
+			 * makes him hop.
+			 */
+			house: {
+				min: 0.25,
+				travels: true,
+				run: () => {
+					if (Date.now() - homeAt.current < HOME_EVERY) return
+					if (Math.random() < 0.55) say(pick(houseCopy(language).arriving), 3_000)
+					window.setTimeout(goHome, 1_200)
+				},
+			},
+
+			/**
 			 * Off one edge and back from the other, having gone to look.
 			 *
 			 * This started as the shy behaviour during a call and turned out to be a
@@ -1533,6 +1616,9 @@ export const Companion = ({
 				return
 			}
 
+			// Indoors he is not on the strip at all, so none of the below applies.
+			if (home !== null) return
+
 			if (asleep.current || moodNow.current !== 'idle' || motion || dragged.current) return
 
 			// Peeking: he keeps the gestures and loses the itinerary. Wandering off
@@ -1711,10 +1797,13 @@ export const Companion = ({
 		motion,
 		nowPlaying,
 		prop,
+		home,
 		moveTo,
 		limits,
 		peekRestX,
 		climb,
+		goHome,
+		language,
 		opening,
 		familiarity,
 		onRemember,
@@ -1759,6 +1848,7 @@ export const Companion = ({
 			clearTimeout(poseTimer.current)
 			clearTimeout(propTimer.current)
 			clearTimeout(climbTimer.current)
+			clearTimeout(homeTimer.current)
 		},
 		[]
 	)
@@ -1920,8 +2010,34 @@ export const Companion = ({
 
 	// `data-side` is which edge of him the bubble hangs off. Anchored to whichever
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
+	// The scene is derived at the moment of looking, from how long he has been in
+	// and which chair he favours. Nothing was running in there to produce it.
+	const scene = looking ? sceneAt(home ?? Date.now(), Date.now(), opening.chair) : null
+
 	return (
 		<>
+			<House
+				x={HOUSE_X}
+				home={home !== null}
+				innerRef={houseRef}
+				onClick={() => setLooking((open) => !open)}
+			/>
+
+			{scene && (
+				<div className="tico-room-anchor" style={{ left: `${HOUSE_X}px` }}>
+					<Room
+						scene={scene}
+						language={language}
+						present={home !== null}
+						innerRef={roomRef}
+						onPetClick={() => {
+							setLooking(false)
+							if (home !== null) comeOut()
+						}}
+					/>
+				</div>
+			)}
+
 			{/* A sibling, not a child: the ladder stands on the floor and stays there
 			    while he goes up it. Inside `.companion` it would ride along with him,
 			    which is a lift, not a ladder. */}
@@ -1936,6 +2052,7 @@ export const Companion = ({
 		<div
 			ref={rootRef}
 			className="companion"
+			data-indoors={home !== null ? 'true' : undefined}
 			data-mood={mood}
 			data-size={settings.size}
 			data-walking={motion ? 'true' : undefined}

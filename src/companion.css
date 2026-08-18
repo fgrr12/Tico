@@ -1,3 +1,6 @@
+/* The house lives in its own file; this keeps one stylesheet for the app. */
+@import "./house/house.css";
+
 /*
  * The pet's looks, ported from the portfolio's index.css. Tokyo Night, the same
  * tokens, minus Tailwind — there is no page here to lay out, only him.

@@ -41,6 +41,11 @@ pub struct Memory {
     /// His wardrobe history — how many times he has worn each thing. A pet with a
     /// favourite hat is a pet with a preference, and this is where it comes from.
     pub props: HashMap<String, u32>,
+    /// The same shape, for what he does at home. Deliberately the same mechanism:
+    /// a favourite armchair and a favourite hat are the same idea, and inventing
+    /// a second way to have a preference would have been the tell that it was not.
+    #[serde(default)]
+    pub furniture: HashMap<String, u32>,
 }
 
 /// What the frontend gets at boot: the stored counters plus the few things only
@@ -59,6 +64,9 @@ pub struct Opening {
     /// The thing he has worn most, once he has worn anything enough to have an
     /// opinion. `None` until then, rather than a favourite invented from one wear.
     pub favourite: Option<String>,
+    /// The same idea indoors: what he sits on most, once he has sat anywhere
+    /// enough for it to be a habit rather than a coincidence.
+    pub chair: Option<String>,
 }
 
 /// Worn this many times before it counts as a preference rather than an accident.
@@ -135,12 +143,17 @@ fn roll(memory: &mut Memory, today: &str) -> u32 {
     }
 }
 
-fn favourite(memory: &Memory) -> Option<String> {
-    memory
-        .props
+/// The thing used most, once it has been used enough to mean anything.
+///
+/// Takes the map rather than the whole `Memory` so the wardrobe and the house
+/// share it. The tie-break on the key is what keeps it stable: two things worn
+/// the same number of times would otherwise swap places on every read, and a
+/// favourite that changes when nothing happened is not a favourite.
+fn most_used(counts: &HashMap<String, u32>) -> Option<String> {
+    counts
         .iter()
-        .filter(|(_, worn)| **worn >= FAVOURITE_AFTER)
-        .max_by_key(|(kind, worn)| (**worn, kind.clone()))
+        .filter(|(_, used)| **used >= FAVOURITE_AFTER)
+        .max_by_key(|(kind, used)| (**used, kind.clone()))
         .map(|(kind, _)| kind.clone())
 }
 
@@ -158,6 +171,7 @@ fn open(app: &AppHandle) -> Opening {
             pets: 0,
             drags: 0,
             favourite: None,
+            chair: None,
         };
     };
 
@@ -176,7 +190,8 @@ fn open(app: &AppHandle) -> Opening {
         first_day: memory.days <= 1,
         pets: memory.pets,
         drags: memory.drags,
-        favourite: favourite(&memory),
+        favourite: most_used(&memory.props),
+        chair: most_used(&memory.furniture),
     }
 }
 
@@ -200,6 +215,11 @@ pub fn remember(app: AppHandle, what: String, key: Option<String>) {
         "prop" => {
             if let Some(kind) = key {
                 *memory.props.entry(kind).or_insert(0) += 1;
+            }
+        }
+        "furniture" => {
+            if let Some(kind) = key {
+                *memory.furniture.entry(kind).or_insert(0) += 1;
             }
         }
         // An unknown event is a frontend that has moved on without this file.
@@ -266,10 +286,10 @@ mod tests {
     fn a_favourite_needs_more_than_one_wear() {
         let mut memory = Memory::default();
         memory.props.insert("crown".into(), 1);
-        assert_eq!(favourite(&memory), None);
+        assert_eq!(most_used(&memory.props), None);
 
         memory.props.insert("crown".into(), FAVOURITE_AFTER);
         memory.props.insert("scarf".into(), 2);
-        assert_eq!(favourite(&memory), Some("crown".into()));
+        assert_eq!(most_used(&memory.props), Some("crown".into()));
     }
 }

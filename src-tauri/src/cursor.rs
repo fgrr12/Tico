@@ -5,8 +5,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-/// Where the pet is standing, in CSS pixels inside the strip. Published by the
-/// frontend, which is the only side that knows where he actually is.
+/// A region of the strip that should take clicks, in CSS pixels. Published by
+/// the frontend, which is the only side that knows where anything is.
 #[derive(Clone, Copy, Deserialize)]
 pub struct PetRect {
     pub x: f64,
@@ -21,20 +21,31 @@ struct CursorMoved {
     y: f64,
 }
 
-static RECT: Mutex<Option<PetRect>> = Mutex::new(None);
+/// Every clickable region, not just the pet.
+///
+/// This was a single rect for as long as he was the only thing on the strip. The
+/// house broke that: a door you cannot click is a picture of a door, and the
+/// interior needs the whole panel live while it is open. A list rather than a
+/// union rectangle, because the union of a pet on one side and a house on the
+/// other is most of the screen, and the desktop underneath has to stay usable.
+static RECTS: Mutex<Vec<PetRect>> = Mutex::new(Vec::new());
 /// Held true for the length of a drag. See the comment in `watch`.
 static PINNED: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
-pub fn set_pet_rect(rect: PetRect) {
+pub fn set_pet_rect(rects: Vec<PetRect>) {
     #[cfg(debug_assertions)]
     eprintln!(
-        "[tico] hit rect: x={:.0} y={:.0} w={:.0} h={:.0}",
-        rect.x, rect.y, rect.width, rect.height
+        "[tico] hit rects: {}",
+        rects
+            .iter()
+            .map(|r| format!("{:.0},{:.0} {:.0}x{:.0}", r.x, r.y, r.width, r.height))
+            .collect::<Vec<_>>()
+            .join(" | ")
     );
 
-    if let Ok(mut current) = RECT.lock() {
-        *current = Some(rect);
+    if let Ok(mut current) = RECTS.lock() {
+        *current = rects;
     }
 }
 
@@ -91,8 +102,13 @@ pub fn watch(app: AppHandle) {
             // and if the window turned click-through halfway through the gesture the
             // pointer capture would break and he would be dropped mid-air.
             let on_pet = PINNED.load(Ordering::Relaxed)
-                || RECT.lock().ok().and_then(|rect| *rect).is_some_and(|rect| {
-                    x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
+                || RECTS.lock().ok().is_some_and(|rects| {
+                    rects.iter().any(|rect| {
+                        x >= rect.x
+                            && x <= rect.x + rect.width
+                            && y >= rect.y
+                            && y <= rect.y + rect.height
+                    })
                 });
 
             if on_pet != interactive {
