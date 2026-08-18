@@ -55,6 +55,10 @@ export interface Ledge {
 export interface NowPlaying {
 	artist: string
 	song: string
+	/** Apple Music only — Spotify's scripting dictionary has no genre. */
+	genre: string
+	/** Apple Music only, and `0` unless the track was actually tagged. */
+	bpm: number
 }
 
 export type Chattiness = 'quiet' | 'normal' | 'chatty'

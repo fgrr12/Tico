@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import {
 	companionCopy,
+	danceStyle,
 	DAY_MILESTONES,
 	documentIn,
 	energyAt,
@@ -167,6 +168,53 @@ check('he still has something to do from the corner of a call', () => {
 		'the overshoot is no longer symmetric, so he cannot peek from the left edge'
 	)
 	return `${pool.length} calm, stationary moments`
+})
+
+check('every dance has choreography, and every style has a dance', () => {
+	// `DANCES` sits outside the behaviour table, so the animation check below has
+	// never seen it — and a dance whose name has no CSS is a pet that "dances"
+	// while standing perfectly still, which no type, lint or log would mention.
+	const dances = companion.slice(
+		companion.indexOf('const DANCES'),
+		companion.indexOf('const pick')
+	)
+	const moves = [...new Set([...dances.matchAll(/\['(\w+)',/g)].map((m) => m[1]))]
+
+	for (const move of moves) {
+		assert(css.includes(`data-anim="${move}"`), `no CSS for the ${move} dance`)
+	}
+
+	/*
+	 * And the other direction. Rather than parsing the style list out of the
+	 * source, exercise the function: every style `danceStyle` can actually return
+	 * has to be a key of `DANCES`, or `pick` is handed undefined and he throws
+	 * mid-song. All three tiers are covered — tempo, genre, and the hash that
+	 * every Spotify listener lands on.
+	 */
+	const produced = new Set()
+	for (const bpm of [50, 95, 130, 200]) produced.add(danceStyle('a', 'b', '', bpm))
+	for (const genre of ['Metal', 'Punk', 'Hip-Hop/Rap', 'Classical', 'Pop', 'Rock', 'Jazz']) {
+		produced.add(danceStyle('a', 'b', genre, 0))
+	}
+	for (let i = 0; i < 300; i++) produced.add(danceStyle(`artist ${i}`, `song ${i}`))
+
+	for (const style of produced) {
+		assert(new RegExp(`\\b${style}: \\[`).test(dances), `DANCES has nothing for ${style}`)
+	}
+
+	// The hash has to actually spread. One that returned the same bucket for
+	// every track would pass everything above and be a fixed dance in disguise.
+	const spread = new Set()
+	for (let i = 0; i < 300; i++) spread.add(danceStyle(`artist ${i}`, `song ${i}`))
+	assert(spread.size >= 4, `the hash only ever produces ${spread.size} styles`)
+
+	// And it has to be stable, which is the entire claim it makes.
+	assert(
+		danceStyle('Boards of Canada', 'Roygbiv') === danceStyle('Boards of Canada', 'Roygbiv'),
+		'the same track got two different dances'
+	)
+
+	return `${moves.length} moves, ${produced.size} styles reachable`
 })
 
 check('every animation has keyframes behind it', () => {

@@ -12,6 +12,13 @@ use tauri::{AppHandle, Emitter, Manager};
 pub struct NowPlaying {
     artist: String,
     song: String,
+    /// Apple Music only, and often the most useful thing here. Spotify's
+    /// scripting dictionary has no genre at all — checked, not assumed.
+    genre: String,
+    /// Apple Music only, and `0` far more often than not: it is whatever the
+    /// track was tagged with, and most libraries never were. Treated downstream
+    /// as a hint that may be absent rather than as a measurement.
+    bpm: u32,
 }
 
 static LAST: Mutex<Option<NowPlaying>> = Mutex::new(None);
@@ -39,16 +46,20 @@ set d to (character id 31)
 set out to ""
 if application "Spotify" is running then
 	tell application "Spotify"
-		if player state is playing then set out to (artist of current track) & d & (name of current track)
+		if player state is playing then set out to (artist of current track) & d & (name of current track) & d & "" & d & "0"
 	end tell
 end if
 if out is "" and application "Music" is running then
 	tell application "Music"
-		if player state is playing then set out to (artist of current track) & d & (name of current track)
+		if player state is playing then
+			set t to current track
+			set out to (artist of t) & d & (name of t) & d & (genre of t) & d & ((bpm of t) as text)
+		end if
 	end tell
 end if
 return out
 "#;
+
 
 /// Is either player even open?
 ///
@@ -78,8 +89,13 @@ fn now_playing() -> Option<NowPlaying> {
     let raw = String::from_utf8_lossy(&output.stdout);
 
     // Unit separator, because "|" and " - " both show up in real track titles.
-    let (artist, song) = raw.trim().split_once('\u{1f}')?;
-    let (artist, song) = (artist.trim(), song.trim());
+    // Four fields now; Spotify sends the last two empty because it has nothing
+    // to put in them, which keeps one parser for both players.
+    let mut parts = raw.trim().split('\u{1f}');
+    let artist = parts.next()?.trim();
+    let song = parts.next()?.trim();
+    let genre = parts.next().unwrap_or("").trim();
+    let bpm = parts.next().unwrap_or("0").trim().parse().unwrap_or(0);
 
     if artist.is_empty() || song.is_empty() {
         return None;
@@ -88,6 +104,8 @@ fn now_playing() -> Option<NowPlaying> {
     Some(NowPlaying {
         artist: artist.to_string(),
         song: song.to_string(),
+        genre: genre.to_string(),
+        bpm,
     })
 }
 

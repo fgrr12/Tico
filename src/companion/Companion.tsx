@@ -18,8 +18,9 @@ import {
 	linesFor,
 	matchApp,
 	timeOfDay,
+	danceStyle,
 } from '../data/companion'
-import type { CompanionMood, Ledge, Opening, PetRect, Settings } from '../types'
+import type { CompanionMood, Ledge, NowPlaying, Opening, PetRect, Settings } from '../types'
 
 /**
  * `tico`, on a real desktop.
@@ -144,6 +145,23 @@ const CHATTINESS: Record<Settings['chattiness'], number> = {
 	chatty: 0.45,
 }
 
+/**
+ * What each style actually looks like, as `[animation, milliseconds]`.
+ *
+ * The duration is half the character: the same body doing the same amount of
+ * movement over 2.6 seconds and over 0.9 reads as swaying and as jumping. `none`
+ * is what he did before any of this — kept intact, because it is what a pet
+ * dancing to nothing should look like.
+ */
+const DANCES: Record<string, [string, number][]> = {
+	none: [['dance', 1_700], ['jig', 1_600], ['bounce', 1_300]],
+	heavy: [['stomp', 1_500], ['bounce', 1_300]],
+	fast: [['pogo', 1_000], ['jig', 1_500]],
+	smooth: [['groove', 2_000], ['sway', 2_300]],
+	slow: [['sway', 2_600], ['groove', 2_400]],
+	bright: [['dance', 1_700], ['hop', 900], ['spin', 1_000]],
+}
+
 const pick = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)]
 
 const clamp = (value: number) => Math.max(-1, Math.min(1, value))
@@ -162,7 +180,7 @@ interface CompanionProps {
 	/** The frontmost application, its focused window's title, and since when. */
 	activeApp: { name: string; title: string | null; since: number } | null
 	/** Whatever a music player is showing in its window title, if anything. */
-	nowPlaying: { artist: string; song: string } | null
+	nowPlaying: NowPlaying | null
 	/** Unix seconds until which he keeps unprompted remarks to himself. */
 	quietUntil: number
 	/** The microphone is live somewhere — treated as "you are in a call". */
@@ -1051,6 +1069,27 @@ export const Companion = ({
 			poseTimer.current = window.setTimeout(() => setPose(null), ms)
 		}
 
+		/**
+		 * One move, chosen by what is playing. `scale` shortens it for the moments
+		 * that chain into something else, so a jig does not run over the bounce it
+		 * is supposed to lead into.
+		 *
+		 * Costs nothing: this is a different keyframe name on a `react` that was
+		 * already being called. No animation runs that was not running before.
+		 */
+		const performDance = (scale = 1) => {
+			const music = nowPlaying
+			if (!music) {
+				const [name, ms] = pick(DANCES.none)
+				react('happy', name, ms * scale)
+				return
+			}
+
+			const style = danceStyle(music.artist, music.song, music.genre, music.bpm)
+			const [name, ms] = pick(DANCES[style])
+			react('happy', name, ms * scale)
+		}
+
 		const moments: Record<string, Moment> = {
 			yawn: { min: 0, run: () => react('yawn', 'yawn', 1_500), then: 'sit' },
 			sit: { min: 0, run: () => sit() },
@@ -1107,9 +1146,22 @@ export const Companion = ({
 				},
 				then: 'stare',
 			},
-			dance: { min: 0.7, run: () => react('happy', 'dance', 1_700) },
-			jig: { min: 0.75, run: () => react('happy', 'jig', 1_600), then: 'bounce' },
-			showoff: { min: 0.8, run: () => react('love', 'spin', 1_200), then: 'hop' },
+			/**
+			 * Dancing, and what he dances *to*.
+			 *
+			 * Every one of these used to be a fixed animation, which meant he moved
+			 * identically to a ballad, to nothing at all, and to whatever was on. The
+			 * style comes from `danceStyle` — Apple Music's tempo first, then its
+			 * genre, then a hash of the track for everyone on Spotify, whose player
+			 * hands over neither.
+			 *
+			 * Silence keeps the old set. A pet dancing with no music is having a
+			 * moment; a pet doing the *slow ballad* dance with no music is a bug you
+			 * would have to explain.
+			 */
+			dance: { min: 0.7, run: () => performDance(1) },
+			jig: { min: 0.75, run: () => performDance(0.85), then: 'bounce' },
+			showoff: { min: 0.8, run: () => { performDance(0.8); react('love', undefined, 1_400) }, then: 'hop' },
 
 			// ── the quiet end ────────────────────────────────────────────────
 			dream: { min: 0, run: () => react('sleep', 'twitch', 1_400) },

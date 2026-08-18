@@ -345,6 +345,84 @@ export const documentIn = (title: string | null): string | null => {
 	return null
 }
 
+/**
+ * How he dances, from whatever the player was willing to say about the track.
+ *
+ * **Checked against both scripting dictionaries rather than assumed.** Apple
+ * Music's `current track` exposes `genre` and `bpm`; Spotify's exposes neither —
+ * artist, album, duration, popularity, played count and some numbers, and that
+ * is the whole list. So this degrades in three steps, and most people land on
+ * the third.
+ *
+ * Nothing here listens to the audio. Real tempo detection means capturing the
+ * output stream, which on macOS costs the Screen Recording permission that
+ * `window_title.rs` refuses on principle, plus an FFT on a clock — two things
+ * this pet is built not to have.
+ */
+export type DanceStyle = 'heavy' | 'fast' | 'smooth' | 'slow' | 'bright'
+
+/** Substring against Apple Music's genre string, first match wins. */
+const GENRE_STYLES: [DanceStyle, string[]][] = [
+	['heavy', ['metal', 'hard rock', 'grunge', 'industrial']],
+	['fast', ['punk', 'electronic', 'techno', 'house', 'drum', 'dance', 'ska', 'trance']],
+	['smooth', ['hip', 'rap', 'r&b', 'soul', 'funk', 'jazz', 'reggae', 'latin', 'salsa', 'bossa']],
+	['slow', ['classical', 'ambient', 'acoustic', 'folk', 'blues', 'soundtrack', 'piano']],
+	['bright', ['pop', 'indie', 'alternative', 'country', 'rock']],
+]
+
+/**
+ * Tempo wins when there is one, because it is the thing actually being asked
+ * about — a slow metal track is a slow dance whatever the genre column says.
+ * `bpm` is `0` far more often than not: it is a tag, and most libraries were
+ * never tagged, which is why it is a refinement and not the whole answer.
+ */
+const styleFromBpm = (bpm: number): DanceStyle | null => {
+	if (bpm <= 0) return null
+	if (bpm < 85) return 'slow'
+	if (bpm < 110) return 'smooth'
+	if (bpm < 145) return 'bright'
+	return 'fast'
+}
+
+const STYLES: DanceStyle[] = ['heavy', 'fast', 'smooth', 'slow', 'bright']
+
+/**
+ * The fallback, and the one nearly every Spotify listener gets.
+ *
+ * A hash of the track rather than a random draw, so the same song always gets
+ * the same dance. That is not rhythm detection and is not pretending to be —
+ * but "he does this one to this song" is the thing you actually notice, and it
+ * is indistinguishable from taste until you own two songs he treats alike.
+ *
+ * An artist-to-genre table was written here and deleted. It would have been a
+ * few dozen names guessed at by somebody who has never seen your library, wrong
+ * for almost every track, and needing a commit every time you found a new band.
+ * The hash is right about the only thing it claims.
+ */
+export const danceStyle = (
+	artist: string,
+	song: string,
+	genre = '',
+	bpm = 0
+): DanceStyle => {
+	const fromBpm = styleFromBpm(bpm)
+	if (fromBpm) return fromBpm
+
+	const needle = genre.toLowerCase()
+	if (needle) {
+		const found = GENRE_STYLES.find(([, words]) => words.some((w) => needle.includes(w)))
+		if (found) return found[0]
+	}
+
+	// FNV-1a, because it is eight lines and this is not cryptography.
+	let hash = 0x811c9dc5
+	for (const char of `${artist}\u0000${song}`.toLowerCase()) {
+		hash ^= char.charCodeAt(0)
+		hash = Math.imul(hash, 0x01000193) >>> 0
+	}
+	return STYLES[hash % STYLES.length]
+}
+
 export const matchApp = (name: string): string | null => {
 	const needle = name.toLowerCase()
 	return APP_PATTERNS.find(([, patterns]) => patterns.some((p) => needle.includes(p)))?.[0] ?? null

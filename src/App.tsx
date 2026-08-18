@@ -6,7 +6,7 @@ import { listen } from '@tauri-apps/api/event'
 import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
-import type { Ledge, Opening, PetRect, Settings } from './types'
+import type { Ledge, NowPlaying, Opening, PetRect, Settings } from './types'
 
 interface Boot extends Settings {
 	x: number
@@ -29,7 +29,7 @@ export default function App() {
 		title: string | null
 		since: number
 	} | null>(null)
-	const [nowPlaying, setNowPlaying] = useState<{ artist: string; song: string } | null>(null)
+	const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null)
 	const [reminders, setReminders] = useState<{ id: string; text: string }[]>([])
 	const [inCall, setInCall] = useState(false)
 	const [opening, setOpening] = useState<Opening | null>(null)
@@ -68,7 +68,7 @@ export default function App() {
 		const call = listen<{ active: boolean }>('in-call', (event) =>
 			setInCall(event.payload.active)
 		)
-		const music = listen<{ artist: string; song: string } | null>('now-playing', (event) =>
+		const music = listen<NowPlaying | null>('now-playing', (event) =>
 			setNowPlaying(event.payload)
 		)
 
