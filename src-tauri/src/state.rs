@@ -28,6 +28,12 @@ pub struct State {
     /// `auto`, `en` or `es`. `auto` follows the system, which is what it did
     /// before there was a way to say otherwise.
     pub language: String,
+    /// Whether the burrow exists at all. Off, the hatch is not drawn, its click
+    /// region is never published, and he never goes down — so it costs nothing
+    /// rather than costing a little. On by default: it is his home, and a pet
+    /// that has to be switched on is a feature list.
+    #[serde(default = "yes")]
+    pub house: bool,
 }
 
 impl Default for State {
@@ -45,8 +51,14 @@ impl Default for State {
             in_call: "peek".into(),
             read_titles: false,
             language: "auto".into(),
+            house: true,
         }
     }
+}
+
+/// `serde` needs a function, and `true` is not one.
+fn yes() -> bool {
+    true
 }
 
 pub struct Store(pub Mutex<State>);

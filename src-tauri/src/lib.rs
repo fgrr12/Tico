@@ -32,6 +32,7 @@ struct Settings {
     language: Vec<(&'static str, CheckMenuItem<Wry>)>,
     autostart: CheckMenuItem<Wry>,
     read_titles: CheckMenuItem<Wry>,
+    house: CheckMenuItem<Wry>,
 }
 
 const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
@@ -264,6 +265,15 @@ pub fn run() {
                 None::<&str>,
             )?;
 
+            let house = CheckMenuItem::with_id(
+                app,
+                "house",
+                "Burrow",
+                true,
+                saved.house,
+                None::<&str>,
+            )?;
+
             let chattiness_menu = Submenu::with_items(
                 app,
                 "Chattiness",
@@ -326,6 +336,7 @@ pub fn run() {
                     &size_menu,
                     &language_menu,
                     &read_titles,
+                    &house,
                     &autostart,
                     &PredefinedMenuItem::separator(app)?,
                     &quit,
@@ -339,6 +350,7 @@ pub fn run() {
                 language,
                 autostart,
                 read_titles,
+                house,
             });
 
             // A separate monochrome icon for the menu bar, not the app icon.
@@ -404,8 +416,27 @@ pub fn run() {
                     }
 
                     match id {
+                        /*
+                         * Both of these read the *store* and not the menu item, and
+                         * that is not a style choice.
+                         *
+                         * macOS ticks a `CheckMenuItem` itself, before the handler
+                         * runs. So `is_checked()` here already reports the state the
+                         * user just asked for — negating it computes the value it
+                         * had a moment ago, writes that back, and `set_checked`
+                         * puts the tick where it started. The menu flickers and
+                         * nothing happens, which is exactly what "the toggle does
+                         * not work" looked like. Observed, not guessed: at click
+                         * time the menu said `checked=false` while the store still
+                         * said `true`.
+                         *
+                         * The store is the source of truth and the menu is a view
+                         * of it, so the flip comes from the store and the tick is
+                         * then forced to agree — which also repairs the tick on any
+                         * platform that does *not* toggle it for us.
+                         */
                         "titles" => {
-                            let on = !settings.read_titles.is_checked().unwrap_or(false);
+                            let on = !state::boot(app.clone()).read_titles;
 
                             // Turning it on without the grant would silently do
                             // nothing, so send them where it is granted instead of
@@ -422,6 +453,12 @@ pub fn run() {
                             state::update(app, |current| current.read_titles = on);
                             active_app::set_titles(on);
                             let _ = settings.read_titles.set_checked(on);
+                            publish(app);
+                        }
+                        "house" => {
+                            let on = !state::boot(app.clone()).house;
+                            state::update(app, |current| current.house = on);
+                            let _ = settings.house.set_checked(on);
                             publish(app);
                         }
                         "autostart" => {

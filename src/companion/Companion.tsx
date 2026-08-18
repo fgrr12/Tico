@@ -195,6 +195,8 @@ interface CompanionProps {
 	/** The microphone is live somewhere — treated as "you are in a call". */
 	inCall: boolean
 	inCallMode: 'peek' | 'hide' | 'ignore'
+	/** Whether the burrow exists. Off, none of it is drawn, polled or published. */
+	houseOn: boolean
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	/** What he remembers from before this launch. Read once, at boot. */
@@ -221,6 +223,7 @@ export const Companion = ({
 	quietUntil,
 	inCall,
 	inCallMode,
+	houseOn,
 	initialX,
 	opening,
 	onRemember,
@@ -722,6 +725,18 @@ export const Companion = ({
 	}, [limits, moveTo, react, lookAt, say, copy, fall])
 
 	/**
+	 * Turning the burrow off with him inside would leave him hidden behind a
+	 * `display: none` and no hatch to click — the pet would simply be gone. So
+	 * the switch evicts him.
+	 */
+	// biome-ignore lint: reacts to the setting, not to `comeOut` changing.
+	useEffect(() => {
+		if (houseOn) return
+		setLooking(null)
+		if (home !== null) comeOut()
+	}, [houseOn])
+
+	/**
 	 * Going home, and coming out again.
 	 *
 	 * He walks to the door, stops existing on the strip for a while, and lets
@@ -732,24 +747,30 @@ export const Companion = ({
 	 * `HOME_FOR` is wide on purpose. "As long as he likes" was the ask, and a
 	 * pet that is always back in ninety seconds has a lunch break, not a home.
 	 */
+	/**
+	 * He is in. Shared by the two ways down — walking there himself, and being
+	 * dropped through the opening — because everything after the last step of
+	 * either is identical, including how long he then decides to stay.
+	 */
+	const settleIn = useCallback(() => {
+		setHome(Date.now())
+		setBubble(null)
+		// Remembered on the way in rather than on the way out, so a session that
+		// ends while he is down there still counted the visit.
+		onRemember('furniture', pick(FURNITURE))
+
+		clearTimeout(homeTimer.current)
+		homeTimer.current = window.setTimeout(
+			() => comeOut(),
+			HOME_FOR[0] + Math.random() * (HOME_FOR[1] - HOME_FOR[0])
+		)
+	}, [onRemember])
+
 	const goHome = useCallback(() => {
 		if (home !== null || climbing.current) return
 		homeAt.current = Date.now()
-
-		moveTo(HOUSE_X + 8, 0, WALK_SPEED * 1.1, () => {
-			setHome(Date.now())
-			setBubble(null)
-			// Remembered on the way in rather than on the way out, so a session that
-			// ends while he is indoors still counted the visit.
-			onRemember('furniture', pick(FURNITURE))
-
-			clearTimeout(homeTimer.current)
-			homeTimer.current = window.setTimeout(
-				() => comeOut(),
-				HOME_FOR[0] + Math.random() * (HOME_FOR[1] - HOME_FOR[0])
-			)
-		})
-	}, [home, moveTo, onRemember])
+		moveTo(HOUSE_X + 30, 0, WALK_SPEED * 1.1, settleIn)
+	}, [home, moveTo, settleIn])
 
 	const comeOut = useCallback(() => {
 		clearTimeout(homeTimer.current)
@@ -844,7 +865,11 @@ export const Companion = ({
 			clearInterval(id)
 			clearTimeout(settle)
 		}
-	}, [motion, pos, pending, bubble, looking, home, onRectChange])
+		// `houseOn` belongs here too. Without it, switching the burrow off left the
+		// last published region list in place — Rust went on treating the patch of
+		// floor where the hatch used to be as clickable, and the desktop under it
+		// stayed dead until he next moved and something happened to republish.
+	}, [motion, pos, pending, bubble, looking, home, houseOn, onRectChange])
 
 	// ── Senses ───────────────────────────────────────────────────────────────
 
@@ -1282,6 +1307,7 @@ export const Companion = ({
 				min: 0.25,
 				travels: true,
 				run: () => {
+					if (!houseOn) return
 					if (Date.now() - homeAt.current < HOME_EVERY) return
 					if (Math.random() < 0.55) say(pick(houseCopy(language).arriving), 3_000)
 					window.setTimeout(goHome, 1_200)
@@ -1820,6 +1846,7 @@ export const Companion = ({
 		nowPlaying,
 		prop,
 		home,
+		houseOn,
 		moveTo,
 		limits,
 		peekRestX,
@@ -1999,6 +2026,18 @@ export const Companion = ({
 		setPos(clampPos(start.ox + dx, start.oy - dy))
 	}
 
+	/**
+	 * Is his middle over the opening? Measured from the DOM rather than from
+	 * `HOUSE_X` and a guess at his width, so it stays true at every pet size.
+	 */
+	const overHatch = () => {
+		const hatch = houseRef.current?.getBoundingClientRect()
+		const him = rootRef.current?.getBoundingClientRect()
+		if (!hatch || !him) return false
+		const middle = him.x + him.width / 2
+		return middle > hatch.x && middle < hatch.x + hatch.width
+	}
+
 	const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
 		if (!drag.current) return
 		drag.current = null
@@ -2006,6 +2045,24 @@ export const Companion = ({
 		onInteractive(false)
 
 		if (!dragged.current) return
+
+		/*
+		 * Dropped over the opening, he goes down it.
+		 *
+		 * Judged on his middle against the hatch's span, not on the two boxes
+		 * touching: overlapping by a corner is where you were aiming at the floor
+		 * beside it, and a pet that vanishes because you were three pixels out is a
+		 * pet you stop picking up. He still falls the rest of the way — the hole is
+		 * in the floor, so the end of the gesture is gravity either way.
+		 */
+		if (houseOn && home === null && overHatch()) {
+			homeAt.current = Date.now()
+			moveTo(HOUSE_X + 30, 0, FALL_SPEED, settleIn)
+			window.setTimeout(() => {
+				dragged.current = false
+			}, 0)
+			return
+		}
 
 		// Through `fall`, the same as coming off a ladder. It used to be its own
 		// `moveTo` straight to the floor, which meant the one fall you cause by hand
@@ -2038,6 +2095,7 @@ export const Companion = ({
 
 	return (
 		<>
+			{houseOn && (
 			<Hatch
 				x={HOUSE_X}
 				// Standing open whenever there is a way in being used: he is down
@@ -2046,6 +2104,7 @@ export const Companion = ({
 				innerRef={houseRef}
 				onClick={() => setLooking((at) => (at === null ? Date.now() : null))}
 			/>
+			)}
 
 			{scene && (
 				<div className="tico-room-anchor" style={{ left: `${HOUSE_X}px` }}>

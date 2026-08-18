@@ -14,6 +14,7 @@ interface Boot extends Settings {
 	in_call: 'peek' | 'hide' | 'ignore'
 	/** `auto` follows the system, which is all it could do before the tray. */
 	language: 'auto' | Language
+	house: boolean
 }
 
 /**
@@ -127,6 +128,7 @@ export default function App() {
 			quietUntil={boot.quiet_until}
 			inCall={inCall}
 			inCallMode={boot.in_call}
+			houseOn={boot.house}
 			initialX={boot.x}
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}
