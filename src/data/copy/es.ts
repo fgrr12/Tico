@@ -10,6 +10,19 @@
 
 import type { CompanionCopy } from './types.ts'
 
+/**
+ * La hora como se dice, no como la guarda `getHours`. El tramo de noche va de
+ * las 23:00 a las 04:59, así que el número crudo daba «Son las 0» y «Son las
+ * 1» — y ahí es donde sonaba a máquina desorientada en vez de a alguien que
+ * sigue despierto con vos.
+ */
+const spoken = (hour: number) =>
+	hour === 0
+		? 'Es medianoche'
+		: `${hour % 12 === 1 ? 'Es la' : 'Son las'} ${hour % 12 || 12} ${
+				hour < 5 ? 'de la madrugada' : 'de la noche'
+			}`
+
 export const es: CompanionCopy = {
 	boot: [
 		'tico en línea. Ahora vivo aquí abajo.',
@@ -150,7 +163,13 @@ export const es: CompanionCopy = {
 			() => 'Temprano. Todavía no se ha caído nada hoy.',
 		],
 		day: [
-			() => 'Mitad del día. Todo al máximo.',
+			// Nueve horas en un solo tramo, por eso esta línea lee la hora: decir
+			// «mitad del día» está mal a las nueve de la mañana y vuelve a estar mal
+			// a las cinco de la tarde.
+			(hour) =>
+				hour < 12
+					? 'Mañana, y todo sigue siendo teóricamente posible.'
+					: 'Tarde. La mitad donde el trabajo pasa o no pasa.',
 			() => 'Parate en algún momento. No digo más.',
 		],
 		evening: [
@@ -158,7 +177,7 @@ export const es: CompanionCopy = {
 			() => 'Sea lo que sea, mañana también compila.',
 		],
 		night: [
-			(hour) => `Son las ${hour}. Solo lo hago constar.`,
+			(hour) => `${spoken(hour)}. Solo lo hago constar.`,
 			() => 'Ya nadie te va a escribir. Esa es la parte buena.',
 			() => 'Esta es la hora donde el bug es obvio y el arreglo no.',
 		],

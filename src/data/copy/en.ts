@@ -10,6 +10,15 @@
 
 import type { CompanionCopy } from './types.ts'
 
+/**
+ * The hour as a person says it, not as `getHours` stores it. The night bucket
+ * runs 23:00 to 04:59, so the raw number produced "It is 0" and "It is 23" —
+ * the two lines that made him sound like something that had lost the day
+ * rather than something staying up too late with you.
+ */
+const spoken = (hour: number) =>
+	hour === 0 ? 'midnight' : `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`
+
 export const en: CompanionCopy = {
 	boot: [
 		'tico online. I live down here now.',
@@ -147,7 +156,15 @@ export const en: CompanionCopy = {
 			() => 'Early. Nothing has gone wrong yet today.',
 		],
 		day: [
-			() => 'Middle of the day. Peak everything.',
+			// Nine hours in one bucket, which is why this one reads the hour: a line
+			// that claims the middle of the day is wrong at nine in the morning and
+			// wrong again at five in the afternoon. The signature takes an hour for
+			// exactly this — a fifth bucket would be twenty-four sets of the same
+			// joke all over again.
+			(hour) =>
+				hour < 12
+					? 'Morning, and everything is still theoretically possible.'
+					: 'Afternoon. The half where the work either happens or it does not.',
 			() => 'Stand up at some point. That is all I will say.',
 		],
 		evening: [
@@ -155,7 +172,7 @@ export const en: CompanionCopy = {
 			() => 'Whatever it is, it will compile tomorrow too.',
 		],
 		night: [
-			(hour) => `It is ${hour}. I am only noting it.`,
+			(hour) => `It is ${spoken(hour)}. I am only noting it.`,
 			() => 'Nobody is going to message you now. That is the good part.',
 			() => 'This is the hour where the bug is obvious and the fix is not.',
 		],
