@@ -410,9 +410,13 @@ export const Prefs = () => {
 							 */}
 							{region &&
 								lists.map((one, index) => {
+									// Far enough out, and far enough apart. At seventeen units
+									// with twenty between them these were 38px circles whose
+									// centres were 52px apart — they overlapped each other and
+									// the marker they hang off, which is what "pegados" was.
 									const away = region.at[0] >= 48 ? 1 : -1
-									const x = region.at[0] + away * (17 + index * 4)
-									const y = region.at[1] + (lists.length === 1 ? 0 : index * 20 - 10)
+									const x = region.at[0] + away * (24 + index * 5)
+									const y = region.at[1] + (lists.length === 1 ? 0 : index * 30 - 15)
 
 									return (
 										<button
@@ -437,64 +441,65 @@ export const Prefs = () => {
 					</div>
 
 					{open && region ? (
-						<div className="prefs-wardrobe">
-							{/* The bubbles carry no words, so the panel says what is open
-							    and which of its two lists this is. */}
+						<div className="prefs-arc">
 							<h2 className="prefs-open">
 								{copy.places[region.place]}
 								<small>{copy.kinds[kind]}</small>
 							</h2>
+							{kind === 'worn' && <p className="prefs-note">{copy.pin.hint}</p>}
 
-							<div className="prefs-options">
-								{slot ? (
-									Object.keys(PARTS[slot]).map((variant) => {
-										// The registry is keyed by slot and the slot is a
-										// variable, which is as far as the types follow it;
-										// the keys themselves came out of `PARTS`.
-										const next = { ...body, [slot]: variant } as CompanionParts
-										return (
-											<button
-												key={variant}
-												type="button"
-												className="prefs-pick"
-												aria-pressed={body[slot] === variant}
-												aria-label={variant}
-												onClick={() => patch({ parts: next })}
-											>
-												<Portrait
-													crop={CROPS[`${region.place}:part`]}
-													parts={next}
-													worn={bare}
-												/>
-											</button>
-										)
-									})
-								) : (
-									<>
-										<p className="prefs-note">{copy.pin.hint}</p>
-										{/* Drawn rather than named, and drawn on him wearing
-										    everything else — a hat is only ever a choice about
-										    what the whole of him looks like. */}
-										{[null, ...PROPS.filter((one) => WEARS[one] === region.place)].map(
-											(kindOf) => (
-												<button
-													key={kindOf ?? 'none'}
-													type="button"
-													className="prefs-pick"
-													aria-pressed={(pins[region.place] ?? null) === kindOf}
-													aria-label={kindOf ?? copy.pin.none}
-													onClick={() => pin(region.place, kindOf)}
-												>
-													<Portrait
-														crop={CROPS[`${region.place}:worn`]}
-														parts={body}
-														worn={wornFrom(withPin(region.place, kindOf), null)}
-													/>
-												</button>
-											)
-										)}
-									</>
-								)}
+							{/*
+							 * The third level, curved rather than boxed.
+							 *
+							 * A grid in a card was a form; this is the shape the thing it
+							 * copies uses for every list it floats over the model, and the
+							 * bulge is what stops a column of circles reading as a column
+							 * of anything else. The offset is a half-sine across the list,
+							 * so the middle of it leans out and the ends come back.
+							 */}
+							<div className="prefs-arc-list">
+								{(slot
+									? Object.keys(PARTS[slot]).map((variant) => ({
+											id: variant,
+											label: variant,
+											// The registry is keyed by slot and the slot is a
+											// variable, which is as far as the types follow it;
+											// the keys came out of `PARTS`.
+											parts: { ...body, [slot]: variant } as CompanionParts,
+											// Whatever is worn here comes off while you choose
+											// what goes under it — see `bare`.
+											worn: bare,
+											on: body[slot] === variant,
+											choose: () => patch({ parts: { ...body, [slot]: variant } as CompanionParts }),
+										}))
+									: [null, ...PROPS.filter((one) => WEARS[one] === region.place)].map((one) => ({
+											id: one ?? 'none',
+											label: one ?? copy.pin.none,
+											parts: body,
+											worn: wornFrom(withPin(region.place, one), null),
+											on: (pins[region.place] ?? null) === one,
+											choose: () => pin(region.place, one),
+										}))
+								).map((option, index, all) => (
+									<button
+										key={option.id}
+										type="button"
+										className="prefs-orb"
+										style={{
+											marginLeft: `${Math.sin(((index + 0.5) / all.length) * Math.PI) * 42}px`,
+										}}
+										aria-pressed={option.on}
+										aria-label={option.label}
+										title={option.label}
+										onClick={option.choose}
+									>
+										<Portrait
+											crop={CROPS[`${region.place}:${kind}`]}
+											parts={option.parts}
+											worn={option.worn}
+										/>
+									</button>
+								))}
 							</div>
 						</div>
 					) : null}
