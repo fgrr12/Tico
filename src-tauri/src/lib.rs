@@ -10,6 +10,7 @@ mod memory;
 mod state;
 mod window_title;
 mod strip;
+mod typing;
 
 use std::sync::Mutex;
 
@@ -484,6 +485,7 @@ pub fn run() {
             cursor::watch(handle.clone());
             active_app::watch(handle.clone());
             call::watch(handle.clone());
+            typing::watch(handle.clone());
             music::watch(handle.clone());
 
             Ok(())

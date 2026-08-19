@@ -33,6 +33,7 @@ export default function App() {
 	const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null)
 	const [reminders, setReminders] = useState<{ id: string; text: string }[]>([])
 	const [inCall, setInCall] = useState(false)
+	const [typing, setTyping] = useState(false)
 	const [opening, setOpening] = useState<Opening | null>(null)
 
 	useEffect(() => {
@@ -69,6 +70,11 @@ export default function App() {
 		const call = listen<{ active: boolean }>('in-call', (event) =>
 			setInCall(event.payload.active)
 		)
+		// Only "a key went down recently" ever crosses — never which key. See
+		// `typing.rs`.
+		const keys = listen<{ active: boolean }>('typing', (event) =>
+			setTyping(event.payload.active)
+		)
 		const music = listen<NowPlaying | null>('now-playing', (event) =>
 			setNowPlaying(event.payload)
 		)
@@ -78,6 +84,7 @@ export default function App() {
 			settingsChanged.then((off) => off())
 			appChanged.then((off) => off())
 			call.then((off) => off())
+			keys.then((off) => off())
 			music.then((off) => off())
 			clearInterval(remindersTimer)
 		}
@@ -127,6 +134,7 @@ export default function App() {
 			onReminderDone={handleReminderDone}
 			quietUntil={boot.quiet_until}
 			inCall={inCall}
+			typing={typing}
 			inCallMode={boot.in_call}
 			houseOn={boot.house}
 			initialX={boot.x}

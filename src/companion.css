@@ -1587,3 +1587,19 @@ body,
 	transform: translate(calc(var(--look-x, 0) * 3px), calc(var(--look-y, 0) * 2.4px));
 	transition: transform 0.12s ease-out;
 }
+
+/*
+ * Out of the way when you reach for what is behind it.
+ *
+ * The extra `.companion` is not decoration: the feeling rules above set
+ * `opacity` on the bubble from a two-class selector, and a bare
+ * `.companion-bubble[data-veiled]` loses to them — a sleepy line stayed at 0.82
+ * with the cursor sitting on top of it. Same weight, later in the file, wins.
+ */
+.companion .companion-bubble {
+	transition: opacity 0.16s ease-out;
+}
+
+.companion .companion-bubble[data-veiled] {
+	opacity: 0.12;
+}

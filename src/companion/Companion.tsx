@@ -51,6 +51,8 @@ const MOMENT_EVERY = 14_000
 const WANDER_EVERY = 30_000
 /** Cursor distance at which he starts paying attention to it. */
 const NOTICE_WITHIN = 220
+/** Margin around the bubble inside which it fades out of your way. */
+const VEIL_WITHIN = 24
 /** Hover this long without leaving and it counts as petting. */
 const PET_AFTER = 1_600
 /** Pointer travel that turns a click into a drag. */
@@ -195,6 +197,8 @@ interface CompanionProps {
 	/** The microphone is live somewhere — treated as "you are in a call". */
 	inCall: boolean
 	inCallMode: 'peek' | 'hide' | 'ignore'
+	/** A key went down in the last second and a half, anywhere. Never which key. */
+	typing: boolean
 	/** Whether the burrow exists. Off, none of it is drawn, polled or published. */
 	houseOn: boolean
 	/** Where he was standing last time, as a fraction of the strip width. */
@@ -223,6 +227,7 @@ export const Companion = ({
 	quietUntil,
 	inCall,
 	inCallMode,
+	typing,
 	houseOn,
 	initialX,
 	opening,
@@ -255,6 +260,8 @@ export const Companion = ({
 	// Set only for a reminder: the bubble grows a button and waits to be dismissed.
 	const [pending, setPending] = useState<string | null>(null)
 	const [typed, setTyped] = useState('')
+	/** The cursor is over what he is saying, so the words get out of the way. */
+	const [nearBubble, setNearBubble] = useState(false)
 	const [fx, setFx] = useState<{ name: string; n: number } | null>(null)
 	const [gesture, setGesture] = useState<string | null>(null)
 	/** A held pose, unlike `fx` which is a one-shot. Sitting lasts. */
@@ -916,6 +923,22 @@ export const Companion = ({
 			cursor.y >= box.y &&
 			cursor.y <= box.y + box.height
 
+		// The bubble hangs over whatever you were reading and takes no clicks, so
+		// the only way to see under it was to pick him up and put him somewhere
+		// else. Reaching for it with the cursor now fades it instead. The one with
+		// a button is exempt: it is there to be pressed, and a button at 15% is a
+		// button you cannot find.
+		const said = pending ? null : bubbleRef.current?.getBoundingClientRect()
+
+		setNearBubble(
+			said !== undefined &&
+				said !== null &&
+				cursor.x >= said.left - VEIL_WITHIN &&
+				cursor.x <= said.right + VEIL_WITHIN &&
+				cursor.y >= said.top - VEIL_WITHIN &&
+				cursor.y <= said.bottom + VEIL_WITHIN
+		)
+
 		if (inside && !hovering.current) {
 			hovering.current = true
 			clearTimeout(petTimer.current)
@@ -934,7 +957,7 @@ export const Companion = ({
 
 		if (!inside && near && moodNow.current === 'idle') setMood('watching')
 		else if (!near && moodNow.current === 'watching') setMood('idle')
-	}, [cursor, copy, react, say, applyLook])
+	}, [cursor, copy, pending, react, say, applyLook])
 
 	useEffect(() => {
 		let open = 0
@@ -2087,6 +2110,11 @@ export const Companion = ({
 	// cost the whole idle saving.
 	const singing = nowPlaying !== null && !hidden && mood !== 'sleep'
 
+	// Reading and writing are the two moments a line in front of your work is in
+	// the way, and the pending one is exempt from both: it is there to be pressed,
+	// and a button at 12% is a button you cannot find.
+	const veil = !pending && (nearBubble || typing)
+
 	// `data-side` is which edge of him the bubble hangs off. Anchored to whichever
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
 	// Derived once, at the moment of looking, from how long he has been down there
@@ -2155,7 +2183,12 @@ export const Companion = ({
 			}}
 		>
 			{bubble && (
-					<div ref={bubbleRef} className="companion-bubble" data-pending={pending ?? undefined}>
+					<div
+						ref={bubbleRef}
+						className="companion-bubble"
+						data-pending={pending ?? undefined}
+						data-veiled={veil || undefined}
+					>
 						{typed}
 						{typed.length < bubble.length && <span className="caret">▌</span>}
 
