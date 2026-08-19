@@ -21,16 +21,24 @@ on:
 permissions:
   contents: read
 
+# Pushing twice in a minute should not mean two full matrices grinding away, and
+# the older answer is worthless the moment there is a newer commit.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   # `scripts/check.mjs` imports the TypeScript data modules directly and lets
   # node strip the types, which is only the default from 22.18 on.
   NODE_VERSION: "24"
 
 jobs:
-  # Everything that is the same on every platform, once rather than three times.
+  # The half that needs no compiler and no system libraries: seconds, and it
+  # fails fast on the mistakes that are easiest to make.
   checks:
     name: checks
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -53,23 +61,6 @@ jobs:
       - name: check
         run: pnpm check
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      # The date arithmetic — streaks, absences, the throttle — is the part with
-      # the bugs in it, and it needs no window to run.
-      - name: rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
-
-      # Strict on purpose: the tree has no warnings today, and the cheapest time
-      # to keep it that way is the first one that appears.
-      - name: clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
   # The actual question: does the Rust half compile where it has never been
   # compiled? `--no-bundle` builds the frontend and links the binary without
@@ -77,6 +68,7 @@ jobs:
   build:
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       # One platform failing should not hide what the other two would have said.
       fail-fast: false
@@ -112,7 +104,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      # The action installs the minimal profile, which does not include clippy.
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -124,5 +119,26 @@ jobs:
       # `pnpm exec` rather than the `t` script in package.json: pnpm 11 does not
       # forward a subcommand to a one-word script — `pnpm t build` comes back as
       # "Command 't' not found" — and a workflow is a bad place to find that out.
+      # `--debug` on purpose. This workflow asks one question — does it compile
+      # and link on this platform — and an optimised build answers it identically
+      # while spending minutes on codegen for a binary nothing here will run.
+      # Release is what the publishing workflow will do, where the artifact is
+      # the point.
       - name: build
-        run: pnpm exec tauri build --no-bundle
+        run: pnpm exec tauri build --debug --no-bundle
+
+      # Here rather than in their own job, and only on one platform.
+      #
+      # On Linux the Tauri crate links against GTK and WebKit, so `cargo test`
+      # needs the same system libraries the build does — and a separate job would
+      # mean either installing them twice or keeping two copies of that apt list.
+      # Neither the date arithmetic nor clippy cares which platform it runs on.
+      - name: rust tests
+        if: matrix.os == 'ubuntu-22.04'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      # Strict on purpose: the tree has no warnings today, and the cheapest time
+      # to keep it that way is the first one that appears.
+      - name: clippy
+        if: matrix.os == 'ubuntu-22.04'
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
