@@ -29,6 +29,7 @@ html[data-window="prefs"],
 /* Sticky, because the wardrobe is long and losing the tabs off the top of a
    scroll is losing the only way back to the other half. */
 .prefs-tabs {
+	align-items: center;
 	position: sticky;
 	top: 0;
 	z-index: 1;
@@ -130,7 +131,7 @@ input[type="checkbox"] {
  */
 .prefs-cas {
 	position: relative;
-	height: calc(100vh - 150px);
+	height: calc(100vh - 128px);
 	min-height: 430px;
 	border-radius: 20px;
 	background: radial-gradient(58% 58% at 50% 46%, #2b3143 0%, #1d2029 62%, transparent 100%);
@@ -147,13 +148,13 @@ input[type="checkbox"] {
 	left: 50%;
 	transform: translate(-50%, -50%);
 	/*
-	 * Sized off the *height*, minus room for an orb's own radius on each side.
-	 * At half the ring's width the orbs sit on its edge, so a ring as tall as the
-	 * scene puts half of every one of them outside it — which, with the scene
-	 * clipping, is how the shoes came out sliced in half along the bottom.
+	 * The whole square the scene can hold. The room an orb needs for its own
+	 * radius is taken off the *radius* instead — see the `calc` on each orb —
+	 * which is exact at any window size, where a percentage of a shrunken ring
+	 * was a guess that sliced the bottom row in half on a short one.
 	 */
-	height: calc(100% - 84px);
-	max-width: calc(100% - 84px);
+	height: 100%;
+	max-width: 100%;
 	aspect-ratio: 1;
 }
 
@@ -194,9 +195,9 @@ input[type="checkbox"] {
 /* The second level: round, floating, hanging off the part it belongs to. */
 .prefs-kind {
 	position: absolute;
-	width: 32px;
-	height: 32px;
-	margin: -16px 0 0 -16px;
+	width: 30px;
+	height: 30px;
+	margin: -15px 0 0 -15px;
 	padding: 0;
 	border: 2px solid rgba(200, 208, 224, 0.4);
 	border-radius: 50%;
@@ -245,6 +246,18 @@ input[type="checkbox"] {
 	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.22), 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
+/* Nothing, and it says so: dashed and amber rather than another solid ring of
+   the same grey. It is also always the first one out of the marker. */
+.prefs-orb-none {
+	border-style: dashed;
+	border-color: rgba(224, 175, 104, 0.7);
+}
+
+.prefs-orb-none[aria-pressed="true"] {
+	border-style: solid;
+	border-color: var(--green);
+}
+
 /* Thirteen pulsing LEDs in one window. One animation anywhere keeps the whole
    surface compositing, so the small ones hold still and only he carries it. */
 .prefs-orb .companion-led,
@@ -258,25 +271,15 @@ input[type="checkbox"] {
 	border-radius: 50%;
 }
 
-/* In the corner of the scene, out of the ring's way. */
+/* In the header, beside the tabs. */
 .prefs-open {
-	position: absolute;
-	top: 16px;
-	left: 18px;
-	/* Narrow enough to sit in the corner the ring cannot reach, and backed
-	   anyway, because the ring reaches further on a short window. */
-	max-width: 132px;
-	padding: 10px 12px;
-	border-radius: 12px;
-	background: rgba(20, 22, 28, 0.72);
-	backdrop-filter: blur(6px);
-	z-index: 2;
-	margin: 0;
+	margin-left: auto;
 	font-size: 11px;
 	font-weight: 400;
 	letter-spacing: 0.09em;
 	text-transform: uppercase;
 	color: var(--fg);
+	text-align: right;
 }
 
 .prefs-open small {
@@ -284,15 +287,6 @@ input[type="checkbox"] {
 	margin-top: 2px;
 	font-size: 9.5px;
 	letter-spacing: 0.08em;
-	color: var(--fg-muted);
-}
-
-.prefs-open p {
-	margin: 8px 0 0;
-	font-size: 10.5px;
-	line-height: 1.5;
-	letter-spacing: 0;
-	text-transform: none;
 	color: var(--fg-muted);
 }
 

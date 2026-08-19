@@ -26,7 +26,8 @@ interface PrefsCopy {
 	places: { head: string; face: string; neck: string; body: string; hand: string; feet: string }
 	/** And the two things a region holds: what he is made of, and what is on it. */
 	kinds: { part: string; worn: string }
-	pin: { hint: string; none: string }
+	/** The one option that is not a thing: taking whatever is there off. */
+	pin: { none: string }
 }
 
 export const prefsCopy: Record<Language, PrefsCopy> = {
@@ -63,10 +64,7 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			feet: 'Feet',
 		},
 		kinds: { part: 'Parts', worn: 'Accessories' },
-		pin: {
-			hint: 'One per place, so a cap and a coffee are not the same decision. He still tries other things on — this is what he goes back to.',
-			none: 'Nothing',
-		},
+		pin: { none: 'Nothing' },
 	},
 	es: {
 		tabs: { settings: 'Ajustes', body: 'Tico' },
@@ -101,9 +99,6 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			feet: 'Pies',
 		},
 		kinds: { part: 'Partes', worn: 'Accesorios' },
-		pin: {
-			hint: 'Uno por sitio, así que una gorra y un café no son la misma decisión. Igual se prueba otras cosas — esto es a lo que vuelve.',
-			none: 'Nada',
-		},
+		pin: { none: 'Nada' },
 	},
 }

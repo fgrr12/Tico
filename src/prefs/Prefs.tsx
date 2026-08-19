@@ -284,6 +284,15 @@ export const Prefs = () => {
 				<button type="button" aria-pressed={tab === 'body'} onClick={() => setTab('body')}>
 					{copy.tabs.body}
 				</button>
+
+				{/* Up here rather than in a corner of the scene: down there it was a
+				    card sitting on top of whichever option the ring put behind it. */}
+				{tab === 'body' && region && (
+					<span className="prefs-open">
+						{copy.places[region.place]}
+						<small>{copy.kinds[kind]}</small>
+					</span>
+				)}
 			</nav>
 
 			{tab === 'settings' ? (
@@ -400,15 +409,16 @@ export const Prefs = () => {
 							 * the subcategories of the thing you just pressed, hanging off
 							 * it rather than filed in a menu somewhere else.
 							 *
-							 * Far enough out, and far enough apart: at seventeen units with
-							 * twenty between them these were 38px circles whose centres were
-							 * 52px apart, and they overlapped each other and the marker.
+							 * Close to the marker on purpose. Further out they collided with
+							 * the ring — these hang off a part of him and the ring is the list,
+							 * and the two reading as one soup of circles is what happens when
+							 * they meet in the middle.
 							 */}
 							{region &&
 								lists.map((one, index) => {
 									const away = region.at[0] >= 48 ? 1 : -1
-									const x = region.at[0] + away * (18 + index * 4)
-									const y = region.at[1] + (lists.length === 1 ? 0 : index * 28 - 14)
+									const x = region.at[0] + away * (14 + index * 4)
+									const y = region.at[1] + (lists.length === 1 ? 0 : index * 26 - 13)
 
 									return (
 										<button
@@ -470,16 +480,21 @@ export const Prefs = () => {
 								 */
 								const from = Math.atan2(region.at[1] - 48, region.at[0] - 48)
 								const step = Math.min((2 * Math.PI) / all.length, 0.48)
-								const angle = from + (index - (all.length - 1) / 2) * step
+								const angle = from + index * step
 
 								return (
 									<button
 										key={option.id}
 										type="button"
-										className="prefs-orb"
+										className={option.id === 'none' ? 'prefs-orb prefs-orb-none' : 'prefs-orb'}
 										style={{
-											left: `${50 + Math.cos(angle) * 50}%`,
-											top: `${50 + Math.sin(angle) * 50}%`,
+											// The radius is the ring's own half, less an orb's, so it
+											// is exact at every window size: a fixed percentage put
+											// half of each orb outside the scene on a short window
+											// and needed a magic number subtracted from the ring to
+											// paper over it.
+											left: `calc(50% + ${Math.cos(angle).toFixed(4)} * (50% - 34px))`,
+											top: `calc(50% + ${Math.sin(angle).toFixed(4)} * (50% - 34px))`,
 										}}
 										aria-pressed={option.on}
 										aria-label={option.label}
@@ -496,13 +511,6 @@ export const Prefs = () => {
 							})}
 					</div>
 
-					{open && region ? (
-						<h2 className="prefs-open">
-							{copy.places[region.place]}
-							<small>{copy.kinds[kind]}</small>
-							{kind === 'worn' && <p>{copy.pin.hint}</p>}
-						</h2>
-					) : null}
 				</div>
 			)}
 		</div>
