@@ -76,8 +76,7 @@ html[data-window="prefs"],
 	line-height: 1.55;
 }
 
-.prefs-chips,
-.prefs-picks {
+.prefs-chips {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
@@ -156,100 +155,182 @@ input[type="checkbox"] {
  * scrolling list is right for both. Picking the part first is also just how you
  * get dressed.
  */
-.prefs-dresser {
-	display: grid;
-	grid-template-columns: minmax(190px, 1fr) auto minmax(240px, 1.1fr);
-	gap: 16px;
-	padding: 18px 0 10px;
-	align-items: start;
+/*
+ * Him in the middle, and the interface floating over him.
+ *
+ * Three levels, and the first one is his own body: press the hand and the panel
+ * that opens is about the hand. A rail of ten categories beside him was the
+ * same information with the part you are pointing at replaced by the *word* for
+ * the part you are pointing at.
+ */
+.prefs-cas {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+	min-height: 420px;
+	padding: 10px 0 20px;
 }
 
+/*
+ * He is centred in whatever room is left, and the room shrinks when a panel
+ * opens — so he slides over rather than being covered. Absolute-positioning the
+ * panel over him kept him dead centre and put the wardrobe on top of his hand,
+ * which is the one thing you are looking at while you use it.
+ */
 .prefs-stage {
+	flex: 1;
+	min-width: 0;
 	display: flex;
 	justify-content: center;
 	/* Deep at the top because he overflows his own box upwards — everything
 	   worn on his head is drawn above y=16 and a top hat clears it by twenty. */
-	padding: 46px 10px 20px;
-	border: 1px solid var(--line);
+	padding: 58px 10px 30px;
+	border-radius: 20px;
+	background: radial-gradient(120% 90% at 50% 40%, #2b3143 0%, #1d2029 68%, transparent 100%);
+}
+
+/* The pet's own box, and the coordinate system the handles are placed in: it is
+   square, because his viewBox is, so a percentage means the same in both axes. */
+.prefs-figure {
+	position: relative;
+	width: 250px;
+	max-width: 100%;
+}
+
+.prefs-mark {
+	position: absolute;
+	width: 20px;
+	height: 20px;
+	margin: -10px 0 0 -10px;
+	padding: 0;
+	border: 2px solid rgba(200, 208, 224, 0.55);
+	border-radius: 50%;
+	background: rgba(20, 22, 28, 0.5);
+	cursor: pointer;
+	transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.prefs-mark:hover {
+	transform: scale(1.25);
+	border-color: var(--fg);
+}
+
+.prefs-mark[aria-pressed="true"] {
+	border-color: var(--green);
+	background: rgba(158, 206, 106, 0.35);
+	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.18);
+}
+
+/* Named for what it is, and not `prefs-panel`: that one is the settings tab's
+   own section, and for one build this rule was making it a 214px floating card. */
+.prefs-wardrobe {
+	flex: 0 0 214px;
+	margin-top: 12px;
+	padding: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.07);
 	border-radius: 14px;
-	background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.3));
-	position: sticky;
-	top: 74px;
+	background: rgba(26, 28, 35, 0.82);
+	backdrop-filter: blur(10px);
 }
 
-.prefs-rail {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	position: sticky;
-	top: 74px;
-}
-
-.prefs-rail-head {
-	margin: 12px 0 4px;
-	color: var(--fg-muted);
-	font-size: 10px;
+.prefs-open {
+	margin: 0 0 8px;
+	font-size: 11px;
+	font-weight: 400;
 	letter-spacing: 0.09em;
 	text-transform: uppercase;
+	color: var(--fg);
 }
 
-.prefs-rail-head:first-child {
-	margin-top: 0;
+/* The second level. Two words, and one of them is missing on a region that is
+   not made of anything you can swap. */
+.prefs-kinds {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 10px;
 }
 
-.prefs-rail button {
-	padding: 6px 12px;
-	border: 1px solid transparent;
-	border-radius: 8px;
+.prefs-kinds button {
+	flex: 1;
+	padding: 5px 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 7px;
 	background: none;
 	color: var(--fg-muted);
 	font: inherit;
-	text-align: left;
+	font-size: 11px;
 	cursor: pointer;
 }
 
-.prefs-rail button[aria-pressed="true"] {
-	background: var(--bg-raise);
+.prefs-kinds button[aria-pressed="true"] {
 	border-color: var(--purple);
+	background: var(--bg-raise);
 	color: var(--fg);
 }
 
 .prefs-options {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 7px;
 	align-content: start;
+	max-height: min(50vh, 340px);
+	overflow-y: auto;
 }
 
 .prefs-note {
-	width: 100%;
-	margin: 0 0 4px;
+	grid-column: 1 / -1;
+	margin: 0;
 	color: var(--fg-muted);
-	font-size: 11px;
-	line-height: 1.55;
+	font-size: 10.5px;
+	line-height: 1.5;
 }
 
-.prefs-pick small {
+/* A swatch, not a card. No padding: the close-up fills it corner to corner and
+   the border is the only chrome, which is what makes a wall of them read as a
+   grid of choices rather than a list of framed pictures. */
+.prefs-pick {
+	position: relative;
+	padding: 0;
+	aspect-ratio: 1;
+	border: 2px solid transparent;
+	border-radius: 10px;
+	overflow: hidden;
+	background: linear-gradient(180deg, #333a4c, #262b38);
+	cursor: pointer;
+	line-height: 0;
+}
+
+.prefs-pick:hover {
+	border-color: var(--line-strong);
+}
+
+.prefs-pick[aria-pressed="true"] {
+	border-color: var(--green);
+	box-shadow: 0 0 0 2px rgba(158, 206, 106, 0.2);
+}
+
+/* The crop itself: the pet is rendered larger than this and pushed until the
+   part being chosen is what is left inside. */
+.prefs-portrait {
 	display: block;
-	margin-top: 2px;
-	color: var(--fg-muted);
-	font-size: 10px;
+	position: relative;
+	width: 100%;
+	aspect-ratio: 1;
+	overflow: hidden;
 }
 
-/* Below this the three columns are two columns and then one. */
-@media (max-width: 720px) {
-	.prefs-dresser {
-		grid-template-columns: 1fr;
+.prefs-portrait > span {
+	position: absolute;
+}
+
+/* Narrow enough that side by side leaves him a stripe, they stack instead. */
+@media (max-width: 620px) {
+	.prefs-cas {
+		flex-direction: column;
 	}
 
-	.prefs-stage,
-	.prefs-rail {
-		position: static;
-	}
-
-	.prefs-rail {
-		flex-direction: row;
-		flex-wrap: wrap;
-		align-items: center;
+	.prefs-wardrobe {
+		flex: none;
+		align-self: stretch;
 	}
 }

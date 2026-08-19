@@ -21,9 +21,11 @@ interface PrefsCopy {
 	house: { label: string; hint: string }
 	titles: { label: string; hint: string }
 	autostart: { label: string; hint: string }
-	groups: { body: string; worn: string }
-	slots: { shell: string; hands: string; feet: string; antenna: string }
+	/** The six of him you can press. They are the six places a thing is worn,
+	 *  because four of those also happen to be a part he can be given. */
 	places: { head: string; face: string; neck: string; body: string; hand: string; feet: string }
+	/** And the two things a region holds: what he is made of, and what is on it. */
+	kinds: { part: string; worn: string }
 	pin: { hint: string; none: string }
 }
 
@@ -52,16 +54,15 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			hint: 'Needs Accessibility, and is the only thing here that does. He reads the name of a document and never keeps it.',
 		},
 		autostart: { label: 'Start at login', hint: '' },
-		groups: { body: 'What he is', worn: 'What he wears' },
-		slots: { shell: 'Body', hands: 'Hands', feet: 'Feet', antenna: 'Antenna' },
 		places: {
 			head: 'Head',
 			face: 'Face',
 			neck: 'Neck',
-			body: 'Back',
-			hand: 'Hand',
-			feet: 'Shoes',
+			body: 'Body',
+			hand: 'Hands',
+			feet: 'Feet',
 		},
+		kinds: { part: 'Parts', worn: 'Accessories' },
 		pin: {
 			hint: 'One per place, so a cap and a coffee are not the same decision. He still tries other things on — this is what he goes back to.',
 			none: 'Nothing',
@@ -91,16 +92,15 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			hint: 'Necesita Accesibilidad, y es lo único aquí que la necesita. Lee el nombre de un documento y nunca se lo queda.',
 		},
 		autostart: { label: 'Arrancar al iniciar sesión', hint: '' },
-		groups: { body: 'Lo que es', worn: 'Lo que lleva' },
-		slots: { shell: 'Cuerpo', hands: 'Manos', feet: 'Pies', antenna: 'Antena' },
 		places: {
 			head: 'Cabeza',
 			face: 'Cara',
 			neck: 'Cuello',
-			body: 'Espalda',
-			hand: 'Mano',
-			feet: 'Zapatos',
+			body: 'Cuerpo',
+			hand: 'Manos',
+			feet: 'Pies',
 		},
+		kinds: { part: 'Partes', worn: 'Accesorios' },
 		pin: {
 			hint: 'Uno por sitio, así que una gorra y un café no son la misma decisión. Igual se prueba otras cosas — esto es a lo que vuelve.',
 			none: 'Nada',

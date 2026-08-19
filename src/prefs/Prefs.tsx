@@ -10,7 +10,6 @@ import {
 	PALETTE,
 	PROPS,
 	WEARS,
-	WORN_ORDER,
 	type Where,
 	type WornProp,
 	detectLanguage,
@@ -42,7 +41,7 @@ const Pet = ({
 }: {
 	parts: CompanionParts
 	worn: WornProp[]
-	width: number
+	width: number | string
 }) => (
 	<div className="companion" style={{ position: 'static', width }}>
 		<div className="companion-body" style={{ animation: 'none' }}>
@@ -61,7 +60,92 @@ const Pet = ({
 	</div>
 )
 
-const BODY_SLOTS = Object.keys(PARTS) as (keyof CompanionParts)[]
+/**
+ * The six of him you can press, top to bottom.
+ *
+ * A region *is* a place — the six places a thing can be worn turned out to be
+ * the six bits of him worth pointing at — and four of them also hold a part he
+ * can be swapped for. That is the whole hierarchy: press a bit of him, choose
+ * whether you are changing what it is or what is on it, then choose the thing.
+ *
+ * `at` is where its handle sits, in his own 96-unit coordinates, so a marker
+ * lands on the hand it opens rather than on a guess about where the hand is.
+ */
+const REGIONS: {
+	place: Where
+	slot?: keyof CompanionParts
+	at: [number, number]
+}[] = [
+	{ place: 'head', slot: 'antenna', at: [48, -2] },
+	{ place: 'face', at: [78, 42] },
+	{ place: 'body', slot: 'shell', at: [16, 28] },
+	{ place: 'hand', slot: 'hands', at: [1, 60] },
+	{ place: 'neck', at: [48, 80] },
+	{ place: 'feet', slot: 'feet', at: [28, 92] },
+]
+
+/**
+ * What each list is a close-up of, as `[x, y, size]` in his own 96-unit
+ * coordinates — the ones the landmark contract in `parts.tsx` is written in.
+ *
+ * Close-ups rather than whole pets, for the same reason the game this is copied
+ * from uses them: at thumbnail size a whole pet is a dark blob with a coloured
+ * speck on it, and the speck is the entire thing you are choosing between. A
+ * monocle across a 64px pet is four pixels. Across a 64px face it is a monocle.
+ *
+ * Negative `y` is deliberate and load-bearing: everything worn on his head is
+ * drawn *above* the viewBox — a party hat reaches y=-14 — so a head crop that
+ * starts at 0 crops off the hat you are trying to look at.
+ */
+const CROPS: Record<string, [number, number, number]> = {
+	'head:part': [30, -14, 40],
+	'head:worn': [14, -12, 68],
+	'face:worn': [26, 28, 44],
+	'body:part': [-2, -2, 100],
+	'body:worn': [2, 12, 50],
+	'hand:part': [74, 44, 32],
+	'hand:worn': [-22, 4, 72],
+	'neck:worn': [26, 54, 44],
+	'feet:part': [52, 62, 34],
+	'feet:worn': [14, 58, 46],
+}
+
+/**
+ * Him, cropped to one part of him, in a box.
+ *
+ * No transforms: the pet is simply rendered larger than the box and pushed up
+ * and left until the interesting part is inside it. A `scale()` would have been
+ * the same arithmetic with a `transform-origin` bug waiting in it.
+ *
+ * All percentages, so one component fills a thumbnail that is whatever width the
+ * grid column came out as. It was pixels first, and a fixed-size portrait in a
+ * stretched grid cell is dead space down two sides of every swatch.
+ */
+const Portrait = ({
+	crop,
+	parts,
+	worn,
+}: {
+	crop: [number, number, number]
+	parts: CompanionParts
+	worn: WornProp[]
+}) => {
+	const [x, y, span] = crop
+
+	return (
+		<span className="prefs-portrait">
+			<span
+				style={{
+					width: `${(96 / span) * 100}%`,
+					left: `${(-x / span) * 100}%`,
+					top: `${(-y / span) * 100}%`,
+				}}
+			>
+				<Pet parts={parts} worn={worn} width="100%" />
+			</span>
+		</span>
+	)
+}
 
 const Row = ({
 	label,
@@ -112,9 +196,10 @@ export const Prefs = () => {
 	// copy of it would be the one that is wrong after somebody clears it.
 	const [startsAtLogin, setStartsAtLogin] = useState(false)
 	const [tab, setTab] = useState<'settings' | 'body'>('settings')
-	/** `part:shell` or `worn:head` — the two lists are namespaced because `feet`
-	 *  is both a leg and a shoe, and `hands` and `hand` are one letter apart. */
-	const [picked, setPicked] = useState('part:shell')
+	/** Which bit of him is open, and which of its two lists. Closed to begin
+	 *  with: the first thing to see is him, not a wall of choices. */
+	const [open, setOpen] = useState<Where | null>(null)
+	const [showing, setShowing] = useState<'part' | 'worn'>('part')
 
 	useEffect(() => {
 		invoke<Stored>('boot').then(setStored)
@@ -137,10 +222,18 @@ export const Prefs = () => {
 	const pins = stored.pinned_props ?? {}
 	const worn = wornFrom(pins, null)
 
-	const slot = picked.startsWith('part:')
-		? (picked.slice(5) as keyof CompanionParts)
-		: null
-	const place = slot ? null : picked.slice(5)
+	const region = REGIONS.find((one) => one.place === open)
+	// A region with no part of its own has only the one list, and opening it on
+	// a tab that cannot exist would show an empty panel.
+	const kind = region?.slot ? showing : 'worn'
+	const slot = kind === 'part' ? region?.slot : undefined
+
+	/** Press a bit of him: it opens on its part, which is the thing you came for
+	 *  more often than the hat, and falls back to the hat when there is no part. */
+	const press = (place: Where) => {
+		setOpen(place === open ? null : place)
+		setShowing('part')
+	}
 
 	/** The pins with one place set, or cleared. Both the preview and the click
 	 *  need exactly this, and they must not disagree about it. */
@@ -261,87 +354,113 @@ export const Prefs = () => {
 					</Row>
 				</section>
 			) : (
-				<div className="prefs-dresser">
-					{/* Wearing everything that is pinned, because that is what he will
-					    actually look like — a preview that quietly leaves the pins off
-					    is a preview of somebody else. */}
-					<div className="prefs-stage">
-						<Pet parts={body} worn={worn} width={190} />
-					</div>
-
+				<div className="prefs-cas">
 					{/*
-					 * Pick the part, then pick the thing — rather than one long page
-					 * with every category open at once. Which is how a wardrobe works
-					 * and, more to the point, is the only layout that survives the
-					 * head having fourteen options and the back having two.
+					 * Him, in the middle, wearing everything that is pinned — a preview
+					 * that quietly leaves the pins off is a preview of somebody else.
+					 *
+					 * The handles sit *on* the bit of him they open, rather than in a
+					 * list beside him. Six of them and none of them labelled, which is
+					 * fine while they are pinned to the thing they refer to: the hand
+					 * one is on his hand.
 					 */}
-					<nav className="prefs-rail">
-						<span className="prefs-rail-head">{copy.groups.body}</span>
-						{BODY_SLOTS.map((slot) => (
-							<button
-								key={slot}
-								type="button"
-								aria-pressed={picked === `part:${slot}`}
-								onClick={() => setPicked(`part:${slot}`)}
-							>
-								{copy.slots[slot]}
-							</button>
-						))}
-						<span className="prefs-rail-head">{copy.groups.worn}</span>
-						{WORN_ORDER.map((place) => (
-							<button
-								key={place}
-								type="button"
-								aria-pressed={picked === `worn:${place}`}
-								onClick={() => setPicked(`worn:${place}`)}
-							>
-								{copy.places[place]}
-							</button>
-						))}
-					</nav>
-
-					<div className="prefs-options">
-						{slot ? (
-							Object.keys(PARTS[slot]).map((variant) => {
-								// The registry is keyed by slot and the slot is a
-								// variable, which is as far as the types follow it; the
-								// keys themselves came out of `PARTS`.
-								const next = { ...body, [slot]: variant } as CompanionParts
-								return (
-									<button
-										key={variant}
-										type="button"
-										className="prefs-pick"
-										aria-pressed={body[slot] === variant}
-										aria-label={variant}
-										onClick={() => patch({ parts: next })}
-									>
-										<Pet parts={next} worn={worn} width={64} />
-									</button>
-								)
-							})
-						) : (
-							<>
-								<p className="prefs-note">{copy.pin.hint}</p>
-								{/* Drawn rather than named, and drawn on him wearing
-								    everything else — a hat is only ever a choice about
-								    what the whole of him looks like. */}
-								{[null, ...PROPS.filter((kind) => WEARS[kind] === place)].map((kind) => (
-									<button
-										key={kind ?? 'none'}
-										type="button"
-										className="prefs-pick"
-										aria-pressed={(pins[place as Where] ?? null) === kind}
-										aria-label={kind ?? copy.pin.none}
-										onClick={() => pin(place as Where, kind)}
-									>
-										<Pet parts={body} worn={wornFrom(withPin(place as Where, kind), null)} width={64} />
-										{kind ? null : <small>{copy.pin.none}</small>}
-									</button>
-								))}
-							</>
-						)}
+					<div className="prefs-stage">
+						<div className="prefs-figure">
+							<Pet parts={body} worn={worn} width="100%" />
+							{REGIONS.map(({ place, at }) => (
+								<button
+									key={place}
+									type="button"
+									className="prefs-mark"
+									style={{ left: `${(at[0] / 96) * 100}%`, top: `${(at[1] / 96) * 100}%` }}
+									aria-pressed={open === place}
+									aria-label={copy.places[place]}
+									title={copy.places[place]}
+									onClick={() => press(place)}
+								/>
+							))}
+						</div>
 					</div>
+
+					{open && region ? (
+						<div className="prefs-wardrobe">
+							<h2 className="prefs-open">{copy.places[region.place]}</h2>
+
+							{/* The second level. One tab where there is only one list,
+							    rather than a second tab that is empty — his face and his
+							    neck are not made of anything swappable. */}
+							<div className="prefs-kinds">
+								{region.slot && (
+									<button
+										type="button"
+										aria-pressed={kind === 'part'}
+										onClick={() => setShowing('part')}
+									>
+										{copy.kinds.part}
+									</button>
+								)}
+								<button
+									type="button"
+									aria-pressed={kind === 'worn'}
+									onClick={() => setShowing('worn')}
+								>
+									{copy.kinds.worn}
+								</button>
+							</div>
+
+							<div className="prefs-options">
+								{slot ? (
+									Object.keys(PARTS[slot]).map((variant) => {
+										// The registry is keyed by slot and the slot is a
+										// variable, which is as far as the types follow it;
+										// the keys themselves came out of `PARTS`.
+										const next = { ...body, [slot]: variant } as CompanionParts
+										return (
+											<button
+												key={variant}
+												type="button"
+												className="prefs-pick"
+												aria-pressed={body[slot] === variant}
+												aria-label={variant}
+												onClick={() => patch({ parts: next })}
+											>
+												<Portrait
+													crop={CROPS[`${region.place}:part`]}
+													parts={next}
+													worn={worn}
+												/>
+											</button>
+										)
+									})
+								) : (
+									<>
+										<p className="prefs-note">{copy.pin.hint}</p>
+										{/* Drawn rather than named, and drawn on him wearing
+										    everything else — a hat is only ever a choice about
+										    what the whole of him looks like. */}
+										{[null, ...PROPS.filter((one) => WEARS[one] === region.place)].map(
+											(kindOf) => (
+												<button
+													key={kindOf ?? 'none'}
+													type="button"
+													className="prefs-pick"
+													aria-pressed={(pins[region.place] ?? null) === kindOf}
+													aria-label={kindOf ?? copy.pin.none}
+													onClick={() => pin(region.place, kindOf)}
+												>
+													<Portrait
+														crop={CROPS[`${region.place}:worn`]}
+														parts={body}
+														worn={wornFrom(withPin(region.place, kindOf), null)}
+													/>
+												</button>
+											)
+										)}
+									</>
+								)}
+							</div>
+						</div>
+					) : null}
 				</div>
 			)}
 		</div>
