@@ -371,15 +371,15 @@ export const Prefs = () => {
 			) : (
 				<div className="prefs-cas">
 					{/*
-					 * Him, in the middle, wearing everything that is pinned — a preview
-					 * that quietly leaves the pins off is a preview of somebody else.
+					 * One scene, and everything floats in it. Him in the middle, the
+					 * handles on the parts of him they open, and the options laid out on
+					 * a ring around him.
 					 *
-					 * The handles sit *on* the bit of him they open, rather than in a
-					 * list beside him. Six of them and none of them labelled, which is
-					 * fine while they are pinned to the thing they refer to: the hand
-					 * one is on his hand.
+					 * The ring is a square box centred on him, so a percentage means the
+					 * same across as it does down and the circle stays a circle. Both the
+					 * figure and the orbs hang off its centre.
 					 */}
-					<div className="prefs-stage">
+					<div className="prefs-ring">
 						<div className="prefs-figure">
 							<Pet parts={body} worn={worn} width="100%" />
 							{REGIONS.map(({ place, at }) => (
@@ -396,27 +396,19 @@ export const Prefs = () => {
 							))}
 
 							{/*
-							 * The second level, floating out of the part it belongs to.
+							 * The second level, floating out of the part it belongs to —
+							 * the subcategories of the thing you just pressed, hanging off
+							 * it rather than filed in a menu somewhere else.
 							 *
-							 * This is what the arc of bubbles beside the character is in
-							 * the game this copies: not a menu bar somewhere else, but the
-							 * subcategories of the thing you just pressed, hanging off it.
-							 * As two words inside the panel it was the same choice with
-							 * nothing tying it to his hand.
-							 *
-							 * They fan away from his middle, so the ones on his left go
-							 * left and the ones on his right go right, and neither ends up
-							 * drawn across his face.
+							 * Far enough out, and far enough apart: at seventeen units with
+							 * twenty between them these were 38px circles whose centres were
+							 * 52px apart, and they overlapped each other and the marker.
 							 */}
 							{region &&
 								lists.map((one, index) => {
-									// Far enough out, and far enough apart. At seventeen units
-									// with twenty between them these were 38px circles whose
-									// centres were 52px apart — they overlapped each other and
-									// the marker they hang off, which is what "pegados" was.
 									const away = region.at[0] >= 48 ? 1 : -1
-									const x = region.at[0] + away * (24 + index * 5)
-									const y = region.at[1] + (lists.length === 1 ? 0 : index * 30 - 15)
+									const x = region.at[0] + away * (18 + index * 4)
+									const y = region.at[1] + (lists.length === 1 ? 0 : index * 28 - 14)
 
 									return (
 										<button
@@ -438,55 +430,56 @@ export const Prefs = () => {
 									)
 								})}
 						</div>
-					</div>
 
-					{open && region ? (
-						<div className="prefs-arc">
-							<h2 className="prefs-open">
-								{copy.places[region.place]}
-								<small>{copy.kinds[kind]}</small>
-							</h2>
-							{kind === 'worn' && <p className="prefs-note">{copy.pin.hint}</p>}
+						{open &&
+							region &&
+							(slot
+								? Object.keys(PARTS[slot]).map((variant) => ({
+										id: variant,
+										label: variant,
+										// The registry is keyed by slot and the slot is a
+										// variable, which is as far as the types follow it; the
+										// keys came out of `PARTS`.
+										parts: { ...body, [slot]: variant } as CompanionParts,
+										// Whatever is worn here comes off while you choose what
+										// goes under it — see `bare`.
+										worn: bare,
+										on: body[slot] === variant,
+										choose: () =>
+											patch({ parts: { ...body, [slot]: variant } as CompanionParts }),
+									}))
+								: [null, ...PROPS.filter((one) => WEARS[one] === region.place)].map((one) => ({
+										id: one ?? 'none',
+										label: one ?? copy.pin.none,
+										parts: body,
+										worn: wornFrom(withPin(region.place, one), null),
+										on: (pins[region.place] ?? null) === one,
+										choose: () => pin(region.place, one),
+									}))
+							).map((option, index, all) => {
+								/*
+								 * Spread around him from the part they belong to: the fan is
+								 * centred on the direction of the marker you pressed, so the
+								 * hats come out of his head and the shoes out of his feet.
+								 *
+								 * A fixed step rather than "divide the circle by however many
+								 * there are" — three options should be three neighbours, not
+								 * three dots at the far corners of a triangle. Thirteen of
+								 * them at this step is a whole circle, which is where the
+								 * shape ends up on its own.
+								 */
+								const from = Math.atan2(region.at[1] - 48, region.at[0] - 48)
+								const step = Math.min((2 * Math.PI) / all.length, 0.48)
+								const angle = from + (index - (all.length - 1) / 2) * step
 
-							{/*
-							 * The third level, curved rather than boxed.
-							 *
-							 * A grid in a card was a form; this is the shape the thing it
-							 * copies uses for every list it floats over the model, and the
-							 * bulge is what stops a column of circles reading as a column
-							 * of anything else. The offset is a half-sine across the list,
-							 * so the middle of it leans out and the ends come back.
-							 */}
-							<div className="prefs-arc-list">
-								{(slot
-									? Object.keys(PARTS[slot]).map((variant) => ({
-											id: variant,
-											label: variant,
-											// The registry is keyed by slot and the slot is a
-											// variable, which is as far as the types follow it;
-											// the keys came out of `PARTS`.
-											parts: { ...body, [slot]: variant } as CompanionParts,
-											// Whatever is worn here comes off while you choose
-											// what goes under it — see `bare`.
-											worn: bare,
-											on: body[slot] === variant,
-											choose: () => patch({ parts: { ...body, [slot]: variant } as CompanionParts }),
-										}))
-									: [null, ...PROPS.filter((one) => WEARS[one] === region.place)].map((one) => ({
-											id: one ?? 'none',
-											label: one ?? copy.pin.none,
-											parts: body,
-											worn: wornFrom(withPin(region.place, one), null),
-											on: (pins[region.place] ?? null) === one,
-											choose: () => pin(region.place, one),
-										}))
-								).map((option, index, all) => (
+								return (
 									<button
 										key={option.id}
 										type="button"
 										className="prefs-orb"
 										style={{
-											marginLeft: `${Math.sin(((index + 0.5) / all.length) * Math.PI) * 42}px`,
+											left: `${50 + Math.cos(angle) * 50}%`,
+											top: `${50 + Math.sin(angle) * 50}%`,
 										}}
 										aria-pressed={option.on}
 										aria-label={option.label}
@@ -499,9 +492,16 @@ export const Prefs = () => {
 											worn={option.worn}
 										/>
 									</button>
-								))}
-							</div>
-						</div>
+								)
+							})}
+					</div>
+
+					{open && region ? (
+						<h2 className="prefs-open">
+							{copy.places[region.place]}
+							<small>{copy.kinds[kind]}</small>
+							{kind === 'worn' && <p>{copy.pin.hint}</p>}
+						</h2>
 					) : null}
 				</div>
 			)}

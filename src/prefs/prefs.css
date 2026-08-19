@@ -121,49 +121,50 @@ input[type="checkbox"] {
  * get dressed.
  */
 /*
- * Him in the middle, and the interface floating over him.
+ * One scene that fills the window, with everything floating in it.
  *
- * Three levels, and the first one is his own body: press the hand and the panel
- * that opens is about the hand. A rail of ten categories beside him was the
- * same information with the part you are pointing at replaced by the *word* for
- * the part you are pointing at.
+ * There is no second column any more: a panel beside him took half the room and
+ * left him small in the other half, and the options belong *around* him — they
+ * are about his head or his hand, and the shortest way to say so is to put them
+ * next to his head or his hand.
  */
 .prefs-cas {
-	display: flex;
-	align-items: flex-start;
-	justify-content: center;
-	gap: 4px;
-	min-height: 420px;
-	padding: 10px 0 20px;
+	position: relative;
+	height: calc(100vh - 150px);
+	min-height: 430px;
+	border-radius: 20px;
+	background: radial-gradient(58% 58% at 50% 46%, #2b3143 0%, #1d2029 62%, transparent 100%);
+	overflow: hidden;
 }
 
 /*
- * He is centred in whatever room is left, and the room shrinks when a panel
- * opens — so he slides over rather than being covered. Absolute-positioning the
- * panel over him kept him dead centre and put the wardrobe on top of his hand,
- * which is the one thing you are looking at while you use it.
+ * The ring everything hangs off: a square, centred, so a percentage means the
+ * same across as it does down and the circle does not come out an ellipse.
  */
-.prefs-stage {
-	/* Sized to him, not to the window: the arc has to sit *next* to him, and a
-	   stage that eats all the free space parks it out at the far edge. */
-	flex: 0 1 auto;
-	display: flex;
-	justify-content: center;
-	/* Deep at the top because he overflows his own box upwards — everything
-	   worn on his head is drawn above y=16 and a top hat clears it by twenty. */
-	/* Wide enough that the bubbles fanning off his hand and his feet have room
-	   inside the box rather than escaping the left edge of it. */
-	padding: 58px 40px 34px;
-	border-radius: 20px;
-	background: radial-gradient(120% 90% at 50% 40%, #2b3143 0%, #1d2029 68%, transparent 100%);
+.prefs-ring {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	/*
+	 * Sized off the *height*, minus room for an orb's own radius on each side.
+	 * At half the ring's width the orbs sit on its edge, so a ring as tall as the
+	 * scene puts half of every one of them outside it — which, with the scene
+	 * clipping, is how the shoes came out sliced in half along the bottom.
+	 */
+	height: calc(100% - 84px);
+	max-width: calc(100% - 84px);
+	aspect-ratio: 1;
 }
 
-/* The pet's own box, and the coordinate system the handles are placed in: it is
-   square, because his viewBox is, so a percentage means the same in both axes. */
+/* His own box, and the coordinate system the handles are placed in: square,
+   because his viewBox is, so a percentage means the same in both axes. */
 .prefs-figure {
-	position: relative;
-	width: 250px;
-	max-width: 100%;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 52%;
 }
 
 .prefs-mark {
@@ -190,119 +191,12 @@ input[type="checkbox"] {
 	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.18);
 }
 
-/*
- * The third level: a curve of orbs floating beside him, not a card.
- *
- * A grid in a bordered box is a form. This is the shape the thing it copies uses
- * for every list it floats over the model — and it is the same shape as the
- * level above it, which is the point: one language for "here are your options",
- * whichever level you are on.
- */
-.prefs-arc {
-	flex: 0 0 auto;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 10px;
-	padding-top: 18px;
-	min-width: 0;
-}
-
-.prefs-arc-list {
-	display: flex;
-	flex-direction: column;
-	gap: 9px;
-	/* Room for the bulge, so the curve is not clipped at its widest. */
-	padding: 4px 46px 4px 0;
-	max-height: min(64vh, 460px);
-	overflow-y: auto;
-	overflow-x: hidden;
-	/* Faded at the ends rather than cut. macOS hides its scrollbar until you
-	   scroll, so a list that runs off the bottom looks like a list that ends. */
-	mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 20px), transparent 100%);
-	scrollbar-width: thin;
-	scrollbar-color: rgba(200, 208, 224, 0.28) transparent;
-}
-
-.prefs-arc-list::-webkit-scrollbar {
-	width: 7px;
-}
-
-.prefs-arc-list::-webkit-scrollbar-thumb {
-	border-radius: 4px;
-	background: rgba(200, 208, 224, 0.28);
-}
-
-.prefs-orb {
-	flex: none;
-	width: 56px;
-	height: 56px;
-	padding: 0;
-	border: 2px solid rgba(200, 208, 224, 0.3);
-	border-radius: 50%;
-	background: linear-gradient(180deg, #333a4c, #262b38);
-	overflow: hidden;
-	cursor: pointer;
-	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
-	transition: transform 0.14s ease, border-color 0.14s ease;
-}
-
-.prefs-orb:hover {
-	transform: scale(1.09);
-	border-color: rgba(200, 208, 224, 0.6);
-}
-
-.prefs-orb[aria-pressed="true"] {
-	border-color: var(--green);
-	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.22), 0 3px 10px rgba(0, 0, 0, 0.4);
-}
-
-/* A circle has to clip the drawing inside it, and the drawing is a square. */
-/* Thirteen pulsing LEDs in one window. One animation anywhere keeps the whole
-   surface compositing, so the small ones hold still and only he carries it. */
-.prefs-orb .companion-led,
-.prefs-kind .companion-led {
-	animation: none;
-}
-
-/* One sentence about why a cap and a coffee are not the same choice. */
-.prefs-note {
-	max-width: 196px;
-	margin: 0;
-	color: var(--fg-muted);
-	font-size: 10.5px;
-	line-height: 1.5;
-}
-
-.prefs-orb .prefs-portrait,
-.prefs-kind .prefs-portrait {
-	border-radius: 50%;
-}
-
-.prefs-open {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	margin: 0 0 2px;
-	font-size: 11px;
-	font-weight: 400;
-	letter-spacing: 0.09em;
-	text-transform: uppercase;
-	color: var(--fg);
-}
-
-.prefs-open small {
-	font-size: 9.5px;
-	letter-spacing: 0.08em;
-	color: var(--fg-muted);
-}
-
 /* The second level: round, floating, hanging off the part it belongs to. */
 .prefs-kind {
 	position: absolute;
-	width: 38px;
-	height: 38px;
-	margin: -19px 0 0 -19px;
+	width: 32px;
+	height: 32px;
+	margin: -16px 0 0 -16px;
 	padding: 0;
 	border: 2px solid rgba(200, 208, 224, 0.4);
 	border-radius: 50%;
@@ -322,6 +216,86 @@ input[type="checkbox"] {
 	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.22), 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
+/* The third level: on the ring, one step apart, fanned out of the part they
+   belong to. Same shape as the level above it on purpose — one language for
+   "here are your options", whichever level you are on. */
+.prefs-orb {
+	position: absolute;
+	width: 58px;
+	height: 58px;
+	margin: -29px 0 0 -29px;
+	padding: 0;
+	border: 2px solid rgba(200, 208, 224, 0.3);
+	border-radius: 50%;
+	background: linear-gradient(180deg, #333a4c, #262b38);
+	overflow: hidden;
+	cursor: pointer;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+	transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.prefs-orb:hover {
+	transform: scale(1.12);
+	border-color: rgba(200, 208, 224, 0.65);
+	z-index: 1;
+}
+
+.prefs-orb[aria-pressed="true"] {
+	border-color: var(--green);
+	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.22), 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* Thirteen pulsing LEDs in one window. One animation anywhere keeps the whole
+   surface compositing, so the small ones hold still and only he carries it. */
+.prefs-orb .companion-led,
+.prefs-kind .companion-led {
+	animation: none;
+}
+
+/* A circle has to clip the drawing inside it, and the drawing is a square. */
+.prefs-orb .prefs-portrait,
+.prefs-kind .prefs-portrait {
+	border-radius: 50%;
+}
+
+/* In the corner of the scene, out of the ring's way. */
+.prefs-open {
+	position: absolute;
+	top: 16px;
+	left: 18px;
+	/* Narrow enough to sit in the corner the ring cannot reach, and backed
+	   anyway, because the ring reaches further on a short window. */
+	max-width: 132px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: rgba(20, 22, 28, 0.72);
+	backdrop-filter: blur(6px);
+	z-index: 2;
+	margin: 0;
+	font-size: 11px;
+	font-weight: 400;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+	color: var(--fg);
+}
+
+.prefs-open small {
+	display: block;
+	margin-top: 2px;
+	font-size: 9.5px;
+	letter-spacing: 0.08em;
+	color: var(--fg-muted);
+}
+
+.prefs-open p {
+	margin: 8px 0 0;
+	font-size: 10.5px;
+	line-height: 1.5;
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--fg-muted);
+}
+
 /* The crop itself: the pet is rendered larger than this and pushed until the
    part being chosen is what is left inside. */
 .prefs-portrait {
@@ -336,21 +310,15 @@ input[type="checkbox"] {
 	position: absolute;
 }
 
-/* Narrow enough that side by side leaves him a stripe, they stack instead. */
-@media (max-width: 620px) {
-	.prefs-cas {
-		flex-direction: column;
+/* Small enough and the ring would be drawn through him, so he gives way. */
+@media (max-width: 520px), (max-height: 460px) {
+	.prefs-figure {
+		width: 38%;
 	}
 
-	.prefs-arc-list {
-		flex-direction: row;
-		flex-wrap: wrap;
-		max-height: none;
-		padding-right: 0;
-	}
-
-	/* Sideways the bulge is a wobble. */
 	.prefs-orb {
-		margin-left: 0 !important;
+		width: 46px;
+		height: 46px;
+		margin: -23px 0 0 -23px;
 	}
 }
