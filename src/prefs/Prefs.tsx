@@ -227,6 +227,10 @@ export const Prefs = () => {
 	// a tab that cannot exist would show an empty panel.
 	const kind = region?.slot ? showing : 'worn'
 	const slot = kind === 'part' ? region?.slot : undefined
+	/** What the open region offers. A region with nothing swappable in it — his
+	 *  face, his neck — has one list, not one list and an empty one. */
+	const lists: ('part' | 'worn')[] = region?.slot ? ['part', 'worn'] : ['worn']
+
 
 	/** Press a bit of him: it opens on its part, which is the thing you came for
 	 *  more often than the hat, and falls back to the hat when there is no part. */
@@ -248,6 +252,17 @@ export const Prefs = () => {
 		setStored({ ...stored, ...change })
 		invoke('set_settings', { patch: change })
 	}
+
+	/**
+	 * Him with this region's accessory taken off, for choosing the part under it.
+	 *
+	 * Without this the four antennas were four pictures of the same cap: the hat
+	 * is drawn over the thing you are choosing between, so every option in the
+	 * list came out identical. Same for a coffee over the hands and a shoe over
+	 * the feet — the accessory hides its own part by design, which is exactly why
+	 * it has to come off while you are looking underneath.
+	 */
+	const bare = region ? wornFrom(withPin(region.place, null), null) : worn
 
 	// Its own command, because `null` here means "take it off" and `undefined`
 	// everywhere in `patch` means "not mentioned".
@@ -379,34 +394,56 @@ export const Prefs = () => {
 									onClick={() => press(place)}
 								/>
 							))}
+
+							{/*
+							 * The second level, floating out of the part it belongs to.
+							 *
+							 * This is what the arc of bubbles beside the character is in
+							 * the game this copies: not a menu bar somewhere else, but the
+							 * subcategories of the thing you just pressed, hanging off it.
+							 * As two words inside the panel it was the same choice with
+							 * nothing tying it to his hand.
+							 *
+							 * They fan away from his middle, so the ones on his left go
+							 * left and the ones on his right go right, and neither ends up
+							 * drawn across his face.
+							 */}
+							{region &&
+								lists.map((one, index) => {
+									const away = region.at[0] >= 48 ? 1 : -1
+									const x = region.at[0] + away * (17 + index * 4)
+									const y = region.at[1] + (lists.length === 1 ? 0 : index * 20 - 10)
+
+									return (
+										<button
+											key={one}
+											type="button"
+											className="prefs-kind"
+											style={{ left: `${(x / 96) * 100}%`, top: `${(y / 96) * 100}%` }}
+											aria-pressed={kind === one}
+											aria-label={copy.kinds[one]}
+											title={copy.kinds[one]}
+											onClick={() => setShowing(one)}
+										>
+											<Portrait
+												crop={CROPS[`${region.place}:${one}`]}
+												parts={body}
+												worn={one === 'part' ? bare : worn}
+											/>
+										</button>
+									)
+								})}
 						</div>
 					</div>
 
 					{open && region ? (
 						<div className="prefs-wardrobe">
-							<h2 className="prefs-open">{copy.places[region.place]}</h2>
-
-							{/* The second level. One tab where there is only one list,
-							    rather than a second tab that is empty — his face and his
-							    neck are not made of anything swappable. */}
-							<div className="prefs-kinds">
-								{region.slot && (
-									<button
-										type="button"
-										aria-pressed={kind === 'part'}
-										onClick={() => setShowing('part')}
-									>
-										{copy.kinds.part}
-									</button>
-								)}
-								<button
-									type="button"
-									aria-pressed={kind === 'worn'}
-									onClick={() => setShowing('worn')}
-								>
-									{copy.kinds.worn}
-								</button>
-							</div>
+							{/* The bubbles carry no words, so the panel says what is open
+							    and which of its two lists this is. */}
+							<h2 className="prefs-open">
+								{copy.places[region.place]}
+								<small>{copy.kinds[kind]}</small>
+							</h2>
 
 							<div className="prefs-options">
 								{slot ? (
@@ -427,7 +464,7 @@ export const Prefs = () => {
 												<Portrait
 													crop={CROPS[`${region.place}:part`]}
 													parts={next}
-													worn={worn}
+													worn={bare}
 												/>
 											</button>
 										)

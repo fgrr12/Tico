@@ -227,14 +227,19 @@ input[type="checkbox"] {
 	flex: 0 0 214px;
 	margin-top: 12px;
 	padding: 12px;
-	border: 1px solid rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.1);
 	border-radius: 14px;
-	background: rgba(26, 28, 35, 0.82);
-	backdrop-filter: blur(10px);
+	background: rgba(32, 35, 44, 0.78);
+	backdrop-filter: blur(12px);
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .prefs-open {
-	margin: 0 0 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	margin: 0 0 10px;
 	font-size: 11px;
 	font-weight: 400;
 	letter-spacing: 0.09em;
@@ -242,39 +247,62 @@ input[type="checkbox"] {
 	color: var(--fg);
 }
 
-/* The second level. Two words, and one of them is missing on a region that is
-   not made of anything you can swap. */
-.prefs-kinds {
-	display: flex;
-	gap: 4px;
-	margin-bottom: 10px;
-}
-
-.prefs-kinds button {
-	flex: 1;
-	padding: 5px 8px;
-	border: 1px solid var(--line-strong);
-	border-radius: 7px;
-	background: none;
+.prefs-open small {
+	font-size: 9.5px;
+	letter-spacing: 0.08em;
 	color: var(--fg-muted);
-	font: inherit;
-	font-size: 11px;
-	cursor: pointer;
 }
 
-.prefs-kinds button[aria-pressed="true"] {
-	border-color: var(--purple);
-	background: var(--bg-raise);
-	color: var(--fg);
+/* The second level: round, floating, hanging off the part it belongs to. */
+.prefs-kind {
+	position: absolute;
+	width: 38px;
+	height: 38px;
+	margin: -19px 0 0 -19px;
+	padding: 0;
+	border: 2px solid rgba(200, 208, 224, 0.4);
+	border-radius: 50%;
+	background: rgba(48, 54, 68, 0.9);
+	overflow: hidden;
+	cursor: pointer;
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+	transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.prefs-kind:hover {
+	transform: scale(1.1);
+}
+
+.prefs-kind[aria-pressed="true"] {
+	border-color: var(--green);
+	box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.22), 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* The circle has to clip the drawing inside it, and the drawing is a square. */
+.prefs-kind .prefs-portrait {
+	border-radius: 50%;
 }
 
 .prefs-options {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 7px;
+	gap: 5px;
 	align-content: start;
 	max-height: min(50vh, 340px);
 	overflow-y: auto;
+	/* Slim and always there, like the one in the reference — a list that scrolls
+	   without saying so is a list whose bottom half nobody finds. */
+	scrollbar-width: thin;
+	scrollbar-color: rgba(200, 208, 224, 0.28) transparent;
+}
+
+.prefs-options::-webkit-scrollbar {
+	width: 7px;
+}
+
+.prefs-options::-webkit-scrollbar-thumb {
+	border-radius: 4px;
+	background: rgba(200, 208, 224, 0.28);
 }
 
 .prefs-note {
