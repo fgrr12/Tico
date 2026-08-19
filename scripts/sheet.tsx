@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { CompanionFace } from '../src/companion/CompanionFace'
-import { type CompanionParts, DEFAULT_PARTS, PARTS } from '../src/companion/parts'
+import { type CompanionParts, DEFAULT_PARTS, PARTS, bodyFrom } from '../src/companion/parts'
 
 import '../src/companion.css'
 
@@ -83,7 +83,20 @@ const BODIES = Object.entries(PARTS).flatMap(([slot, variants]) =>
 	}))
 )
 
+/**
+ * Which body every row is drawn on, from the query string:
+ * `sheet.html?shell=capsule&feet=wheels`.
+ *
+ * This is the row that matters when a shell is added. The props are placed
+ * against fixed landmarks by hand, and the way a new shell fails is never that
+ * it looks bad on its own — it is that a cobweb pinned to a square corner is
+ * floating beside a round one, and a scarf drawn across his waist hangs off a
+ * body that is narrower there. Thirty props, one shell, one look.
+ */
+const BODY = bodyFrom(Object.fromEntries(new URLSearchParams(location.search)))
+
 const face = (extra: Partial<CompanionFaceProps> = {}): CompanionFaceProps => ({
+	parts: BODY,
 	mood: 'idle',
 	blink: false,
 	glyph: null,

@@ -20,7 +20,13 @@ import type { ReactNode } from 'react'
  *
  * Thirty-odd props are placed against those numbers by hand — see `Prop` in
  * `CompanionFace.tsx` — so a shell that moves the head by four pixels does not
- * cost one drawing, it costs thirty. A new variant varies silhouette, thickness,
+ * cost one drawing, it costs thirty.
+ *
+ * What is *not* in the table, and cost one anyway: the corner. The cobweb was
+ * struck from (8,16), the case's actual top-left, and `astro` and `capsule` round
+ * that corner away — the web ended up hanging in mid-air beside him. It is
+ * anchored at (14,24) now, which is inside every shell, and that is the point to
+ * re-check when the next round one is drawn. A new variant varies silhouette, thickness,
  * corners, texture and colour; it never varies where the face and the limbs are.
  * The `tico-glass` clip in the parent's `defs` is the screen rectangle written
  * down twice on purpose: the contract enforces itself there.
@@ -28,6 +34,14 @@ import type { ReactNode } from 'react'
  * The CSS animates `.companion-hand` and `.companion-foot` by class and moves
  * them with `translate` — so limbs keep those class names and their `data-side`,
  * or walking, waving, sitting and covering his ears all quietly stop.
+ *
+ * That same rule *paints* them, which is the trap: `companion.css` sets `fill`
+ * and `stroke` on those classes, and a CSS declaration beats a presentation
+ * attribute however specific the attribute looks. A limb with a colour of its own
+ * sets it with `style`, not with `fill="…"` — written as an attribute it comes
+ * out the same dark grey as the default and looks like the colour was ignored.
+ * Anything with more than one shape in it wraps them in a `<g>` that carries the
+ * class, so the whole thing steps together.
  *
  * Gradients (`tico-case`, `tico-limb`), the scanline pattern and the clip live in
  * the parent's `defs` rather than here: they are shared by every variant, and a
@@ -108,6 +122,198 @@ const SHELLS = slot({
 			</g>
 		</>
 	),
+	/*
+	 * The one the PlayStation robot lent his face to: white, round, glossy, and
+	 * mostly visor. The volume is spelled out instead of gradient-filled — a lit
+	 * dome and a shaded skirt is what `tico-case` does in two stops, and doing it
+	 * with shapes keeps the whole variant inside this file.
+	 */
+	astro: ({ screenColor }: PartProps) => (
+		<>
+			<rect
+				x="8"
+				y="16"
+				width="80"
+				height="66"
+				rx="26"
+				fill="#dde4f0"
+				stroke="#b3bed4"
+				strokeWidth="2"
+			/>
+			<ellipse cx="48" cy="26" rx="27" ry="7.5" fill="#ffffff" opacity="0.5" />
+			<ellipse cx="48" cy="77.5" rx="21" ry="3" fill="#8f9db5" opacity="0.5" />
+
+			{/* Wider than the screen on every side, or the eyes read as painted
+			    onto a white box rather than lit behind glass. */}
+			<rect
+				x="12"
+				y="28"
+				width="72"
+				height="48"
+				rx="18"
+				fill="#252a37"
+				stroke="#5fa8e0"
+				strokeWidth="1.4"
+			/>
+
+			{/* Two lights on the forehead. Below y=22, so a wig still leaves them. */}
+			<circle cx="29" cy="23" r="2.6" fill="#7dcfff" />
+			<circle cx="67" cy="23" r="2.6" fill="#7dcfff" />
+
+			<rect
+				className="companion-screen"
+				x="15"
+				y="32"
+				width="66"
+				height="42"
+				rx="9"
+				fill={screenColor}
+				stroke="#161a23"
+			/>
+			<g clipPath="url(#tico-glass)">
+				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
+			</g>
+
+			{/* A speaker slit, down the gap his feet leave him. */}
+			<rect x="42" y="78" width="12" height="2.4" rx="1.2" fill="#a3b0c7" />
+		</>
+	),
+
+	/*
+	 * The tube. Lighter than the terminal on purpose — two dark boxes at 92px are
+	 * the same box — and the difference you actually read is the depth of the
+	 * bezel, so it gets a real one: a raised frame, a recess inside it, and the
+	 * glass sitting at the bottom of the hole.
+	 */
+	crt: ({ screenColor }: PartProps) => (
+		<>
+			<rect
+				x="8"
+				y="16"
+				width="80"
+				height="66"
+				rx="10"
+				fill="#a29a89"
+				stroke="#6f6857"
+				strokeWidth="2"
+			/>
+			<rect x="12" y="19" width="72" height="7" rx="3.5" fill="#c0b8a4" opacity="0.6" />
+
+			<rect x="12" y="28" width="72" height="50" rx="8" fill="#7b7462" />
+			<rect x="13.2" y="29.2" width="69.6" height="47.6" rx="7" fill="#22262f" />
+
+			<rect
+				className="companion-screen"
+				x="15"
+				y="32"
+				width="66"
+				height="42"
+				rx="9"
+				fill={screenColor}
+				stroke="var(--line)"
+			/>
+			<rect x="15" y="32" width="66" height="42" rx="9" fill="url(#tico-scanlines)" />
+			<g clipPath="url(#tico-glass)">
+				<rect x="15" y="32" width="66" height="14" fill="url(#tico-inset)" />
+				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
+			</g>
+
+			{/* Vents, in the only part of his front that is neither glass nor foot. */}
+			<g fill="#6f6857">
+				<rect x="41" y="77" width="14" height="1.7" rx="0.85" />
+				<rect x="41" y="79.8" width="14" height="1.7" rx="0.85" />
+			</g>
+		</>
+	),
+
+	/*
+	 * No chrome at all: no lights, no title bar, no bezel to speak of. A soft
+	 * warm shell with a seam, for when the joke about him being a window is not
+	 * the joke you want that week.
+	 */
+	capsule: ({ screenColor }: PartProps) => (
+		<>
+			<rect
+				x="8"
+				y="16"
+				width="80"
+				height="66"
+				rx="31"
+				fill="#463c63"
+				stroke="#6a5b96"
+				strokeWidth="2"
+			/>
+			<ellipse cx="48" cy="27" rx="25" ry="7" fill="#ffffff" opacity="0.07" />
+
+			<rect
+				className="companion-screen"
+				x="15"
+				y="32"
+				width="66"
+				height="42"
+				rx="9"
+				fill={screenColor}
+				stroke="var(--line)"
+			/>
+			<g clipPath="url(#tico-glass)">
+				<rect x="15" y="32" width="66" height="14" fill="url(#tico-inset)" />
+			</g>
+
+			<path
+				d="M25 78 q23 4 46 0"
+				fill="none"
+				stroke="#6a5b96"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+			/>
+		</>
+	),
+	/*
+	 * A cabinet. The band above the screen is the terminal's title bar in a
+	 * different job — it is the only strip of him that is neither glass nor
+	 * bezel, and a marquee is what it wants to be when it is not three lights.
+	 */
+	arcade: ({ screenColor }: PartProps) => (
+		<>
+			<rect
+				x="8"
+				y="16"
+				width="80"
+				height="66"
+				rx="9"
+				fill="#2e3550"
+				stroke="#1b2036"
+				strokeWidth="2"
+			/>
+
+			<rect x="13" y="19" width="70" height="9" rx="2.5" fill="#e0af68" />
+			<rect x="13" y="19" width="70" height="4" rx="2" fill="#f2cd95" />
+
+			{/* Side art, in the margin the screen leaves. Two colours, because one
+			    down both sides is a racing stripe and two is a cabinet. */}
+			<rect x="9.5" y="34" width="3.5" height="34" rx="1.75" fill="#f7768e" opacity="0.8" />
+			<rect x="83" y="34" width="3.5" height="34" rx="1.75" fill="#7dcfff" opacity="0.8" />
+
+			<rect
+				className="companion-screen"
+				x="15"
+				y="32"
+				width="66"
+				height="42"
+				rx="9"
+				fill={screenColor}
+				stroke="var(--line)"
+			/>
+			<rect x="15" y="32" width="66" height="42" rx="9" fill="url(#tico-scanlines)" />
+			<g clipPath="url(#tico-glass)">
+				<rect x="15" y="32" width="66" height="14" fill="url(#tico-inset)" />
+				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
+			</g>
+
+			{/* The coin slot, down the gap between his feet. */}
+			<rect x="43" y="77" width="10" height="2.6" rx="1.3" fill="#161a2a" />
+		</>
+	),
 })
 
 const HANDS = slot({
@@ -128,6 +334,43 @@ const HANDS = slot({
 			/>
 		</>
 	),
+	/* Round white gloves, and the reason they are `style` and not `fill`: the
+	   stylesheet paints every limb by class and would have won. */
+	gloves: () => (
+		<>
+			<g
+				className="companion-hand"
+				data-side="left"
+				style={{ fill: '#e9eef8', stroke: '#b6c1d6' }}
+			>
+				<rect x="1.6" y="52.4" width="7.8" height="5.2" rx="2.6" />
+				<circle cx="5.4" cy="60.2" r="5.9" />
+			</g>
+			<g
+				className="companion-hand"
+				data-side="right"
+				style={{ fill: '#e9eef8', stroke: '#b6c1d6' }}
+			>
+				<rect x="86.6" y="52.4" width="7.8" height="5.2" rx="2.6" />
+				<circle cx="90.6" cy="60.2" r="5.9" />
+			</g>
+		</>
+	),
+
+	/* Two prongs opening away from him. One shape with a notch cut in it read as
+	   a mitten with a bite taken out; two that do not touch read as a pincer. */
+	claws: () => (
+		<>
+			<g className="companion-hand" data-side="left">
+				<path d="M9.4 53.6 q-4-2.4-7.4 0.6 l4.8 4.4 l2.8-1 z" />
+				<path d="M9.4 66.4 q-4 2.4-7.4-0.6 l4.8-4.4 l2.8 1 z" />
+			</g>
+			<g className="companion-hand" data-side="right">
+				<path d="M86.6 53.6 q4-2.4 7.4 0.6 l-4.8 4.4 l-2.8-1 z" />
+				<path d="M86.6 66.4 q4 2.4 7.4-0.6 l-4.8-4.4 l-2.8 1 z" />
+			</g>
+		</>
+	),
 })
 
 const FEET = slot({
@@ -146,6 +389,57 @@ const FEET = slot({
 				data-side="right"
 				d="M55.5 77 h17 v5.5 q0 4.5-4.5 4.5 h-8 q-4.5 0-4.5-4.5 z"
 			/>
+		</>
+	),
+	/* Chunky, with a sole. The sole is the whole trick — without a second colour
+	   along the floor they are just larger pills. */
+	boots: () => (
+		<>
+			<g className="companion-foot" data-side="left">
+				<path d="M21.5 76 h19 v6.5 q0 6-6.5 6 h-6 q-6.5 0-6.5-6 z" />
+				<rect x="20.4" y="85.4" width="21.2" height="3.4" rx="1.7" style={{ fill: '#151920' }} />
+			</g>
+			<g className="companion-foot" data-side="right">
+				<path d="M55.5 76 h19 v6.5 q0 6-6.5 6 h-6 q-6.5 0-6.5-6 z" />
+				<rect x="54.4" y="85.4" width="21.2" height="3.4" rx="1.7" style={{ fill: '#151920' }} />
+			</g>
+		</>
+	),
+
+	/* Tracks. They still alternate when he walks, which is wrong for a tank and
+	   right for him — the step is the gait he already has. */
+	treads: () => (
+		<>
+			<g className="companion-foot" data-side="left">
+				<rect x="21" y="76" width="21" height="12.4" rx="6.2" />
+				<circle cx="27" cy="82.2" r="2.7" style={{ fill: '#151920' }} />
+				<circle cx="36" cy="82.2" r="2.7" style={{ fill: '#151920' }} />
+			</g>
+			<g className="companion-foot" data-side="right">
+				<rect x="54" y="76" width="21" height="12.4" rx="6.2" />
+				<circle cx="60" cy="82.2" r="2.7" style={{ fill: '#151920' }} />
+				<circle cx="69" cy="82.2" r="2.7" style={{ fill: '#151920' }} />
+			</g>
+		</>
+	),
+
+	/*
+	 * Wheels, and the reason the coils they replaced were cut: only about seven
+	 * of the ninety-six units are below the case, so a foot is read almost
+	 * entirely from its silhouette in that strip. Two turns of a spring in seven
+	 * units was a smudge that looked exactly like the default pills. A circle at
+	 * that size is still obviously a circle.
+	 */
+	wheels: () => (
+		<>
+			<g className="companion-foot" data-side="left">
+				<circle cx="31" cy="84" r="4.8" />
+				<circle cx="31" cy="84" r="1.8" style={{ fill: '#151920' }} />
+			</g>
+			<g className="companion-foot" data-side="right">
+				<circle cx="65" cy="84" r="4.8" />
+				<circle cx="65" cy="84" r="1.8" style={{ fill: '#151920' }} />
+			</g>
 		</>
 	),
 })
@@ -177,8 +471,57 @@ const ANTENNAS = slot({
 				cy="5.4"
 				r="3.4"
 				fill={ledColor}
-				className="companion-led companion-tint"
+				className="companion-led"
 			/>
+		</>
+	),
+	/* Two of them, and the light on one. Both lit would be a pair of eyes above
+	   his eyes; one lit is a creature with a lopsided ear, which is the same
+	   trick the leaning aerial is playing. */
+	ears: ({ ledColor }: PartProps) => (
+		<>
+			<path d="M23 19 q-4-16 7.5-17 q11.5 1 7.5 17 z" fill="#454d61" />
+			<path d="M73 19 q4-16-7.5-17 q-11.5 1-7.5 17 z" fill="#454d61" />
+			<path d="M27 18 q-2-11 3.5-12 q5.5 1 3.5 12 z" fill="var(--pink)" opacity="0.3" />
+			<path d="M69 18 q2-11-3.5-12 q-5.5 1-3.5 12 z" fill="var(--pink)" opacity="0.3" />
+			<circle className="companion-led" cx="30.5" cy="2.4" r="2.9" fill={ledColor} />
+		</>
+	),
+
+	/* Pointed at something. The status light is the feed at its focus, which is
+	   where the one part of him that means anything ought to sit. */
+	dish: ({ ledColor }: PartProps) => (
+		<>
+			<path
+				d="M48 17 L50.5 10"
+				stroke="var(--line-strong)"
+				strokeWidth="2.5"
+				strokeLinecap="round"
+				fill="none"
+			/>
+			<ellipse cx="51" cy="7.5" rx="11" ry="4.6" transform="rotate(-22 51 7.5)" fill="#2f3542" />
+			{/* The lit face, offset rather than concentric. Two ellipses on the same
+			    centre are a hoop, whatever you fill them with — this was one. */}
+			<ellipse cx="51.7" cy="6.5" rx="9.4" ry="3.5" transform="rotate(-22 51 7.5)" fill="#6d7688" />
+			<path d="M51 7.5 L53.4 2" stroke="#5b6478" strokeWidth="1.6" strokeLinecap="round" />
+			<circle className="companion-led" cx="53.6" cy="1" r="2.5" fill={ledColor} />
+		</>
+	),
+
+	/* The same light, made big enough to be the joke. It pulses like every other
+	   one, which on something bulb-shaped reads as thinking rather than as status. */
+	bulb: ({ ledColor }: PartProps) => (
+		<>
+			<path
+				d="M48 17 q0-8 4-10"
+				stroke="var(--line-strong)"
+				strokeWidth="2.5"
+				strokeLinecap="round"
+				fill="none"
+			/>
+			<rect x="49.4" y="3.2" width="5.8" height="4" rx="1.3" fill="#5a6274" />
+			<circle className="companion-led" cx="52.3" cy="-0.8" r="5.2" fill={ledColor} />
+			<circle cx="50.2" cy="-2.6" r="1.7" fill="#ffffff" opacity="0.45" />
 		</>
 	),
 })

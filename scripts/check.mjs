@@ -390,6 +390,19 @@ check('every body part carries the hooks the rest of him drives it by', () => {
 		total += variants.length
 	}
 
+	// The default has to name something that exists, or the fallback in
+	// `bodyFrom` falls back onto nothing — rename a variant and forget this line
+	// and every pet, including one with a perfectly good config, draws no feet.
+	const from = parts.indexOf('DEFAULT_PARTS: CompanionParts = {')
+	const defaults = parts.slice(from, parts.indexOf('}', from))
+	for (const [, slot, variant] of defaults.matchAll(/(\w+): '(\w+)'/g)) {
+		const registry = { shell: 'SHELLS', hands: 'HANDS', feet: 'FEET', antenna: 'ANTENNAS' }[slot]
+		assert(registry, `DEFAULT_PARTS names a slot that is not one: ${slot}`)
+		const open = parts.indexOf(`const ${registry} = slot({`)
+		const body = parts.slice(open, parts.indexOf('\n})', open))
+		assert(body.includes(`\n\t${variant}: (`), `the default ${slot} is ${variant}, which is not drawn`)
+	}
+
 	return `${total} parts`
 })
 

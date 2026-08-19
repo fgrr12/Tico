@@ -658,6 +658,40 @@ Side effect worth keeping: `smallest_model()` picking the smallest installed
 model was a bet on latency. The 7B comparison makes it the quality bet too, for
 this workload.
 
+## He has a body now, and it is a costume
+
+Not in the original plan, and worth writing down before somebody reverses it by
+accident.
+
+The face was one hard-coded drawing. It is now four slots — shell, hands, feet,
+antenna — each a registry of variants in `parts.tsx`, picked in a preferences
+window and stored in `tico.json`. Five shells, three hands, four feet and four
+antennas is 240 bodies out of sixteen drawings, which is the entire argument for
+slots over drawing whole pets.
+
+**The landmark contract is the decision, and it is what makes this cheap.** Every
+variant of every slot draws inside the same boxes: the screen at x15–81 / y32–74,
+the eyes at (37,50) and (59,50), the hands at x1–9.6 and 86.4–95, the feet at
+y77–87. Thirty-odd props are placed against those numbers by hand, so a variant
+that moves the head by four pixels does not cost one drawing — it costs thirty.
+Variation goes into silhouette, colour, corners and texture, never into where the
+face and the limbs are. Rejected alternative: let each shell place its own
+landmarks and give props per-shell offsets. That is a 5×30 table nobody will keep
+correct, and the first entry that rots shows up as a hat floating beside his head.
+
+The cost is nothing at runtime. It is static SVG the GPU rasterises once, and the
+rule from *What he actually costs* still holds — the price is per composited
+frame, not per element, so four shells cost exactly what one costs. What is not
+free is the *looking*: every new part is a pass over `sheet.html?shell=…` with all
+thirty props on it, which is where the cobweb was caught hanging in mid-air beside
+two round shells it had never been drawn against.
+
+**Rust holds the strings, not the list.** `state.rs` stores four slot names and a
+pinned prop, and validates none of them against a list of drawings — that list
+lives with the drawings, and a second copy in Rust would go stale the first time
+one is renamed. `bodyFrom` falls back per slot, so a config naming a part that no
+longer exists costs you that part's default, not a pet who fails to appear.
+
 ## Cut from v1 — on purpose
 
 | Cut                          | Why, and when it comes back                                       |

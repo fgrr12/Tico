@@ -11,6 +11,13 @@
 		margin: 0;
 		min-height: 100vh;
 		background: linear-gradient(180deg, #1e2230, #2a2f42) !important;
+		/* Both of these are `!important` for the same reason the background is:
+		   this page imports the pet's real stylesheet, and that one pins the
+		   window to the viewport and hides the overflow — which is correct for a
+		   transparent strip and means a contact sheet that is one screen tall
+		   with the rest of the drawings clipped off the bottom. */
+		height: auto !important;
+		overflow: visible !important;
 	}
 	.row {
 		display: flex;

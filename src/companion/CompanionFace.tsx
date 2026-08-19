@@ -597,11 +597,16 @@ const Prop = ({ kind }: { kind: string }) => {
 					strokeWidth="1.3"
 					opacity="0.8"
 				>
-					{/* Anchors out of the corner, then the spiral as three arcs. */}
-					<path d="M8 16 L46 16 M8 16 L8 54 M8 16 L38 46" />
-					<path d="M20 16 A12 12 0 0 1 8 28" />
-					<path d="M31 16 A23 23 0 0 1 8 39" />
-					<path d="M42 16 A34 34 0 0 1 8 50" />
+					{/* Anchors out of the corner, then the spiral as three arcs.
+					    Struck inward from the case's actual corner: `capsule` and
+					    `astro` round that corner away, and a web pinned to a point
+					    six units outside the body hangs in mid-air instead of on
+					    him. (14,24) is inside every shell there is — which is the
+					    thing to check when the next one is drawn. */}
+					<path d="M14 24 L52 24 M14 24 L14 62 M14 24 L44 54" />
+					<path d="M26 24 A12 12 0 0 1 14 36" />
+					<path d="M37 24 A23 23 0 0 1 14 47" />
+					<path d="M48 24 A34 34 0 0 1 14 58" />
 				</g>
 			)
 		case 'bolt':
