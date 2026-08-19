@@ -3,6 +3,8 @@
 **A desktop pet that lives along the bottom of your screen, notices what you are
 doing, and has opinions about it.**
 
+[![build](https://github.com/fgrr12/tico/actions/workflows/build.yml/badge.svg)](https://github.com/fgrr12/tico/actions/workflows/build.yml)
+
 ![Nine of the bodies tico can be given](docs/bodies.png)
 
 He is a small terminal window with a face on its screen. He walks, sits, dozes

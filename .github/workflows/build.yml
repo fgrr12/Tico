@@ -1,0 +1,128 @@
+# Does he build anywhere other than the machine he was written on?
+#
+# That question has been open since the beginning: the six senses are behind
+# `#[cfg(target_os = "macos")]` with stubs beside them, and the stubs have never
+# been compiled by anything. This is the cheapest way to find out, and to keep
+# knowing it.
+#
+# Deliberately build-only. Bundling installers and publishing releases is a
+# separate concern with its own failure modes — signing, notarisation, asset
+# names — and mixing it in here would mean a red tick could mean either "the
+# code is broken" or "the release plumbing is". One question per workflow.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # `scripts/check.mjs` imports the TypeScript data modules directly and lets
+  # node strip the types, which is only the default from 22.18 on.
+  NODE_VERSION: "24"
+
+jobs:
+  # Everything that is the same on every platform, once rather than three times.
+  checks:
+    name: checks
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: types
+        run: pnpm exec tsc --noEmit
+
+      # The 19 assertions over the data, the drawings and the two places where
+      # the frontend and Rust have to agree on a name.
+      - name: check
+        run: pnpm check
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # The date arithmetic — streaks, absences, the throttle — is the part with
+      # the bugs in it, and it needs no window to run.
+      - name: rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      # Strict on purpose: the tree has no warnings today, and the cheapest time
+      # to keep it that way is the first one that appears.
+      - name: clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  # The actual question: does the Rust half compile where it has never been
+  # compiled? `--no-bundle` builds the frontend and links the binary without
+  # producing installers, which is all this needs to answer.
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing should not hide what the other two would have said.
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner comes bare, and this list is where most first attempts break.
+      # webkit2gtk 4.1 is the Tauri v2 one; 4.0 is v1 and is not interchangeable.
+      - name: linux dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf \
+            build-essential \
+            file \
+            wget
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.os }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # `pnpm exec` rather than the `t` script in package.json: pnpm 11 does not
+      # forward a subcommand to a one-word script — `pnpm t build` comes back as
+      # "Command 't' not found" — and a workflow is a bad place to find that out.
+      - name: build
+        run: pnpm exec tauri build --no-bundle
