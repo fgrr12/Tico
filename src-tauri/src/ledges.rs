@@ -27,8 +27,10 @@ pub struct Ledge {
 }
 
 /// Narrower than this and it is a palette or a tooltip, not somewhere to hang.
+#[cfg(target_os = "macos")]
 const MIN_WIDTH: f64 = 140.0;
 /// Lower than this and grabbing it is indistinguishable from landing.
+#[cfg(target_os = "macos")]
 const MIN_LIFT: f64 = 70.0;
 /// Wider than this fraction of the screen and it is not a ledge.
 ///
@@ -42,6 +44,7 @@ const MIN_LIFT: f64 = 70.0;
 /// The consequence is deliberate: on a desktop of maximised windows there is
 /// nothing to catch and he simply falls. That is the honest answer — the ledges
 /// are your actual windows, and some days there are none.
+#[cfg(target_os = "macos")]
 const MAX_SPAN: f64 = 0.9;
 
 #[cfg(target_os = "macos")]

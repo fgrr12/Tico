@@ -78,7 +78,9 @@ Delete `memory.json` and he simply meets you again.
 
 ## Platforms
 
-He **runs** everywhere. He **notices** things only on macOS: the six senses
+He **builds** on all three — every push compiles him on macOS, Windows and
+Linux. He **runs** as a pet everywhere. He **notices** things only on macOS: the
+six senses
 (frontmost application, microphone, music, keystrokes, window ledges, window
 titles) are behind `#[cfg(target_os = "macos")]` with fallbacks that return
 nothing, so elsewhere he walks, talks, sleeps, dozes, wears hats, keeps his
@@ -87,8 +89,8 @@ burrow and reacts to you — but not to your desk.
 | Platform              | Runs | Senses | Notes                                                        |
 | --------------------- | ---- | ------ | ------------------------------------------------------------ |
 | macOS                 | ✅   | ✅     | Tray-only, no Dock icon. The only one in daily use            |
-| Windows 10/11         | ⚠️   | ❌     | Should build — never has been. Needs the Win32 watchers       |
-| Linux / X11           | ⚠️   | ❌     | Should build — never has been. Needs the X11/PulseAudio ones  |
+| Windows 10/11         | ✅   | ❌     | Builds in CI. Needs the Win32 watchers                        |
+| Linux / X11           | ✅   | ❌     | Builds in CI. Needs the X11/PulseAudio ones                   |
 | Linux / KDE Wayland   | ⚠️   | ❌     | Also needs `wlr-layer-shell` to sit on the desktop            |
 | Linux / GNOME Wayland | ❌   | ❌     | Mutter has no layer-shell, on purpose. XWayland or nothing    |
 

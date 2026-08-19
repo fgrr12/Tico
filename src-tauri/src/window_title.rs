@@ -1,3 +1,6 @@
+// Pulled in for `mod ax` below, which reaches it through `use super::c_void`
+// and is the only thing that wants it.
+#[cfg(target_os = "macos")]
 use std::ffi::c_void;
 
 /// The title of the frontmost window, when he has been allowed to read it.

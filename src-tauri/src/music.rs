@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 /// Players worth asking about. Checked in-process before anything is spawned.
+#[cfg(target_os = "macos")]
 const PLAYERS: [&str; 2] = ["Spotify", "Music"];
 
 use serde::Serialize;
