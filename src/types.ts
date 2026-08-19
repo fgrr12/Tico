@@ -1,5 +1,5 @@
 import type { CompanionParts } from './companion/parts'
-import type { Language } from './data/companion'
+import type { Language, WornProp } from './data/companion'
 
 /** Every state the pet can be in. Drives both eyes and mouth. */
 export type CompanionMood =
@@ -26,10 +26,11 @@ export interface CompanionFaceProps {
 	glyph: string | null
 	/** Music is playing somewhere. Overrides the mouth and adds notes. */
 	singing: boolean
-	/** Something he is wearing or holding, for no reason he would explain. */
-	prop: string | null
-	/** Still the same prop — playing its exit for a beat before it unmounts. */
-	propLeaving: boolean
+	/**
+	 * Everything he has on, back to front. One per place, so a cap and a coffee
+	 * are not the same decision — see `wornFrom`, which is what builds this.
+	 */
+	worn: WornProp[]
 	faceColor: string
 	/** The little screen behind the face. Blanches when he is frightened. */
 	screenColor: string
@@ -92,7 +93,8 @@ export interface Stored extends Settings {
 	house: boolean
 	read_titles: boolean
 	parts: CompanionParts
-	pinned_prop: string | null
+	/** Place to prop: what he goes back to wearing. `{}` is nothing pinned. */
+	pinned_props: Record<string, string>
 }
 
 /**

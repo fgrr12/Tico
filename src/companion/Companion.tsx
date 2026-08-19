@@ -14,6 +14,7 @@ import {
 	familiarityFrom,
 	PALETTE,
 	PROPS,
+	wornFrom,
 	TERRORS,
 	energyAt,
 	type Feeling,
@@ -206,11 +207,11 @@ interface CompanionProps {
 	/** Which body he was given. Chosen in the preferences window, stored in Rust. */
 	parts: CompanionParts
 	/**
-	 * Something he wears permanently, or nothing. It is a floor, not a lock: a hat
-	 * he picks for himself still goes on over it, and this is what is underneath
-	 * again when that comes off.
+	 * What he wears permanently, by place. It is a floor, not a lock: something he
+	 * picks up himself goes on over whatever is pinned in that same place, and
+	 * this is what is underneath again when that comes off.
 	 */
-	pinnedProp: string | null
+	pinnedProps: Record<string, string>
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	/** What he remembers from before this launch. Read once, at boot. */
@@ -240,7 +241,7 @@ export const Companion = ({
 	typing,
 	houseOn,
 	parts,
-	pinnedProp,
+	pinnedProps,
 	initialX,
 	opening,
 	onRemember,
@@ -2204,19 +2205,16 @@ export const Companion = ({
 			>
 				<span key={fx?.n} className="companion-anim" data-anim={fx?.name}>
 					{/*
-					 * The pin is the layer underneath, not a separate feature: whatever
-					 * he put on himself covers it, and when that leaves, `prop` goes
-					 * back to null and the pinned one is simply there again. `key` on
-					 * the worn group does the rest — it remounts, so it arrives putting
-					 * itself on rather than appearing already worn.
+					 * The pins are the layer underneath, not a separate feature.
+					 * Whatever he put on himself covers the pin *in that place* and
+					 * nothing else, so a scarf you chose survives him finding a hat.
 					 */}
 					<CompanionFace
 						mood={mood}
 						blink={blink}
 						glyph={null}
 						singing={singing}
-						prop={prop ?? pinnedProp}
-						propLeaving={propLeaving}
+						worn={wornFrom(pinnedProps, prop, propLeaving)}
 						faceColor={PALETTE[feeling].face}
 						screenColor={PALETTE[feeling].screen}
 						ledColor={mood === 'sleep' ? '#3b4256' : PALETTE[feeling].led}

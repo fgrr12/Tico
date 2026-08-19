@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
@@ -72,14 +73,20 @@ pub struct State {
     /// The body he was last given. Default is the one he has always had.
     #[serde(default)]
     pub parts: Parts,
-    /// Something he wears permanently, chosen rather than drawn from the hat.
+    /// What he wears permanently, keyed by where it is worn: `{"head": "cap",
+    /// "hand": "coffee"}`. One thing per place, which is what lets him hold a
+    /// coffee while wearing a cap instead of choosing between them.
     ///
-    /// It does not stop him putting other things on: the pin is what he goes back
-    /// to when a hat comes off, not a lock on the wardrobe. A pet whose owner
-    /// picked a scarf and thereby switched off every other costume has been made
-    /// more configurable and less alive.
+    /// It does not stop him putting other things on: a pin is what he goes back
+    /// to when something he found comes off, not a lock on the wardrobe. A pet
+    /// whose owner picked a scarf and thereby switched off every other costume
+    /// has been made more configurable and less alive.
+    ///
+    /// Not validated here, for the same reason `parts` is not: the list of what
+    /// exists and where it goes lives with the drawings, and `wornFrom` drops a
+    /// pin whose place does not match what it is.
     #[serde(default)]
-    pub pinned_prop: Option<String>,
+    pub pinned_props: HashMap<String, String>,
 }
 
 impl Default for State {
@@ -99,7 +106,7 @@ impl Default for State {
             language: "auto".into(),
             house: true,
             parts: Parts::default(),
-            pinned_prop: None,
+            pinned_props: HashMap::new(),
         }
     }
 }
@@ -242,12 +249,19 @@ pub fn set_settings(app: AppHandle, patch: Patch) {
     publish(&app);
 }
 
-/// The pin, on its own, because `null` has to mean "take it off" here and mean
-/// "not mentioned" everywhere else in `Patch`. Encoding both in one optional
-/// field needs a serde dance that nobody reading this later would enjoy.
+/// One place's pin. On its own rather than in `Patch`, because `null` has to mean
+/// "take it off" here and mean "not mentioned" everywhere in there — encoding
+/// both in one optional field needs a serde dance nobody reading this would enjoy.
 #[tauri::command]
-pub fn set_pinned_prop(app: AppHandle, prop: Option<String>) {
-    update(&app, |current| current.pinned_prop = prop);
+pub fn set_pinned_prop(app: AppHandle, place: String, prop: Option<String>) {
+    update(&app, |current| match prop {
+        Some(kind) => {
+            current.pinned_props.insert(place, kind);
+        }
+        None => {
+            current.pinned_props.remove(&place);
+        }
+    });
     publish(&app);
 }
 

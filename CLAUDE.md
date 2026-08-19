@@ -71,7 +71,10 @@ open `/scripts/sheet.html`: every mood, every prop, on a dark backdrop, at the
 sizes he is actually shown at. Add `?shell=capsule&feet=wheels` to draw every row
 on a different body — which is the pass a new body part has to survive, since the
 way one fails is never that it looks bad alone, it is that the thirty props stop
-landing on it. Three rounds of defects had already survived types,
+landing on it. The preferences window has the same problem and the same answer:
+`/scripts/prefs.html` renders it with the IPC faked, because the alternative is
+building the Rust side and clicking through a tray menu, and a layout that slow to
+look at is a layout nobody fixes. Three rounds of defects had already survived types,
 lint and `pnpm check` and were obvious within a second of looking — a top hat
 filled with the colour of the desktop behind it, a headphone band drawn inside the
 head, a crown that came out black because `--amber` was undefined and SVG falls

@@ -13,6 +13,10 @@ import {
 	matchApp,
 	PALETTE,
 	PROPS,
+	SOUVENIRS,
+	WEARS,
+	WORN_ORDER,
+	wornFrom,
 	STREAK_MILESTONES,
 	TERRORS,
 	timeOfDay,
@@ -311,28 +315,28 @@ check('every custom property used is defined somewhere', () => {
 
 check('every prop is drawn, written and on the sheet', () => {
 	const face = readFileSync(new URL('../src/companion/CompanionFace.tsx', import.meta.url), 'utf8')
-	const sheet = readFileSync(new URL('./sheet.tsx', import.meta.url), 'utf8')
-
-	const list = (source, after) => {
-		const start = source.indexOf(after)
-		const open = source.indexOf('[', start)
-		return [...source.slice(open, source.indexOf(']', open)).matchAll(/'(\w+)'/g)].map((m) => m[1])
-	}
 
 	// `headphones` is picked by hand in `wearSomething` rather than from the
 	// list, because it is the one prop with a reason. The souvenirs are their own
 	// list for the same kind of reason — they only arrive back from a crossing,
 	// and putting them in `PROPS` would have them turning up unearned. All of
-	// them still have to be drawn, and still have to have lines.
-	const worn = [...PROPS, ...list(companion, 'const SOUVENIRS'), 'headphones']
+	// them still have to be drawn, still have to have lines, and now all of them
+	// have to be worn *somewhere*.
+	const worn = [...PROPS, ...SOUVENIRS, 'headphones']
 	const drawn = [...face.matchAll(/^\t\tcase '(\w+)':/gm)].map((m) => m[1])
-	const onSheet = list(sheet, 'const PROPS')
 
 	for (const kind of worn) {
+		// A prop with no place is dropped by `wornFrom` on its way to being drawn:
+		// he puts it on, says a line about it, and nothing appears. Silent, and
+		// indistinguishable from a prop that is drawn wrong.
+		assert(WEARS[kind], `${kind} is worn but has no place`)
+		assert(
+			WORN_ORDER.includes(WEARS[kind]),
+			`${kind} is worn on ${WEARS[kind]}, which is not in the draw order`
+		)
 		// A prop with no `case` renders nothing at all: he "puts on" an invisible
 		// thing, says a line about it, and takes it off. Silent in every log.
 		assert(drawn.includes(kind), `${kind} is worn but never drawn`)
-		assert(onSheet.includes(kind), `${kind} is missing from the sheet, so nobody has looked at it`)
 		for (const language of ['en', 'es']) {
 			assert(companionCopy[language].props[kind]?.length > 0, `${language} has no line for ${kind}`)
 			// `adjust` is offered whenever anything is on, so a prop with no fuss
@@ -406,6 +410,32 @@ check('every body part carries the hooks the rest of him drives it by', () => {
 	return `${total} parts`
 })
 
+check('what he has on is his own choice over the pins, one per place', () => {
+	const kinds = (list) => list.map((one) => one.kind)
+
+	// The pins are the floor and what he picked up covers *its own place only*.
+	// The bug this is here to catch is the one the single-prop version had by
+	// construction: putting a hat on took the coffee out of his hand.
+	const pins = { head: 'cap', hand: 'coffee', feet: 'wellies' }
+	assert(kinds(wornFrom(pins, null)).includes('coffee'), 'a pinned coffee is not held')
+	assert(kinds(wornFrom(pins, 'tophat')).includes('coffee'), 'a hat emptied his hand')
+	assert(!kinds(wornFrom(pins, 'tophat')).includes('cap'), 'two things on one head')
+
+	// Leaving belongs to what he chose, never to a pin — a pin that played its
+	// exit would take itself off and never come back.
+	const going = wornFrom(pins, 'tophat', true)
+	assert(going.find((one) => one.kind === 'tophat').leaving === true, 'his own is not leaving')
+	assert(!going.find((one) => one.kind === 'coffee').leaving, 'a pin is leaving')
+
+	// Back to front, and a pin filed under the wrong place is dropped rather
+	// than drawn somewhere it makes no sense. `tico.json` is editable by hand.
+	const order = kinds(wornFrom({ hand: 'coffee', body: 'cape', head: 'cap' }, null))
+	assert(order[0] === 'cape' && order[2] === 'coffee', `wrong order: ${order.join(', ')}`)
+	assert(wornFrom({ head: 'coffee' }, null).length === 0, 'a coffee was worn as a hat')
+
+	return `${Object.keys(WEARS).length} things across ${WORN_ORDER.length} places`
+})
+
 check('every familiarity tier is reachable and has lines', () => {
 	// A tier with no lines is a pet that goes quiet for a month once it knows you
 	// well enough, which is the exact opposite of the point.
@@ -472,6 +502,22 @@ check('the window and the store agree on what a setting is called', () => {
 	assert(sent.length > 0, 'nothing in the window writes a setting any more')
 	for (const key of new Set(sent)) {
 		assert(fields.includes(key), `the window sends ${key}, which Patch would drop`)
+	}
+
+	// Same boundary, different shape: a command's arguments are named, and a
+	// name the command does not take is an error thrown into a promise nobody
+	// is holding. The pin is the one that is not part of `Patch`.
+	const signature = rust.slice(rust.indexOf('pub fn set_pinned_prop('))
+	const takes = [...signature.slice(0, signature.indexOf(')')).matchAll(/(\w+): /g)]
+		.map((match) => match[1])
+		.filter((name) => name !== 'app')
+	const given = [...prefs.matchAll(/invoke\('set_pinned_prop', \{ ([^}]+)\}/g)]
+		.flatMap((match) => match[1].split(','))
+		.map((piece) => piece.split(':')[0].trim())
+		.filter(Boolean)
+	assert(given.length > 0, 'nothing pins anything any more')
+	for (const name of new Set(given)) {
+		assert(takes.includes(name), `set_pinned_prop is given ${name}, which it does not take`)
 	}
 
 	return `${new Set(sent).size} of ${fields.length} settings written`

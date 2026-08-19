@@ -294,6 +294,21 @@ export const es: CompanionCopy = {
 			'Hace rato que nadie va allá atrás.',
 			'Te traje un poco a tu vida.',
 		],
+		sneakers: [
+			'No corro. Ya lo investigu\u00e9.',
+			'Chirr\u00edan en este suelo.',
+			'Alguien los at\u00f3 mal. Yo.',
+		],
+		wellies: [
+			'No est\u00e1 lloviendo. Aqu\u00ed dentro.',
+			'No entra nada por aqu\u00ed.',
+			'Estoy listo para un tiempo que no va a llegar.',
+		],
+		monocle: [
+			'Con un ojo me alcanza para esto.',
+			'Ahora tengo opiniones, y son peores.',
+			'No corrige nada. Nunca lo hizo.',
+		],
 	},
 
 	propFuss: {
@@ -331,6 +346,9 @@ export const es: CompanionCopy = {
 		cobweb: ['No me la puedo quitar. Ya lo intenté.', 'Se me pegó a todo a la vez.'],
 		bolt: ['Debería devolverla a su lugar.', 'Casi se me cae cada rato.'],
 		dust: ['Ya se acomodó.', 'Se está poniendo gris. Yo también.'],
+		sneakers: ['El izquierdo aprieta m\u00e1s.', 'Chirr\u00edan cuando pienso.'],
+		wellies: ['Me quedan medio n\u00famero grandes.', 'Uno tiene un charco dentro. No pregunt\u00e9s.'],
+		monocle: ['Se me cae cuando me sorprendo.', 'La cadena se engancha con todo.'],
 	},
 
 	propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],

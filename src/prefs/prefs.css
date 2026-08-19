@@ -107,7 +107,7 @@ html[data-window="prefs"],
  * Clipping the grid cell is what turns a hat into a brim.
  */
 .prefs-pick {
-	padding: 26px 16px 10px;
+	padding: 26px 14px 10px;
 	border: 1px solid transparent;
 	border-radius: 10px;
 	background: var(--bg-chrome);
@@ -145,5 +145,111 @@ input[type="checkbox"] {
 	.prefs-row {
 		grid-template-columns: 1fr;
 		gap: 10px;
+	}
+}
+
+/*
+ * The wardrobe: him, the rail of parts, and whatever the rail has open.
+ *
+ * Three columns rather than one long page with every category expanded — the
+ * head has fourteen things you can put on it and the back has two, and no single
+ * scrolling list is right for both. Picking the part first is also just how you
+ * get dressed.
+ */
+.prefs-dresser {
+	display: grid;
+	grid-template-columns: minmax(190px, 1fr) auto minmax(240px, 1.1fr);
+	gap: 16px;
+	padding: 18px 0 10px;
+	align-items: start;
+}
+
+.prefs-stage {
+	display: flex;
+	justify-content: center;
+	/* Deep at the top because he overflows his own box upwards — everything
+	   worn on his head is drawn above y=16 and a top hat clears it by twenty. */
+	padding: 46px 10px 20px;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.3));
+	position: sticky;
+	top: 74px;
+}
+
+.prefs-rail {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	position: sticky;
+	top: 74px;
+}
+
+.prefs-rail-head {
+	margin: 12px 0 4px;
+	color: var(--fg-muted);
+	font-size: 10px;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+
+.prefs-rail-head:first-child {
+	margin-top: 0;
+}
+
+.prefs-rail button {
+	padding: 6px 12px;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background: none;
+	color: var(--fg-muted);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.prefs-rail button[aria-pressed="true"] {
+	background: var(--bg-raise);
+	border-color: var(--purple);
+	color: var(--fg);
+}
+
+.prefs-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-content: start;
+}
+
+.prefs-note {
+	width: 100%;
+	margin: 0 0 4px;
+	color: var(--fg-muted);
+	font-size: 11px;
+	line-height: 1.55;
+}
+
+.prefs-pick small {
+	display: block;
+	margin-top: 2px;
+	color: var(--fg-muted);
+	font-size: 10px;
+}
+
+/* Below this the three columns are two columns and then one. */
+@media (max-width: 720px) {
+	.prefs-dresser {
+		grid-template-columns: 1fr;
+	}
+
+	.prefs-stage,
+	.prefs-rail {
+		position: static;
+	}
+
+	.prefs-rail {
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
 	}
 }

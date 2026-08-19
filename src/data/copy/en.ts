@@ -289,6 +289,21 @@ export const en: CompanionCopy = {
 			'Nobody has been back there in a long time.',
 			'I have brought some of it into your life.',
 		],
+		sneakers: [
+			'I do not run. I have looked into it.',
+			'They squeak on this floor.',
+			'Somebody laced these wrong. Me.',
+		],
+		wellies: [
+			'It is not raining. In here.',
+			'Nothing gets through these.',
+			'I am ready for weather that is not coming.',
+		],
+		monocle: [
+			'One eye is enough for this.',
+			'I have opinions now, and they are worse.',
+			'It corrects nothing. It never did.',
+		],
 	},
 
 	propFuss: {
@@ -326,6 +341,9 @@ export const en: CompanionCopy = {
 		cobweb: ['I cannot get it off. I have tried.', 'It is stuck to everything at once.'],
 		bolt: ['I should put this back.', 'I keep nearly dropping it.'],
 		dust: ['It has settled in.', 'It is going grey. So am I.'],
+		sneakers: ['The left one is tighter.', 'They squeak when I think.'],
+		wellies: ['They are half a size out.', 'One of them has a puddle in it. Do not ask.'],
+		monocle: ['It falls out when I am surprised.', 'The chain catches on everything.'],
 	},
 
 	propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],

@@ -350,6 +350,58 @@ export const linesFor = (lines: AppLines, when: TimeOfDay): string[] => {
 }
 
 /**
+ * Where a thing is worn. One of each at a time, and that is the whole reason the
+ * places exist — a cap and a coffee are not competing for the same bit of him,
+ * and before this they were, so putting the cap on took the coffee out of his
+ * hand.
+ *
+ * `head` covers hair as well as hats on purpose. They are the two things that
+ * would look worst together — a top hat sitting inside an afro — and letting
+ * them share a place makes that impossible instead of making it a rule someone
+ * has to remember. Everything else is separated by where it physically is.
+ */
+export type Where = 'body' | 'neck' | 'feet' | 'head' | 'face' | 'hand'
+
+/**
+ * Back to front. A cape is behind him, a cup is in front of everything, and the
+ * two used to be drawn in whatever order the wardrobe happened to be in because
+ * there was only ever one of them.
+ */
+export const WORN_ORDER: Where[] = ['body', 'neck', 'feet', 'head', 'face', 'hand']
+
+/** Every drawn thing and the place it takes up, souvenirs included. */
+export const WEARS: Record<string, Where> = {
+	party: 'head',
+	tophat: 'head',
+	crown: 'head',
+	flower: 'head',
+	beanie: 'head',
+	cap: 'head',
+	hood: 'head',
+	catears: 'head',
+	headphones: 'head',
+	duck: 'head',
+	afro: 'head',
+	mohawk: 'head',
+	longhair: 'head',
+	dust: 'head',
+	shades: 'face',
+	glasses: 'face',
+	monocle: 'face',
+	moustache: 'face',
+	scarf: 'neck',
+	tie: 'neck',
+	bowtie: 'neck',
+	cape: 'body',
+	cobweb: 'body',
+	coffee: 'hand',
+	umbrella: 'hand',
+	bolt: 'hand',
+	sneakers: 'feet',
+	wellies: 'feet',
+}
+
+/**
  * Something to wear, occasionally, for no reason he would explain. A pet
  * that puts on a party hat because it is your birthday is a feature; one
  * that does it on a Tuesday and takes it off a minute later is a character.
@@ -380,7 +432,52 @@ export const PROPS = [
 	'cape',
 	'duck',
 	'umbrella',
+	'sneakers',
+	'wellies',
+	'monocle',
 ]
+
+/**
+ * Not chosen, ever. These only arrive on the way back from behind the screen —
+ * a cobweb that turns up on a Tuesday for no reason is just another hat, and the
+ * joke here is entirely the causation.
+ */
+export const SOUVENIRS = ['cobweb', 'bolt', 'dust']
+
+/** One thing worn, and whether it is on its way off. */
+export interface WornProp {
+	kind: string
+	leaving?: boolean
+}
+
+/**
+ * Everything he has on right now, back to front.
+ *
+ * Two sources, and they are not equals: the pinned ones are the floor, and
+ * whatever he picked up himself covers whatever was pinned *in that same place*.
+ * When his own choice leaves, the place falls back to the pin and it is simply
+ * there again — which is the same one-line trick the single pinned prop used,
+ * once each thing knows where it sits.
+ *
+ * A pin whose place does not match what it is is dropped rather than drawn.
+ * `tico.json` is editable by hand, and `{"head": "coffee"}` should cost you a
+ * coffee, not a cup floating where his hat goes.
+ */
+export const wornFrom = (
+	pinned: Record<string, string> | null | undefined,
+	own: string | null,
+	leaving = false
+): WornProp[] => {
+	const by = {} as Record<Where, WornProp>
+
+	for (const [place, kind] of Object.entries(pinned ?? {})) {
+		if (WEARS[kind] === place) by[place as Where] = { kind }
+	}
+
+	if (own && WEARS[own]) by[WEARS[own]] = { kind: own, leaving }
+
+	return WORN_ORDER.filter((place) => by[place]).map((place) => by[place])
+}
 
 export const companionCopy: Record<Language, CompanionCopy> = { en, es }
 

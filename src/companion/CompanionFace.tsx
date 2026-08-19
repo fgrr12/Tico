@@ -66,8 +66,7 @@ export const CompanionFace = ({
 	blink,
 	glyph,
 	singing,
-	prop,
-	propLeaving,
+	worn,
 	faceColor,
 	screenColor,
 	ledColor,
@@ -233,20 +232,23 @@ export const CompanionFace = ({
 			)}
 
 			{/*
-			 * Keyed by kind, so swapping one prop for another remounts and replays
+			 * Already in the right order, back to front — `wornFrom` sorts them, so
+			 * nothing here decides that a cape goes behind a scarf.
+			 *
+			 * Keyed by kind, so swapping one thing for another remounts and replays
 			 * the entrance. React would otherwise keep the same node and reuse the
 			 * finished animation, and the new thing would appear already worn.
 			 */}
-			{prop && (
+			{worn.map(({ kind, leaving }) => (
 				<g
-					key={prop}
+					key={kind}
 					className="companion-worn"
-					data-prop={prop}
-					data-leaving={propLeaving || undefined}
+					data-prop={kind}
+					data-leaving={leaving || undefined}
 				>
-					<Prop kind={prop} />
+					<Prop kind={kind} />
 				</g>
-			)}
+			))}
 
 			{singing && (
 				<g fill={faceColor} className="companion-notes" aria-hidden="true">
@@ -550,6 +552,60 @@ const Prop = ({ kind }: { kind: string }) => {
 					<path d="M22 27 q-15 10 -13 25 q9-6 16-8 z" fill="#8f2c3e" />
 					<path d="M74 27 q15 10 13 25 q-9-6-16-8 z" fill="#8f2c3e" />
 					<path d="M22 20 q26 9 52 0 v6 q-26 9 -52 0 z" fill="#b03a4e" />
+				</g>
+			)
+
+		/* ── Shoes. The strip below the case is the one part of his front he can
+		      have something put on without any of it landing on his face. Both
+		      feet at once, the way the headphones do both hands. ──────────── */
+
+		case 'sneakers':
+			// Drawn to the widest foot there is — `treads` — rather than to the
+			// default pills, because a shoe that fits one variant and floats off
+			// the sides of another is worse than one that is slightly roomy.
+			return (
+				<g className="companion-prop">
+					<g fill="#c8514c">
+						<rect x="20" y="79" width="22" height="9.6" rx="4" />
+						<rect x="54" y="79" width="22" height="9.6" rx="4" />
+					</g>
+					<g fill="#f1f3f8">
+						<rect x="19.4" y="85" width="23.2" height="4" rx="2" />
+						<rect x="53.4" y="85" width="23.2" height="4" rx="2" />
+					</g>
+					<g stroke="#f1f3f8" strokeWidth="1.4" strokeLinecap="round">
+						<path d="M25 82.4 l6-1.8" />
+						<path d="M59 82.4 l6-1.8" />
+					</g>
+				</g>
+			)
+		case 'wellies':
+			return (
+				<g className="companion-prop">
+					<g fill="#e0af68">
+						<rect x="20" y="76" width="22" height="12.8" rx="4.5" />
+						<rect x="54" y="76" width="22" height="12.8" rx="4.5" />
+					</g>
+					{/* A cuff and a sole. Without both it is a yellow block, and the
+					    cuff is the half that says boot. */}
+					<g fill="#c99850">
+						<rect x="19.4" y="76" width="23.2" height="3.4" rx="1.7" />
+						<rect x="53.4" y="76" width="23.2" height="3.4" rx="1.7" />
+					</g>
+					<g fill="#8e6a35">
+						<rect x="19.4" y="85.6" width="23.2" height="3.2" rx="1.6" />
+						<rect x="53.4" y="85.6" width="23.2" height="3.2" rx="1.6" />
+					</g>
+				</g>
+			)
+		case 'monocle':
+			return (
+				<g className="companion-prop" fill="none" stroke="#c0a06a">
+					<circle cx="59" cy="50" r="9.5" strokeWidth="2.2" />
+					{/* The chain is the whole joke. A ring on its own is a lens that
+					    has fallen out. */}
+					<path d="M59 60 q1 7 5 9" strokeWidth="1.4" strokeLinecap="round" />
+					<circle cx="64.6" cy="69.6" r="1.6" fill="#c0a06a" stroke="none" />
 				</g>
 			)
 

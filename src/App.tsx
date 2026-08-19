@@ -130,7 +130,7 @@ export default function App() {
 			inCallMode={boot.in_call}
 			houseOn={boot.house}
 			parts={bodyFrom(boot.parts)}
-			pinnedProp={boot.pinned_prop}
+			pinnedProps={boot.pinned_props ?? {}}
 			initialX={boot.x}
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}

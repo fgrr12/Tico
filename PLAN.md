@@ -686,8 +686,18 @@ free is the *looking*: every new part is a pass over `sheet.html?shell=…` with
 thirty props on it, which is where the cobweb was caught hanging in mid-air beside
 two round shells it had never been drawn against.
 
+**What he wears has a place, and that is what makes more than one possible.**
+Every drawn thing is filed under `head`, `face`, `neck`, `body`, `hand` or `feet`
+in `WEARS`, one at a time per place, so a cap and a coffee stopped being the same
+decision — before this they were literally one field and putting the hat on took
+the cup out of his hand. `wornFrom` merges the two sources and they are not
+equals: the pins are the floor, and whatever he picked up himself covers the pin
+*in that place only*, so a scarf you chose survives him finding a hat. Hair shares
+`head` with hats on purpose — they are the two things that look worst together,
+and sharing a place makes that impossible instead of making it a rule to remember.
+
 **Rust holds the strings, not the list.** `state.rs` stores four slot names and a
-pinned prop, and validates none of them against a list of drawings — that list
+place-to-prop map, and validates none of them against a list of drawings — that list
 lives with the drawings, and a second copy in Rust would go stale the first time
 one is renamed. `bodyFrom` falls back per slot, so a config naming a part that no
 longer exists costs you that part's default, not a pet who fails to appear.

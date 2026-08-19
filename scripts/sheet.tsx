@@ -6,6 +6,8 @@ import { type CompanionParts, DEFAULT_PARTS, PARTS, bodyFrom } from '../src/comp
 
 import '../src/companion.css'
 
+import { PROPS, SOUVENIRS } from '../src/data/companion'
+
 import type { CompanionFaceProps, CompanionMood } from '../src/types'
 
 /**
@@ -38,34 +40,12 @@ const MOODS: CompanionMood[] = [
 	'scared',
 ]
 
-/** Kept in step with `PROPS` in `Companion.tsx`, plus the music-only one. */
-const PROPS = [
-	'party',
-	'tophat',
-	'shades',
-	'crown',
-	'flower',
-	'scarf',
-	'coffee',
-	'afro',
-	'mohawk',
-	'longhair',
-	'beanie',
-	'cap',
-	'hood',
-	'catears',
-	'glasses',
-	'moustache',
-	'tie',
-	'bowtie',
-	'cape',
-	'duck',
-	'umbrella',
-	'headphones',
-	'cobweb',
-	'bolt',
-	'dust',
-]
+/**
+ * Everything drawable, in one list, read from the data rather than kept in step
+ * with it by hand. `headphones` is not in `PROPS` because it is only ever worn
+ * for a reason, and it still has to be looked at.
+ */
+const WORN = [...PROPS, ...SOUVENIRS, 'headphones']
 
 const SIZES = [66, 92, 124, 240]
 
@@ -101,8 +81,7 @@ const face = (extra: Partial<CompanionFaceProps> = {}): CompanionFaceProps => ({
 	blink: false,
 	glyph: null,
 	singing: false,
-	prop: null,
-	propLeaving: false,
+	worn: [],
 	faceColor: '#c8d0e0',
 	screenColor: '#1a1c23',
 	ledColor: '#9ece6a',
@@ -142,7 +121,7 @@ const Replay = ({ kind }: { kind: string }) => {
 				key={`${kind}-${run}`}
 				width={140}
 				label={kind}
-				{...face({ prop: kind, propLeaving: leaving })}
+				{...face({ worn: [{ kind, leaving }] })}
 			/>
 			<div>
 				<button
@@ -175,8 +154,8 @@ createRoot(document.getElementById('root') as HTMLElement).render(
 			))}
 		</div>
 		<div className="row">
-			{PROPS.map((prop) => (
-				<Cell key={prop} width={140} label={prop} {...face({ prop })} />
+			{WORN.map((kind) => (
+				<Cell key={kind} width={140} label={kind} {...face({ worn: [{ kind }] })} />
 			))}
 		</div>
 		{/* Growing and cutting, plus one ordinary prop for the contrast. */}
@@ -202,11 +181,40 @@ createRoot(document.getElementById('root') as HTMLElement).render(
 		</div>
 		<div className="row">
 			{BODIES.map(({ label, parts }) => (
-				<Cell key={label} width={140} label={label} {...face({ parts, prop: 'headphones' })} />
+				<Cell key={label} width={140} label={label} {...face({ parts, worn: [{ kind: 'headphones' }] })} />
 			))}
 		</div>
+		{/* Several at once, which is the entire point of giving each of them a
+		    place. If two of these overlap, they are in the same place and one of
+		    them is filed wrong. */}
 		<div className="row">
-			<Cell width={140} label="singing" {...face({ singing: true, prop: 'headphones' })} />
+			<Cell
+				width={140}
+				label="cap + coffee"
+				{...face({ worn: [{ kind: 'cap' }, { kind: 'coffee' }] })}
+			/>
+			<Cell
+				width={140}
+				label="dressed"
+				{...face({
+					worn: [
+						{ kind: 'cape' },
+						{ kind: 'bowtie' },
+						{ kind: 'sneakers' },
+						{ kind: 'tophat' },
+						{ kind: 'monocle' },
+						{ kind: 'umbrella' },
+					],
+				})}
+			/>
+			<Cell
+				width={140}
+				label="rain"
+				{...face({ worn: [{ kind: 'wellies' }, { kind: 'hood' }, { kind: 'umbrella' }] })}
+			/>
+		</div>
+		<div className="row">
+			<Cell width={140} label="singing" {...face({ singing: true, worn: [{ kind: 'headphones' }] })} />
 			<Cell width={140} label="scared" {...face({ mood: 'scared', screenColor: '#3c3f4a' })} />
 			<Cell width={140} label="blink" {...face({ blink: true })} />
 		</div>

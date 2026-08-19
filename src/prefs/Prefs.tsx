@@ -5,7 +5,17 @@ import { listen } from '@tauri-apps/api/event'
 
 import { CompanionFace } from '../companion/CompanionFace'
 import { type CompanionParts, PARTS, bodyFrom } from '../companion/parts'
-import { type Language, PALETTE, PROPS, detectLanguage } from '../data/companion'
+import {
+	type Language,
+	PALETTE,
+	PROPS,
+	WEARS,
+	WORN_ORDER,
+	type Where,
+	type WornProp,
+	detectLanguage,
+	wornFrom,
+} from '../data/companion'
 import type { Stored } from '../types'
 
 import { prefsCopy } from './copy'
@@ -27,11 +37,11 @@ import { prefsCopy } from './copy'
 /** Him, standing still. The same classes as the strip, minus everything moving. */
 const Pet = ({
 	parts,
-	prop,
+	worn,
 	width,
 }: {
 	parts: CompanionParts
-	prop: string | null
+	worn: WornProp[]
 	width: number
 }) => (
 	<div className="companion" style={{ position: 'static', width }}>
@@ -41,8 +51,7 @@ const Pet = ({
 				blink={false}
 				glyph={null}
 				singing={false}
-				prop={prop}
-				propLeaving={false}
+				worn={worn}
 				faceColor={PALETTE.content.face}
 				screenColor={PALETTE.content.screen}
 				ledColor={PALETTE.content.led}
@@ -51,6 +60,8 @@ const Pet = ({
 		</div>
 	</div>
 )
+
+const BODY_SLOTS = Object.keys(PARTS) as (keyof CompanionParts)[]
 
 const Row = ({
 	label,
@@ -101,6 +112,9 @@ export const Prefs = () => {
 	// copy of it would be the one that is wrong after somebody clears it.
 	const [startsAtLogin, setStartsAtLogin] = useState(false)
 	const [tab, setTab] = useState<'settings' | 'body'>('settings')
+	/** `part:shell` or `worn:head` — the two lists are namespaced because `feet`
+	 *  is both a leg and a shoe, and `hands` and `hand` are one letter apart. */
+	const [picked, setPicked] = useState('part:shell')
 
 	useEffect(() => {
 		invoke<Stored>('boot').then(setStored)
@@ -120,6 +134,22 @@ export const Prefs = () => {
 	const language: Language = stored.language === 'auto' ? detectLanguage() : stored.language
 	const copy = prefsCopy[language]
 	const body = bodyFrom(stored.parts)
+	const pins = stored.pinned_props ?? {}
+	const worn = wornFrom(pins, null)
+
+	const slot = picked.startsWith('part:')
+		? (picked.slice(5) as keyof CompanionParts)
+		: null
+	const place = slot ? null : picked.slice(5)
+
+	/** The pins with one place set, or cleared. Both the preview and the click
+	 *  need exactly this, and they must not disagree about it. */
+	const withPin = (where: Where, kind: string | null) => {
+		const next = { ...pins }
+		if (kind) next[where] = kind
+		else delete next[where]
+		return next
+	}
 
 	const patch = (change: Partial<Stored>) => {
 		setStored({ ...stored, ...change })
@@ -128,9 +158,9 @@ export const Prefs = () => {
 
 	// Its own command, because `null` here means "take it off" and `undefined`
 	// everywhere in `patch` means "not mentioned".
-	const pin = (prop: string | null) => {
-		setStored({ ...stored, pinned_prop: prop })
-		invoke('set_pinned_prop', { prop })
+	const pin = (where: Where, prop: string | null) => {
+		setStored({ ...stored, pinned_props: withPin(where, prop) })
+		invoke('set_pinned_prop', { place: where, prop })
 	}
 
 	return (
@@ -231,66 +261,88 @@ export const Prefs = () => {
 					</Row>
 				</section>
 			) : (
-				<section className="prefs-panel">
-					{/* Wearing the pin, because that is what he will actually look
-					    like — a preview that quietly leaves it off is a preview of
-					    somebody else. */}
+				<div className="prefs-dresser">
+					{/* Wearing everything that is pinned, because that is what he will
+					    actually look like — a preview that quietly leaves the pins off
+					    is a preview of somebody else. */}
 					<div className="prefs-stage">
-						<Pet parts={body} prop={stored.pinned_prop} width={200} />
+						<Pet parts={body} worn={worn} width={190} />
 					</div>
 
-					{(Object.keys(PARTS) as (keyof CompanionParts)[]).map((slot) => (
-						<Row key={slot} label={copy.slots[slot]}>
-							<div className="prefs-picks">
-								{Object.keys(PARTS[slot]).map((variant) => {
-									// The registry is keyed by slot and the slot is a
-									// variable, which is as far as the types can follow
-									// it; the keys themselves came from `PARTS`.
-									const next = { ...body, [slot]: variant } as CompanionParts
-									return (
-										<button
-											key={variant}
-											type="button"
-											className="prefs-pick"
-											aria-pressed={body[slot] === variant}
-											onClick={() => patch({ parts: next })}
-										>
-											<Pet parts={next} prop={null} width={72} />
-										</button>
-									)
-								})}
-							</div>
-						</Row>
-					))}
-
-					{/* Drawn rather than named. A hat has no good label in either
-					    language, and a grid of him wearing each one needs none. */}
-					<Row label={copy.pin.label} hint={copy.pin.hint}>
-						<div className="prefs-picks">
+					{/*
+					 * Pick the part, then pick the thing — rather than one long page
+					 * with every category open at once. Which is how a wardrobe works
+					 * and, more to the point, is the only layout that survives the
+					 * head having fourteen options and the back having two.
+					 */}
+					<nav className="prefs-rail">
+						<span className="prefs-rail-head">{copy.groups.body}</span>
+						{BODY_SLOTS.map((slot) => (
 							<button
+								key={slot}
 								type="button"
-								className="prefs-pick"
-								aria-pressed={stored.pinned_prop === null}
-								aria-label={copy.pin.none}
-								onClick={() => pin(null)}
+								aria-pressed={picked === `part:${slot}`}
+								onClick={() => setPicked(`part:${slot}`)}
 							>
-								<Pet parts={body} prop={null} width={72} />
+								{copy.slots[slot]}
 							</button>
-							{PROPS.map((kind) => (
-								<button
-									key={kind}
-									type="button"
-									className="prefs-pick"
-									aria-pressed={stored.pinned_prop === kind}
-									aria-label={kind}
-									onClick={() => pin(kind)}
-								>
-									<Pet parts={body} prop={kind} width={72} />
-								</button>
-							))}
-						</div>
-					</Row>
-				</section>
+						))}
+						<span className="prefs-rail-head">{copy.groups.worn}</span>
+						{WORN_ORDER.map((place) => (
+							<button
+								key={place}
+								type="button"
+								aria-pressed={picked === `worn:${place}`}
+								onClick={() => setPicked(`worn:${place}`)}
+							>
+								{copy.places[place]}
+							</button>
+						))}
+					</nav>
+
+					<div className="prefs-options">
+						{slot ? (
+							Object.keys(PARTS[slot]).map((variant) => {
+								// The registry is keyed by slot and the slot is a
+								// variable, which is as far as the types follow it; the
+								// keys themselves came out of `PARTS`.
+								const next = { ...body, [slot]: variant } as CompanionParts
+								return (
+									<button
+										key={variant}
+										type="button"
+										className="prefs-pick"
+										aria-pressed={body[slot] === variant}
+										aria-label={variant}
+										onClick={() => patch({ parts: next })}
+									>
+										<Pet parts={next} worn={worn} width={64} />
+									</button>
+								)
+							})
+						) : (
+							<>
+								<p className="prefs-note">{copy.pin.hint}</p>
+								{/* Drawn rather than named, and drawn on him wearing
+								    everything else — a hat is only ever a choice about
+								    what the whole of him looks like. */}
+								{[null, ...PROPS.filter((kind) => WEARS[kind] === place)].map((kind) => (
+									<button
+										key={kind ?? 'none'}
+										type="button"
+										className="prefs-pick"
+										aria-pressed={(pins[place as Where] ?? null) === kind}
+										aria-label={kind ?? copy.pin.none}
+										onClick={() => pin(place as Where, kind)}
+									>
+										<Pet parts={body} worn={wornFrom(withPin(place as Where, kind), null)} width={64} />
+										{kind ? null : <small>{copy.pin.none}</small>}
+									</button>
+								))}
+							</>
+						)}
+					</div>
+				</div>
 			)}
 		</div>
 	)
