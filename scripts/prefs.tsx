@@ -26,7 +26,7 @@ const STORED: Stored = {
 	quiet_until: 0,
 	in_call: 'peek',
 	read_titles: false,
-	language: 'es',
+	language: 'en',
 	house: true,
 	parts: { shell: 'terminal', hands: 'mitts', feet: 'pills', antenna: 'led' },
 	pinned_props: { head: 'cap', hand: 'coffee' },

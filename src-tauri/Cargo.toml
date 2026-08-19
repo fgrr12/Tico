@@ -3,6 +3,7 @@ name = "tico"
 version = "0.1.0"
 description = "A desktop pet that walks the bottom of your screen"
 authors = ["fgrr12"]
+license = "MIT"
 edition = "2021"
 default-run = "tico"
 

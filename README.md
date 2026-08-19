@@ -1,167 +1,155 @@
 # tico
 
-A desktop pet that walks along the bottom of your screen and notices what you are
-doing. He knows which application is in front, whether the microphone is live,
-what is playing, what time it is and how long you have been ignoring him, and he
-has opinions about all of it.
+**A desktop pet that lives along the bottom of your screen, notices what you are
+doing, and has opinions about it.**
 
-He started as a character in [my-portfolio](../my-portfolio), where he is a
-miniature terminal window with a face on its screen. This is the same character
-with a real desktop under his feet.
+![Nine of the bodies tico can be given](docs/bodies.png)
 
-## Status
+He is a small terminal window with a face on its screen. He walks, sits, dozes
+off when you stop moving the cursor, climbs onto the title bars of your windows,
+falls off them, digs a burrow in the floor of your desktop and goes down it when
+nobody is looking. He notices which application is in front and says something
+about it. He knows what time it is, and 3am tico is a different creature from 9am
+tico rather than the same one on a longer timer.
 
-Built, and in daily use by its author. Not signed and never will be — see
-[RELEASING.md](RELEASING.md) for the one command it takes to install.
+He came out of a terminal pane on his author's portfolio site, and now has
+a real desktop under his feet.
 
-What he is made of: 39 behaviours, 13 feelings on two axes, 21 things he wears
-for no reason, and around 320 written lines in each of English and Spanish. All
-of it hand-written. A local language model was built into him and then removed —
-six attempts at getting one to write his voice, all recorded in
-[PLAN.md](PLAN.md) — which turned out to be both the cheaper and the better
-answer.
+## He is a state machine, not a chatbot
 
-He costs **3.2% of a core awake and 0.6% asleep**, 229 MB across his four
-processes, and 10 MB on disk.
+There was a local language model in here. It was built, wired up, given six
+different attempts at a prompt that sounded like him, and then **removed** — the
+whole argument is in [PLAN.md](PLAN.md). Every line he says is hand-written, and
+everything he does is deterministic and instant.
+
+That is not a limitation that had to be excused; it is the design. A pet that
+freezes for two seconds while a token streams is worse than a pet that says less,
+and 459 written lines in each of English and Spanish, picked by mood and hour and
+how long he has known you, do not repeat themselves nearly as fast as you would
+think.
+
+**Nothing here talks to a network. There is no model, no account, no telemetry.**
+
+## What is in him
+
+- **42 behaviours** — pacing, stretching, hiccups, sneezes, chasing the cursor,
+  standing on his head, going quiet and staring at nothing.
+- **13 feelings on two axes.** Energy comes from the clock — there is a real
+  post-lunch dip in the table — and it decides *how much* he does. The feeling
+  decides *what kind*: a bored pet paces and stares, a pleased one hops and shows
+  off, and you can tell which is which without being told.
+- **A burrow** with three rooms, under a hatch in the floor. He goes home
+  sometimes. He has a favourite chair down there, and it emerged rather than
+  being chosen.
+- **29 things he wears** for no reason he would explain — hats, hair, a monocle,
+  wellies, a rubber duck he is very clear is there to be explained to. He picks
+  one on a Tuesday afternoon and takes it off a minute later.
+- **Reminders**, from a JSON file anything can write to.
+- **English and Spanish**, everywhere, including his own voice.
+
+## Dress him
+
+![The customiser: tico in the middle, options on a ring around him](docs/customiser.png)
+
+**26 drawings across four slots — 1,620 bodies.** Press a part of him and a
+submenu opens on it: change the *part* (nine shells, five pairs of hands, six
+feet, six antennas) or the *accessory* on it. Accessories have a place, so a cap
+and a coffee are not the same decision — he can wear one of each.
+
+Anything you pin is a floor, not a lock: he still tries other things on over it,
+and goes back to yours when they come off.
+
+## What he remembers, and what he refuses to
+
+He keeps a short history between sessions: distinct days he has been around, his
+current and best run of consecutive days, how often he has been petted or picked
+up, and which hat he has worn most — which gives him a favourite, which then
+tilts what he reaches for.
+
+**What that file does not contain is the point.** No application names, no window
+titles, no track names, no timestamp finer than a date. Everything about what
+*you* did stays in memory and dies with the process.
+
+> A pet that remembers last Tuesday's app usage is a tracker wearing a costume.
+
+Delete `memory.json` and he simply meets you again.
 
 ## Platforms
 
-He runs everywhere. He *notices* things only on macOS — the four watchers
-(frontmost application, microphone, music, window title) are behind
-`#[cfg(target_os = "macos")]` with fallbacks that return nothing, so elsewhere
-he walks, talks, sleeps, wears hats and reacts to you, but not to your desk.
+He **runs** everywhere. He **notices** things only on macOS: the six senses
+(frontmost application, microphone, music, keystrokes, window ledges, window
+titles) are behind `#[cfg(target_os = "macos")]` with fallbacks that return
+nothing, so elsewhere he walks, talks, sleeps, dozes, wears hats, keeps his
+burrow and reacts to you — but not to your desk.
 
-| Platform              | Runs | Aware | Notes                                              |
-| --------------------- | ---- | ----- | -------------------------------------------------- |
-| macOS                 | ✅   | ✅    | Tray-only, no Dock icon. The only one in daily use  |
-| Windows 10/11         | ✅   | ❌    | Needs `IAudioSessionManager2` and the Win32 watchers|
-| Linux / X11           | ✅   | ❌    | Needs the PulseAudio and X11 equivalents            |
-| Linux / KDE Wayland   | ⚠️   | ❌    | Needs `wlr-layer-shell` to sit on the desktop       |
-| Linux / GNOME Wayland | ❌   | ❌    | Mutter has no layer-shell. XWayland or nothing      |
+| Platform              | Runs | Senses | Notes                                                        |
+| --------------------- | ---- | ------ | ------------------------------------------------------------ |
+| macOS                 | ✅   | ✅     | Tray-only, no Dock icon. The only one in daily use            |
+| Windows 10/11         | ⚠️   | ❌     | Should build — never has been. Needs the Win32 watchers       |
+| Linux / X11           | ⚠️   | ❌     | Should build — never has been. Needs the X11/PulseAudio ones  |
+| Linux / KDE Wayland   | ⚠️   | ❌     | Also needs `wlr-layer-shell` to sit on the desktop            |
+| Linux / GNOME Wayland | ❌   | ❌     | Mutter has no layer-shell, on purpose. XWayland or nothing    |
 
-## Living with him
+Two macOS-only tricks have no equivalent yet elsewhere: clicking him does not
+take focus from what you are typing (he is converted to a non-activating
+`NSPanel`), and he walks *over* the Dock rather than behind it. On Windows and
+Linux he would sit on top like an ordinary always-on-top window.
 
-Everything is in the tray: **Show / Hide**, **Quiet** silences what he says
-unprompted (a direct poke still gets a reply), **In a call** decides what he does
-while the microphone is live, **Chattiness**, **Size**, **Language**, **Start at
-login**, and **Read window titles** — the one setting that costs a permission,
-and the only thing it buys is that he can name the file you have open rather than
-only the app.
+**Help wanted, and it is well-shaped work:** each sense is one small file with
+the macOS half already written and a stub next to it.
 
-Click him and he reacts on the first click, and it does not take focus off
-whatever you were typing in. That took a window flag and turning him into an
-`NSPanel`; both are explained in [PLAN.md](PLAN.md), because getting it wrong is
-the difference between a pet and an interruption.
+## Install
 
-He falls asleep after 90 seconds with no cursor movement anywhere on screen, and
-asleep he is completely still — that is what takes him from 3.2% of a core to
-0.6%, and it is why stillness is not negotiable there.
-
-### What he remembers
-
-He keeps a little history between sessions, in `memory.json` next to his
-settings: how many distinct days he has been around, his current and best run of
-consecutive days, how many times he has been petted or picked up, and how often
-he has worn each hat. That last one gives him a favourite, which then tilts what
-he reaches for — nothing chose it, it emerged from a random draw and then bent
-the draw.
-
-What it changes: the first thing he says on launch is different if he has never
-run before, if you were away for a week, or if today is a round number; and how
-long he has known you colours the idle chatter, in four steps that take two
-months to climb.
-
-**What it does not contain is the point.** No application names, no window
-titles, no track names, no timestamp finer than a date. Everything about what
-*you* do stays in memory and dies with the process, exactly as it did before this
-existed — a pet that remembers last Tuesday's app usage is a tracker wearing a
-costume. Delete the file and he simply meets you again.
-
-### Reminders
-
-A plain JSON file, and anything at all can write to it:
-
-```
-~/Library/Application Support/com.fgrr6.tico/reminders.json
-```
-
-```json
-[
-  {
-    "id": "iva",
-    "text": "El IVA del mes pasado vence el 15.",
-    "due": "2026-09-15",
-    "remind_from": "2026-09-01",
-    "repeat": "monthly",
-    "done": false
-  },
-  {
-    "id": "dentist",
-    "text": "Llamar al dentista.",
-    "due": "2026-09-22",
-    "done": false
-  }
-]
-```
-
-- `id` — anything unique. It is how "done" is remembered.
-- `due` — `YYYY-MM-DD`.
-- `remind_from` — optional; defaults to a week before `due`.
-- `repeat` — `monthly`, or leave it out for a one-off. Marking a monthly one done
-  rolls it to next month rather than retiring it, because paying August's IVA
-  does not mean September's is handled.
-- `done` — set by the **button on his bubble**, not by you. One click cannot be
-  misread; parsing "ya lo pagué" can.
-
-He re-reads the file every five minutes, so a new reminder does not need a
-restart. He mentions each one at most once a day, only when he is not already
-saying something, and never while quiet or in a call.
-
-## Stack
-
-Tauri v2 · Rust · React 19 · TypeScript. No model, no network, no runtime
-dependency — 10 MB that runs on its own.
-
-The shell is lifted from [Lyra](../Lyrics-app): the same transparent
-always-on-top overlay, tray, autostart and multi-monitor handling, already solved
-and shipped there.
-
-## Working on him
+macOS, from a release build:
 
 ```sh
-pnpm t:d      # him, on your desktop, with hot reload
-pnpm t:b      # the .app and the .dmg
-pnpm check    # the checks that used to be run by hand and thrown away
+pnpm install
+pnpm t:b
+# then copy src-tauri/target/release/bundle/macos/tico.app to /Applications
+xattr -d com.apple.quarantine /Applications/tico.app
 ```
 
-`pnpm check` is not a test suite. It is the set of things that break silently:
-a feeling with no lines, a behaviour with no keyframes, an hour with no energy,
-a colour pair below 3:1, a prop that is worn but never drawn, a CSS variable
-used but never defined. None of them fails loudly on its own — they fail by him
-quietly doing nothing, which looks exactly like a pet that has nothing to do.
+He is **not signed and will not be** — notarization is $99/year to remove one
+right-click. That last command is what stands in for it; the reasoning is in
+[RELEASING.md](RELEASING.md).
 
-`pnpm t:d` then `/scripts/sheet.html` draws every mood and every prop at the
-sizes he is actually shown at, on a dark backdrop. **Look at that page before
-believing a drawing is right.** Three rounds of defects got past types, lint and
-`pnpm check` and were obvious within a second of looking: a top hat filled with
-the colour of the desktop behind it, a headphone band drawn inside the head, a
-crown that came out black because a variable was undefined and SVG falls back to
-black without complaining.
+## Build and hack on him
 
-[CLAUDE.md](CLAUDE.md) has the rules worth knowing before changing anything; the
-short version is that liveliness is a state machine, everything unprompted rides
-one poll, travel is a CSS transition and never a rAF loop, copy is data in both
-languages, and one animation anywhere costs a frame everywhere.
+```sh
+pnpm install
+pnpm t:d      # run him
+pnpm check    # 19 checks over the data, the drawings and the boundaries
+```
 
-## Permissions
+Two things worth knowing before you change anything:
 
-Two, both optional, neither asked for at launch.
+- **`pnpm dev` and open `/scripts/sheet.html`.** Every mood, every accessory,
+  every body part, on a dark backdrop, at the sizes he is actually shown at.
+  Nothing in a type or a lint catches a drawing that is wrong — a top hat filled
+  with the colour of the desktop behind it survived all of them, twice. Looking
+  at it catches it in a second. `/scripts/prefs.html` does the same for the
+  settings window.
+- **[PLAN.md](PLAN.md) is the argument, not the summary.** Every decision in it
+  records what was tried and rejected and why, including the measurements that
+  contradicted the reasoning. [CLAUDE.md](CLAUDE.md) is the short version of the
+  rules that must hold.
 
-- **Automation → Spotify**, so he knows the track and can sing along. Requested
-  the first time something is playing.
-- **Accessibility**, only if you switch on *Read window titles*. It is what lets
-  him say "Companion.tsx otra vez" instead of "estás en VS Code". Titles that
-  look sensitive are never read at all, and no title is ever spoken out loud —
-  it is context, never content.
+## What he costs
 
-Nothing here reads a pixel, and nothing leaves the machine.
+**3.1% of one core awake, 0.6% asleep**, 229 MB across his four processes, 10 MB
+on disk.
+
+The gap between those first two numbers is the whole performance story. The price
+of an always-on-top transparent overlay is *per composited frame over the whole
+surface*, not per animated element — two little `z` text nodes left running while
+he slept cost exactly what the entire pet costs. So when he sleeps, everything
+stops, with no exceptions. Roughly 90% of the memory is the WebKit baseline any
+app built this way pays before drawing anything.
+
+## Licence
+
+[MIT](LICENSE). Take him apart, put him back together differently, ship your own.
+
+---
+
+Built with [Tauri 2](https://tauri.app), React and a lot of hand-written SVG.
