@@ -349,8 +349,41 @@ export const linesFor = (lines: AppLines, when: TimeOfDay): string[] => {
 	return timed && timed.length > 0 && Math.random() < 0.7 ? timed : lines.any
 }
 
+/**
+ * Something to wear, occasionally, for no reason he would explain. A pet
+ * that puts on a party hat because it is your birthday is a feature; one
+ * that does it on a Tuesday and takes it off a minute later is a character.
+ *
+ * Out here rather than inside the component because it is also the list the
+ * preferences window offers when you pin one on him permanently. The souvenirs
+ * are deliberately not in it, there or here: they are only ever found.
+ */
+export const PROPS = [
+	'party',
+	'tophat',
+	'shades',
+	'crown',
+	'flower',
+	'scarf',
+	'coffee',
+	'afro',
+	'mohawk',
+	'longhair',
+	'beanie',
+	'cap',
+	'hood',
+	'catears',
+	'glasses',
+	'moustache',
+	'tie',
+	'bowtie',
+	'cape',
+	'duck',
+	'umbrella',
+]
+
 export const companionCopy: Record<Language, CompanionCopy> = { en, es }
 
-/** No language switch in the UI yet — the OS already said which one it wants. */
+/** What `auto` means. A saved choice is read in `App`, and wins over this. */
 export const detectLanguage = (): Language =>
 	navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en'

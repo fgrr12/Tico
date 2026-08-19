@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { FURNITURE, houseCopy, sceneAt } from '../src/house/house.ts'
+import { prefsCopy } from '../src/prefs/copy.ts'
 import {
 	companionCopy,
 	danceStyle,
@@ -11,6 +12,7 @@ import {
 	feelingFrom,
 	matchApp,
 	PALETTE,
+	PROPS,
 	STREAK_MILESTONES,
 	TERRORS,
 	timeOfDay,
@@ -54,7 +56,7 @@ const assert = (ok, message) => {
 
 const table = companion.slice(
 	companion.indexOf('const moments: Record<string, Moment>'),
-	companion.indexOf('const PROPS')
+	companion.indexOf('const wear = (kind: string')
 )
 const behaviours = [...table.matchAll(/^\t\t\t(\w+): \{/gm)].map((match) => match[1])
 
@@ -322,11 +324,7 @@ check('every prop is drawn, written and on the sheet', () => {
 	// list for the same kind of reason — they only arrive back from a crossing,
 	// and putting them in `PROPS` would have them turning up unearned. All of
 	// them still have to be drawn, and still have to have lines.
-	const worn = [
-		...list(companion, 'const PROPS'),
-		...list(companion, 'const SOUVENIRS'),
-		'headphones',
-	]
+	const worn = [...PROPS, ...list(companion, 'const SOUVENIRS'), 'headphones']
 	const drawn = [...face.matchAll(/^\t\tcase '(\w+)':/gm)].map((m) => m[1])
 	const onSheet = list(sheet, 'const PROPS')
 
@@ -351,6 +349,48 @@ check('every prop is drawn, written and on the sheet', () => {
 	assert(unworn.length === 0, `drawn but never worn: ${unworn.join(', ')}`)
 
 	return `${worn.length} props`
+})
+
+check('every body part carries the hooks the rest of him drives it by', () => {
+	const parts = readFileSync(new URL('../src/companion/parts.tsx', import.meta.url), 'utf8')
+
+	// A part is a drawing, and none of what depends on it is visible in the
+	// drawing: the CSS animates limbs by class name and by side, the mood system
+	// blanches the screen by class, and the LED is the only status he has. Miss
+	// one and nothing errors — he simply stops walking, or stops going pale when
+	// he is frightened, and it looks like a bug in the behaviour instead.
+	// Counted, not just present: a foot that lost its class while its twin kept
+	// one does not stop him walking, it gives him a limp, and that reads as a
+	// behaviour bug rather than as a missing attribute.
+	const hooks = {
+		SHELLS: { 'companion-screen': 1 },
+		HANDS: { 'companion-hand': 2, 'data-side="left"': 1, 'data-side="right"': 1 },
+		FEET: { 'companion-foot': 2, 'data-side="left"': 1, 'data-side="right"': 1 },
+		ANTENNAS: { 'companion-led': 1 },
+	}
+
+	let total = 0
+
+	for (const [name, needles] of Object.entries(hooks)) {
+		const open = parts.indexOf(`const ${name} = slot({`)
+		assert(open !== -1, `${name} is not a registry any more`)
+		const body = parts.slice(open, parts.indexOf('\n})', open))
+
+		const variants = body.split(/^\t(?=\w+: \()/m).slice(1)
+		assert(variants.length > 0, `${name} has nothing in it`)
+
+		for (const variant of variants) {
+			const which = variant.slice(0, variant.indexOf(':'))
+			for (const [needle, times] of Object.entries(needles)) {
+				const found = variant.split(needle).length - 1
+				assert(found === times, `${name}.${which}: expected ${times}× ${needle}, found ${found}`)
+			}
+		}
+
+		total += variants.length
+	}
+
+	return `${total} parts`
 })
 
 check('every familiarity tier is reachable and has lines', () => {
@@ -402,6 +442,47 @@ check('both languages carry the same keys', () => {
 					? Object.values(value).reduce((total, child) => total + count(child), 0)
 					: 0
 	return `${count(companionCopy.en)} written lines each`
+})
+
+check('the window and the store agree on what a setting is called', () => {
+	const prefs = readFileSync(new URL('../src/prefs/Prefs.tsx', import.meta.url), 'utf8')
+	const rust = readFileSync(new URL('../src-tauri/src/state.rs', import.meta.url), 'utf8')
+
+	// The one boundary neither compiler can see across. `Patch` is serde, and
+	// serde ignores a field it does not recognise — so `readTitles` instead of
+	// `read_titles` is not an error on either side, it is a checkbox that ticks,
+	// saves nothing, and unticks itself when the settings event comes back.
+	const patch = rust.slice(rust.indexOf('pub struct Patch'), rust.indexOf('}', rust.indexOf('pub struct Patch')))
+	const fields = [...patch.matchAll(/pub (\w+): Option</g)].map((match) => match[1])
+	const sent = [...prefs.matchAll(/patch\(\{ (\w+)/g)].map((match) => match[1])
+
+	assert(sent.length > 0, 'nothing in the window writes a setting any more')
+	for (const key of new Set(sent)) {
+		assert(fields.includes(key), `the window sends ${key}, which Patch would drop`)
+	}
+
+	return `${new Set(sent).size} of ${fields.length} settings written`
+})
+
+check('the window speaks both languages too', () => {
+	const walk = (a, b, path = '') => {
+		for (const key of Object.keys(a)) {
+			assert(key in b, `${path}${key} is missing`)
+			if (a[key] && typeof a[key] === 'object') walk(a[key], b[key], `${path}${key}.`)
+		}
+	}
+	walk(prefsCopy.en, prefsCopy.es)
+	walk(prefsCopy.es, prefsCopy.en)
+
+	// Every label is written twice and it is the second one that gets forgotten,
+	// so an empty string counts as forgotten rather than as brevity.
+	for (const [language, copy] of Object.entries(prefsCopy)) {
+		const empty = JSON.stringify(copy).match(/"[a-z]+":""/g) ?? []
+		// `autostart.hint` is the deliberate one: the label is the whole sentence.
+		assert(empty.length <= 2, `${language} has ${empty.length} empty strings`)
+	}
+
+	return `${Object.keys(prefsCopy.en).length} sections`
 })
 
 check('everything he fears can be named', () => {

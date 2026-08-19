@@ -6,16 +6,8 @@ import { listen } from '@tauri-apps/api/event'
 import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
-import type { Ledge, NowPlaying, Opening, PetRect, Settings } from './types'
-
-interface Boot extends Settings {
-	x: number
-	quiet_until: number
-	in_call: 'peek' | 'hide' | 'ignore'
-	/** `auto` follows the system, which is all it could do before the tray. */
-	language: 'auto' | Language
-	house: boolean
-}
+import { bodyFrom } from './companion/parts'
+import type { Ledge, NowPlaying, Opening, PetRect, Stored } from './types'
 
 /**
  * The strip is one pet and nothing else. Everything the frontend cannot see for
@@ -23,7 +15,7 @@ interface Boot extends Settings {
  * Rust, and everything Rust cannot see — where he is standing now — goes back.
  */
 export default function App() {
-	const [boot, setBoot] = useState<Boot | null>(null)
+	const [boot, setBoot] = useState<Stored | null>(null)
 	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
 	const [activeApp, setActiveApp] = useState<{
 		name: string
@@ -37,7 +29,7 @@ export default function App() {
 	const [opening, setOpening] = useState<Opening | null>(null)
 
 	useEffect(() => {
-		invoke<Boot>('boot').then(setBoot)
+		invoke<Stored>('boot').then(setBoot)
 		// Read once. It is what he knew when he woke up, and nothing during the
 		// session changes what he already remembers.
 		invoke<Opening>('memory').then(setOpening)
@@ -52,7 +44,7 @@ export default function App() {
 		const cursorMoved = listen<{ x: number; y: number }>('cursor', (event) =>
 			setCursor(event.payload)
 		)
-		const settingsChanged = listen<Boot>('settings', (event) =>
+		const settingsChanged = listen<Stored>('settings', (event) =>
 			setBoot((current) => ({ ...(current ?? event.payload), ...event.payload }))
 		)
 		// Rust emits only on change, so the timestamp of the event is the moment the
@@ -137,6 +129,8 @@ export default function App() {
 			typing={typing}
 			inCallMode={boot.in_call}
 			houseOn={boot.house}
+			parts={bodyFrom(boot.parts)}
+			pinnedProp={boot.pinned_prop}
 			initialX={boot.x}
 			onRectChange={handleRect}
 			onInteractive={handleInteractive}

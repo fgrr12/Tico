@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
+import type { CompanionParts } from './parts'
 import { BurrowMap, Hatch } from '../house/House.tsx'
 import { FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
 
@@ -12,6 +13,7 @@ import {
 	type Familiarity,
 	familiarityFrom,
 	PALETTE,
+	PROPS,
 	TERRORS,
 	energyAt,
 	type Feeling,
@@ -201,6 +203,14 @@ interface CompanionProps {
 	typing: boolean
 	/** Whether the burrow exists. Off, none of it is drawn, polled or published. */
 	houseOn: boolean
+	/** Which body he was given. Chosen in the preferences window, stored in Rust. */
+	parts: CompanionParts
+	/**
+	 * Something he wears permanently, or nothing. It is a floor, not a lock: a hat
+	 * he picks for himself still goes on over it, and this is what is underneath
+	 * again when that comes off.
+	 */
+	pinnedProp: string | null
 	/** Where he was standing last time, as a fraction of the strip width. */
 	initialX: number
 	/** What he remembers from before this launch. Read once, at boot. */
@@ -229,6 +239,8 @@ export const Companion = ({
 	inCallMode,
 	typing,
 	houseOn,
+	parts,
+	pinnedProp,
 	initialX,
 	opening,
 	onRemember,
@@ -1470,35 +1482,6 @@ export const Companion = ({
 		}
 
 		/**
-		 * Something to wear, occasionally, for no reason he would explain. A pet
-		 * that puts on a party hat because it is your birthday is a feature; one
-		 * that does it on a Tuesday and takes it off a minute later is a character.
-		 */
-		const PROPS = [
-			'party',
-			'tophat',
-			'shades',
-			'crown',
-			'flower',
-			'scarf',
-			'coffee',
-			'afro',
-			'mohawk',
-			'longhair',
-			'beanie',
-			'cap',
-			'hood',
-			'catears',
-			'glasses',
-			'moustache',
-			'tie',
-			'bowtie',
-			'cape',
-			'duck',
-			'umbrella',
-		]
-
-		/**
 		 * Putting something on, and the one timer that takes it off again.
 		 *
 		 * Shared by the two things that can dress him — picking a hat for no
@@ -2220,16 +2203,24 @@ export const Companion = ({
 				onPointerCancel={handlePointerUp}
 			>
 				<span key={fx?.n} className="companion-anim" data-anim={fx?.name}>
+					{/*
+					 * The pin is the layer underneath, not a separate feature: whatever
+					 * he put on himself covers it, and when that leaves, `prop` goes
+					 * back to null and the pinned one is simply there again. `key` on
+					 * the worn group does the rest — it remounts, so it arrives putting
+					 * itself on rather than appearing already worn.
+					 */}
 					<CompanionFace
 						mood={mood}
 						blink={blink}
 						glyph={null}
 						singing={singing}
-						prop={prop}
+						prop={prop ?? pinnedProp}
 						propLeaving={propLeaving}
 						faceColor={PALETTE[feeling].face}
 						screenColor={PALETTE[feeling].screen}
 						ledColor={mood === 'sleep' ? '#3b4256' : PALETTE[feeling].led}
+						parts={parts}
 					/>
 				</span>
 			</button>

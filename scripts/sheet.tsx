@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { CompanionFace } from '../src/companion/CompanionFace'
+import { type CompanionParts, DEFAULT_PARTS, PARTS } from '../src/companion/parts'
 
 import '../src/companion.css'
 
@@ -67,6 +68,20 @@ const PROPS = [
 ]
 
 const SIZES = [66, 92, 124, 240]
+
+/**
+ * Every variant of every slot, on an otherwise default body — a foot on its own
+ * says nothing, and the question is always what it looks like attached.
+ *
+ * The cast is the harness admitting it is iterating a registry it has just been
+ * handed; the types that matter are the ones on `PARTS` itself.
+ */
+const BODIES = Object.entries(PARTS).flatMap(([slot, variants]) =>
+	Object.keys(variants).map((variant) => ({
+		label: `${slot}: ${variant}`,
+		parts: { ...DEFAULT_PARTS, [slot]: variant } as CompanionParts,
+	}))
+)
 
 const face = (extra: Partial<CompanionFaceProps> = {}): CompanionFaceProps => ({
 	mood: 'idle',
@@ -155,6 +170,26 @@ createRoot(document.getElementById('root') as HTMLElement).render(
 		<div className="row">
 			{['afro', 'mohawk', 'longhair', 'tophat'].map((kind) => (
 				<Replay key={kind} kind={kind} />
+			))}
+		</div>
+		{/*
+		 * Bodies, and then the same bodies wearing something.
+		 *
+		 * The second row is the one that matters. Props are placed by hand against
+		 * fixed landmarks — see the contract in `parts.tsx` — so the way a new
+		 * variant fails is not that it looks bad on its own, it is that the
+		 * headphones now float beside its head. Headphones because they are the
+		 * prop that touches the most of him at once: over the top of the case and
+		 * down onto both hands.
+		 */}
+		<div className="row">
+			{BODIES.map(({ label, parts }) => (
+				<Cell key={label} width={140} label={label} {...face({ parts })} />
+			))}
+		</div>
+		<div className="row">
+			{BODIES.map(({ label, parts }) => (
+				<Cell key={label} width={140} label={label} {...face({ parts, prop: 'headphones' })} />
 			))}
 		</div>
 		<div className="row">

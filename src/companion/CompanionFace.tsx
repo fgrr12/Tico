@@ -1,14 +1,18 @@
 import type { CompanionFaceProps, CompanionMood } from '../types'
 
+import { DEFAULT_PARTS, PARTS } from './parts'
+
 /**
- * The pet drawn as what the site claims to be: a terminal window, ninety pixels
- * tall, with a face on its screen. Same window chrome as `TitleBar` — three
- * traffic lights, a dark pane, the faint scanline texture — so it reads as a
- * child process of this app rather than as a sticker dropped on top of it.
+ * The pet: a face, the things he is wearing, and a body assembled out of `parts`.
  *
- * The antenna LED is the one piece that carries information: it follows the same
- * rule as the rest of the palette — green is ready, amber is running, pink is a
- * failure. Everything else here is expression.
+ * The face is drawn here and is the same face whatever body he has — the
+ * expression is the character and the body is a costume for it. Everything under
+ * it comes from `parts.tsx`, which also carries the landmark contract each
+ * variant is drawn against. The `defs` stay here because every variant shares
+ * them.
+ *
+ * By default he is what the site claims to be: a terminal window, ninety pixels
+ * tall, with a face on its screen.
  */
 
 type Eyes = 'open' | 'closed' | 'smile' | 'cross' | 'heart' | 'wide' | 'spiral'
@@ -67,7 +71,12 @@ export const CompanionFace = ({
 	faceColor,
 	screenColor,
 	ledColor,
+	parts = DEFAULT_PARTS,
 }: CompanionFaceProps) => {
+	const { shell, hands, feet, antenna } = parts
+	// The two colours a body part can be told about. Everything else it draws is
+	// literal, because a body that shifted with his mood would be a mood.
+	const colours = { screenColor, ledColor }
 	const expression: Eyes = blink && EYES[mood] === 'open' ? 'closed' : EYES[mood]
 	const cheeks = mood === 'happy' || mood === 'love'
 
@@ -166,103 +175,13 @@ export const CompanionFace = ({
 			    high enough to wash them out, which is why they read as part of it. */}
 			<ellipse cx="48" cy="90" rx="27" ry="4.5" fill="url(#tico-shadow)" />
 
-			{/*
-			 * Antenna — the status light, and the only part that means something.
-			 *
-			 * It leans. Everything else about him is mirror-symmetric, and perfect
-			 * symmetry is what makes a drawing read as an object instead of a
-			 * creature; one part off-axis is the cheapest character there is.
-			 */}
-			<path
-				d="M48 17 L50.6 8.4"
-				stroke="var(--line-strong)"
-				strokeWidth="2.5"
-				strokeLinecap="round"
-				fill="none"
-			/>
-			<circle
-				cx="51.2"
-				cy="5.4"
-				r="3.4"
-				fill={ledColor}
-				className="companion-led companion-tint"
-			/>
+			{PARTS.antenna[antenna](colours)}
 
-			{/* Hands, so a hop, a wave and covering its ears have something to move.
-			    They hang low and taper toward the wrist — as vertical pills at mid
-			    height they read as knobs on the side of a device, not as arms. */}
-			<path
-				className="companion-hand"
-				data-side="left"
-				d="M2.6 53.2 q3.4-2.6 6.6 0 l0.4 8.4 q0.2 5-3.8 5.2 q-4 0.2-4.4-4.8 z"
-			/>
-			<path
-				className="companion-hand"
-				data-side="right"
-				d="M93.4 53.2 q-3.4-2.6-6.6 0 l-0.4 8.4 q-0.2 5 3.8 5.2 q4 0.2 4.4-4.8 z"
-			/>
+			{PARTS.hands[hands](colours)}
 
-			{/* Feet stick out below the body, which is what makes it a creature —
-			    and they are what alternate when it walks somewhere. Square where the
-			    case meets them, round where the floor does. */}
-			<path
-				className="companion-foot"
-				data-side="left"
-				d="M23.5 77 h17 v5.5 q0 4.5-4.5 4.5 h-8 q-4.5 0-4.5-4.5 z"
-			/>
-			<path
-				className="companion-foot"
-				data-side="right"
-				d="M55.5 77 h17 v5.5 q0 4.5-4.5 4.5 h-8 q-4.5 0-4.5-4.5 z"
-			/>
+			{PARTS.feet[feet](colours)}
 
-			{/* The window itself. The gradient is the volume: lit along the top edge,
-			    falling off to the floor. */}
-			<rect
-				x="8"
-				y="16"
-				width="80"
-				height="66"
-				rx="15"
-				fill="url(#tico-case)"
-				stroke="var(--line-strong)"
-				strokeWidth="2"
-			/>
-
-			{/* A title bar, so the three lights sit on a surface instead of floating
-			    on the bezel, and a rim light along the top so the light has a source. */}
-			<path d="M9 31 A14 14 0 0 1 23 17 H73 A14 14 0 0 1 87 31 Z" fill="#ffffff" opacity="0.035" />
-			<path d="M9 31 H87" stroke="#000000" strokeOpacity="0.25" strokeWidth="1" />
-			<path
-				d="M10 30 A13 13 0 0 1 23 17.6 H73 A13 13 0 0 1 86 30"
-				fill="none"
-				stroke="#ffffff"
-				strokeOpacity="0.09"
-				strokeWidth="1.6"
-			/>
-
-			<circle cx="20" cy="25" r="2.4" fill="#f7768e" />
-			<circle cx="28" cy="25" r="2.4" fill="#e0af68" />
-			<circle cx="36" cy="25" r="2.4" fill="#9ece6a" />
-
-			<rect
-				className="companion-screen"
-				x="15"
-				y="32"
-				width="66"
-				height="42"
-				rx="9"
-				fill={screenColor}
-				stroke="var(--line)"
-			/>
-			<rect x="15" y="32" width="66" height="42" rx="9" fill="url(#tico-scanlines)" />
-
-			{/* Recessed under the bezel, and one soft reflection off the corner. Both
-			    stop short of the eyes on purpose — this is glass, not weather. */}
-			<g clipPath="url(#tico-glass)">
-				<rect x="15" y="32" width="66" height="14" fill="url(#tico-inset)" />
-				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
-			</g>
+			{PARTS.shell[shell](colours)}
 
 			{glyph ? (
 				<text x="48" y="61" textAnchor="middle" fontSize="26" className="companion-glyph">

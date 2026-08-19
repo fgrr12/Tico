@@ -1,7 +1,42 @@
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
+
+/// The fixed sets. Here rather than in `lib.rs` because the tray is no longer the
+/// only thing that writes them — the preferences window does too, and a value
+/// arriving from a window is checked against these before it is stored.
+pub const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
+pub const SIZES: [&str; 3] = ["small", "normal", "large"];
+pub const IN_CALL: [&str; 3] = ["peek", "hide", "ignore"];
+pub const LANGUAGES: [&str; 3] = ["auto", "en", "es"];
+
+/// Which variant fills each slot of his body. Mirrors `CompanionParts` in
+/// `parts.tsx`, and the strings are that file's registry keys.
+///
+/// Deliberately not validated against a list here. The list is a list of
+/// *drawings*, it lives with them, and a second copy in Rust would be a copy that
+/// goes stale the first time one is renamed — so an unknown slot value is the
+/// frontend's to fall back from, which `bodyFrom` does.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Parts {
+    pub shell: String,
+    pub hands: String,
+    pub feet: String,
+    pub antenna: String,
+}
+
+impl Default for Parts {
+    fn default() -> Self {
+        Self {
+            shell: "terminal".into(),
+            hands: "mitts".into(),
+            feet: "pills".into(),
+            antenna: "led".into(),
+        }
+    }
+}
 
 /// Everything that has to survive a restart. Small enough that it is written on
 /// every change rather than debounced — the file is a few dozen bytes and the
@@ -34,6 +69,17 @@ pub struct State {
     /// that has to be switched on is a feature list.
     #[serde(default = "yes")]
     pub house: bool,
+    /// The body he was last given. Default is the one he has always had.
+    #[serde(default)]
+    pub parts: Parts,
+    /// Something he wears permanently, chosen rather than drawn from the hat.
+    ///
+    /// It does not stop him putting other things on: the pin is what he goes back
+    /// to when a hat comes off, not a lock on the wardrobe. A pet whose owner
+    /// picked a scarf and thereby switched off every other costume has been made
+    /// more configurable and less alive.
+    #[serde(default)]
+    pub pinned_prop: Option<String>,
 }
 
 impl Default for State {
@@ -52,6 +98,8 @@ impl Default for State {
             read_titles: false,
             language: "auto".into(),
             house: true,
+            parts: Parts::default(),
+            pinned_prop: None,
         }
     }
 }
@@ -101,6 +149,106 @@ pub fn boot(app: AppHandle) -> State {
         .lock()
         .map(|state| state.clone())
         .unwrap_or_default()
+}
+
+/// Tells every window what the settings now are.
+///
+/// Broadcast rather than aimed at the strip. There are two things that write
+/// settings now — the tray and the preferences window — and each has to see what
+/// the other did, or the window shows a stale tick for a quiet hour the tray just
+/// started.
+pub fn publish(app: &AppHandle) {
+    let _ = app.emit("settings", boot(app.clone()));
+}
+
+/// A settings change from the preferences window. Absent means "leave it".
+///
+/// One command rather than one per setting: they are all the same operation —
+/// write it, save it, tell everyone — and the difference between them is a field
+/// name. The pin is not in here; see `set_pinned_prop` for why.
+#[derive(Debug, Deserialize)]
+pub struct Patch {
+    pub chattiness: Option<String>,
+    pub size: Option<String>,
+    pub in_call: Option<String>,
+    pub language: Option<String>,
+    pub house: Option<bool>,
+    pub read_titles: Option<bool>,
+    pub parts: Option<Parts>,
+    pub quiet_until: Option<i64>,
+}
+
+/// One of a fixed set, or what it already was.
+///
+/// The window only ever sends members of these lists, which is exactly why the
+/// check is here rather than there: the store is also a file somebody can edit,
+/// and a `chattiness` of `"loud"` leaves `CHATTINESS[value]` undefined on the
+/// other side — he does not fail loudly, he simply stops talking.
+fn one_of(allowed: &[&str], value: String, current: &mut String) {
+    if allowed.contains(&value.as_str()) {
+        *current = value;
+    }
+}
+
+#[tauri::command]
+pub fn set_settings(app: AppHandle, patch: Patch) {
+    // Reading window titles costs an Accessibility grant, and a checkbox that
+    // ticks itself and then silently does nothing is worse than no checkbox. So
+    // the request is dropped and the grant is where they are sent instead — a
+    // prompt is easy to dismiss and hard to find again.
+    let titles = match patch.read_titles {
+        Some(true) if !crate::window_title::trusted() => {
+            #[cfg(target_os = "macos")]
+            let _ = std::process::Command::new("open")
+                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                .status();
+            None
+        }
+        other => other,
+    };
+
+    update(&app, |current| {
+        if let Some(value) = patch.chattiness {
+            one_of(&CHATTINESS, value, &mut current.chattiness);
+        }
+        if let Some(value) = patch.size {
+            one_of(&SIZES, value, &mut current.size);
+        }
+        if let Some(value) = patch.in_call {
+            one_of(&IN_CALL, value, &mut current.in_call);
+        }
+        if let Some(value) = patch.language {
+            one_of(&LANGUAGES, value, &mut current.language);
+        }
+        if let Some(on) = patch.house {
+            current.house = on;
+        }
+        if let Some(on) = titles {
+            current.read_titles = on;
+        }
+        if let Some(parts) = patch.parts {
+            current.parts = parts;
+        }
+        if let Some(until) = patch.quiet_until {
+            current.quiet_until = until;
+        }
+    });
+
+    // The watcher keeps its own copy so the poll never has to take the lock.
+    if let Some(on) = titles {
+        crate::active_app::set_titles(on);
+    }
+
+    publish(&app);
+}
+
+/// The pin, on its own, because `null` has to mean "take it off" here and mean
+/// "not mentioned" everywhere else in `Patch`. Encoding both in one optional
+/// field needs a serde dance that nobody reading this later would enjoy.
+#[tauri::command]
+pub fn set_pinned_prop(app: AppHandle, prop: Option<String>) {
+    update(&app, |current| current.pinned_prop = prop);
+    publish(&app);
 }
 
 #[tauri::command]

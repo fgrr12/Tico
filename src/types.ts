@@ -1,3 +1,6 @@
+import type { CompanionParts } from './companion/parts'
+import type { Language } from './data/companion'
+
 /** Every state the pet can be in. Drives both eyes and mouth. */
 export type CompanionMood =
 	| 'idle'
@@ -31,6 +34,8 @@ export interface CompanionFaceProps {
 	/** The little screen behind the face. Blanches when he is frightened. */
 	screenColor: string
 	ledColor: string
+	/** Which body he is wearing. Left out, he is the one he has always been. */
+	parts?: CompanionParts
 }
 
 /** Where the pet is standing, in CSS pixels inside the strip. */
@@ -67,6 +72,27 @@ export type PetSize = 'small' | 'normal' | 'large'
 export interface Settings {
 	chattiness: Chattiness
 	size: PetSize
+}
+
+/**
+ * Everything that outlives a restart, exactly as `state.rs` writes it — snake
+ * case included, because it crosses unchanged and renaming it on the way in
+ * would only mean renaming it again on the way back out.
+ *
+ * Two windows read this now: the strip, to be him, and the preferences window,
+ * to show what he is. Both are told about a change the same way, by the
+ * `settings` event, so neither can be the one holding the stale copy.
+ */
+export interface Stored extends Settings {
+	x: number
+	quiet_until: number
+	in_call: 'peek' | 'hide' | 'ignore'
+	/** `auto` follows the system, which is all it could do before the tray. */
+	language: 'auto' | Language
+	house: boolean
+	read_titles: boolean
+	parts: CompanionParts
+	pinned_prop: string | null
 }
 
 /**

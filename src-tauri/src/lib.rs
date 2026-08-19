@@ -15,31 +15,14 @@ mod typing;
 use std::sync::Mutex;
 
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
-    Emitter, Manager, Position, Size, Wry,
+    Manager, Position, Size, Wry,
 };
 use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
 
-use state::{State, Store};
+use state::Store;
 
-/// The tray's radio groups. Kept so the handler can tick the chosen one and untick
-/// its siblings — a menu that lies about the current setting is worse than one
-/// that does not show it at all.
-struct Settings {
-    chattiness: Vec<(&'static str, CheckMenuItem<Wry>)>,
-    size: Vec<(&'static str, CheckMenuItem<Wry>)>,
-    in_call: Vec<(&'static str, CheckMenuItem<Wry>)>,
-    language: Vec<(&'static str, CheckMenuItem<Wry>)>,
-    autostart: CheckMenuItem<Wry>,
-    read_titles: CheckMenuItem<Wry>,
-    house: CheckMenuItem<Wry>,
-}
-
-const CHATTINESS: [&str; 3] = ["quiet", "normal", "chatty"];
-const SIZES: [&str; 3] = ["small", "normal", "large"];
-const IN_CALL: [&str; 3] = ["peek", "hide", "ignore"];
-const LANGUAGES: [&str; 3] = ["auto", "en", "es"];
 /// Minutes of silence the tray offers. `0` cancels it.
 const QUIET_FOR: [(&str, i64); 4] = [
     ("30 minutes", 30),
@@ -112,21 +95,61 @@ fn anchor_strip(app: &tauri::AppHandle) {
 // actually stops it is `macos::make_nonactivating`, and this flag stays for the
 // other platforms and for the case where that conversion refuses to run.
 
-/// Ticks the chosen item and unticks its siblings.
-fn mark(group: &[(&'static str, CheckMenuItem<Wry>)], chosen: &str) {
-    for (value, item) in group {
-        let _ = item.set_checked(*value == chosen);
+/// Opens the preferences window, or brings back the one that is already open.
+///
+/// Built here rather than declared in `tauri.conf.json` so that it does not exist
+/// until it is asked for: it is a second WebView, and a second WebView is tens of
+/// megabytes for as long as it is alive. Closing it destroys it and gives them
+/// back, which is why nothing here hides it instead.
+///
+/// It is an ordinary window on purpose — decorated, focusable, activating. The
+/// strip is none of those things, but every one of those tricks is set on the
+/// strip's own `NSWindow` in `macos.rs`, so this one is unaffected by them.
+fn preferences(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("prefs") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    // The hash is the whole router. One bundle, one `index.html`, and `main.tsx`
+    // draws the pet or the window depending on what it finds — which is smaller
+    // than a second entry point and cannot drift out of step with the first.
+    let built = tauri::WebviewWindowBuilder::new(
+        app,
+        "prefs",
+        tauri::WebviewUrl::App("index.html#prefs".into()),
+    )
+    .title("tico")
+    .inner_size(760.0, 620.0)
+    .min_inner_size(620.0, 480.0)
+    .build();
+
+    match built {
+        // An accessory app has no Dock tile to click, so a window that opens
+        // behind whatever you were doing is a window you cannot find.
+        Ok(window) => {
+            let _ = window.set_focus();
+        }
+        Err(error) => eprintln!("[tico] could not open preferences: {error}"),
     }
 }
 
-fn publish(app: &tauri::AppHandle) {
-    let current: State = state::boot(app.clone());
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.emit("settings", current);
-    }
+/// Whether he starts with the machine. The plugin owns this, not `tico.json` —
+/// a stored copy would be a second answer to a question the OS already answers.
+#[tauri::command]
+fn autostart(app: tauri::AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[tauri::command]
+fn set_autostart(app: tauri::AppHandle, on: bool) -> bool {
+    let launcher = app.autolaunch();
+    let _ = if on { launcher.enable() } else { launcher.disable() };
+    launcher.is_enabled().unwrap_or(false)
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         // Must be registered first, per the plugin's own contract. Without it,
@@ -147,6 +170,10 @@ pub fn run() {
             reminders::complete_reminder,
             memory::memory,
             memory::remember,
+            state::set_settings,
+            state::set_pinned_prop,
+            autostart,
+            set_autostart,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -167,70 +194,12 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-
-            let mut chattiness = Vec::new();
-            for value in CHATTINESS {
-                chattiness.push((
-                    value,
-                    CheckMenuItem::with_id(
-                        app,
-                        format!("chattiness:{value}"),
-                        value,
-                        true,
-                        saved.chattiness == value,
-                        None::<&str>,
-                    )?,
-                ));
-            }
-
-            let mut size = Vec::new();
-            for value in SIZES {
-                size.push((
-                    value,
-                    CheckMenuItem::with_id(
-                        app,
-                        format!("size:{value}"),
-                        value,
-                        true,
-                        saved.size == value,
-                        None::<&str>,
-                    )?,
-                ));
-            }
-
-            let mut in_call = Vec::new();
-            for value in IN_CALL {
-                in_call.push((
-                    value,
-                    CheckMenuItem::with_id(
-                        app,
-                        format!("incall:{value}"),
-                        value,
-                        true,
-                        saved.in_call == value,
-                        None::<&str>,
-                    )?,
-                ));
-            }
-
-            let mut language = Vec::new();
-            for value in LANGUAGES {
-                language.push((
-                    value,
-                    CheckMenuItem::with_id(
-                        app,
-                        format!("language:{value}"),
-                        match value {
-                            "en" => "English",
-                            "es" => "Español",
-                            _ => "Follow the system",
-                        },
-                        true,
-                        saved.language == value,
-                        None::<&str>,
-                    )?,
-                ));
-            }
+            // Everything that is not a decision you make mid-thought now lives in
+            // the window. What is left in the tray is what you reach for *while*
+            // something is happening: he is in the way, or he is talking during a
+            // call, or you are done.
+            let prefs_item =
+                MenuItem::with_id(app, "preferences", "Preferences…", true, None::<&str>)?;
 
             let mut quiet = Vec::new();
             for (label, minutes) in QUIET_FOR {
@@ -243,77 +212,10 @@ pub fn run() {
                 )?);
             }
 
-            let autostart = CheckMenuItem::with_id(
-                app,
-                "autostart",
-                "Start at login",
-                true,
-                app.autolaunch().is_enabled().unwrap_or(false),
-                None::<&str>,
-            )?;
-
             // Only on if it was chosen *and* the grant is still there — revoking
-            // it in System Settings has to uncheck the box, or the menu lies.
-            let titles_on = saved.read_titles && window_title::trusted();
-            active_app::set_titles(titles_on);
-
-            let read_titles = CheckMenuItem::with_id(
-                app,
-                "titles",
-                "Read window titles",
-                true,
-                titles_on,
-                None::<&str>,
-            )?;
-
-            let house = CheckMenuItem::with_id(
-                app,
-                "house",
-                "Burrow",
-                true,
-                saved.house,
-                None::<&str>,
-            )?;
-
-            let chattiness_menu = Submenu::with_items(
-                app,
-                "Chattiness",
-                true,
-                &chattiness
-                    .iter()
-                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
-                    .collect::<Vec<_>>(),
-            )?;
-
-            let size_menu = Submenu::with_items(
-                app,
-                "Size",
-                true,
-                &size
-                    .iter()
-                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
-                    .collect::<Vec<_>>(),
-            )?;
-
-            let in_call_menu = Submenu::with_items(
-                app,
-                "In a call",
-                true,
-                &in_call
-                    .iter()
-                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
-                    .collect::<Vec<_>>(),
-            )?;
-
-            let language_menu = Submenu::with_items(
-                app,
-                "Language",
-                true,
-                &language
-                    .iter()
-                    .map(|(_, item)| item as &dyn tauri::menu::IsMenuItem<Wry>)
-                    .collect::<Vec<_>>(),
-            )?;
+            // it in System Settings has to switch the feature off too, or he goes
+            // on being asked for titles that never arrive.
+            active_app::set_titles(saved.read_titles && window_title::trusted());
 
             let quiet_menu = Submenu::with_items(
                 app,
@@ -332,27 +234,11 @@ pub fn run() {
                     &hide,
                     &PredefinedMenuItem::separator(app)?,
                     &quiet_menu,
-                    &in_call_menu,
-                    &chattiness_menu,
-                    &size_menu,
-                    &language_menu,
-                    &read_titles,
-                    &house,
-                    &autostart,
+                    &prefs_item,
                     &PredefinedMenuItem::separator(app)?,
                     &quit,
                 ],
             )?;
-
-            app.manage(Settings {
-                chattiness,
-                size,
-                in_call,
-                language,
-                autostart,
-                read_titles,
-                house,
-            });
 
             // A separate monochrome icon for the menu bar, not the app icon.
             // macOS template images are re-coloured from their alpha channel, so
@@ -368,31 +254,6 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();
-                    let settings = app.state::<Settings>();
-
-                    if let Some(value) = id.strip_prefix("chattiness:") {
-                        let value = value.to_string();
-                        state::update(app, |current| current.chattiness = value.clone());
-                        mark(&settings.chattiness, &value);
-                        publish(app);
-                        return;
-                    }
-
-                    if let Some(value) = id.strip_prefix("language:") {
-                        let value = value.to_string();
-                        state::update(app, |current| current.language = value.clone());
-                        mark(&settings.language, &value);
-                        publish(app);
-                        return;
-                    }
-
-                    if let Some(value) = id.strip_prefix("incall:") {
-                        let value = value.to_string();
-                        state::update(app, |current| current.in_call = value.clone());
-                        mark(&settings.in_call, &value);
-                        publish(app);
-                        return;
-                    }
 
                     if let Some(minutes) = id.strip_prefix("quiet:") {
                         let minutes: i64 = minutes.parse().unwrap_or(0);
@@ -404,70 +265,12 @@ pub fn run() {
                             _ => state::now() + minutes * 60,
                         };
                         state::update(app, |current| current.quiet_until = until);
-                        publish(app);
-                        return;
-                    }
-
-                    if let Some(value) = id.strip_prefix("size:") {
-                        let value = value.to_string();
-                        state::update(app, |current| current.size = value.clone());
-                        mark(&settings.size, &value);
-                        publish(app);
+                        state::publish(app);
                         return;
                     }
 
                     match id {
-                        /*
-                         * Both of these read the *store* and not the menu item, and
-                         * that is not a style choice.
-                         *
-                         * macOS ticks a `CheckMenuItem` itself, before the handler
-                         * runs. So `is_checked()` here already reports the state the
-                         * user just asked for — negating it computes the value it
-                         * had a moment ago, writes that back, and `set_checked`
-                         * puts the tick where it started. The menu flickers and
-                         * nothing happens, which is exactly what "the toggle does
-                         * not work" looked like. Observed, not guessed: at click
-                         * time the menu said `checked=false` while the store still
-                         * said `true`.
-                         *
-                         * The store is the source of truth and the menu is a view
-                         * of it, so the flip comes from the store and the tick is
-                         * then forced to agree — which also repairs the tick on any
-                         * platform that does *not* toggle it for us.
-                         */
-                        "titles" => {
-                            let on = !state::boot(app.clone()).read_titles;
-
-                            // Turning it on without the grant would silently do
-                            // nothing, so send them where it is granted instead of
-                            // firing a prompt that is easy to dismiss and hard to
-                            // find again.
-                            if on && !window_title::trusted() {
-                                let _ = settings.read_titles.set_checked(false);
-                                let _ = std::process::Command::new("open")
-                                    .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-                                    .status();
-                                return;
-                            }
-
-                            state::update(app, |current| current.read_titles = on);
-                            active_app::set_titles(on);
-                            let _ = settings.read_titles.set_checked(on);
-                            publish(app);
-                        }
-                        "house" => {
-                            let on = !state::boot(app.clone()).house;
-                            state::update(app, |current| current.house = on);
-                            let _ = settings.house.set_checked(on);
-                            publish(app);
-                        }
-                        "autostart" => {
-                            let launcher = app.autolaunch();
-                            let on = launcher.is_enabled().unwrap_or(false);
-                            let _ = if on { launcher.disable() } else { launcher.enable() };
-                            let _ = settings.autostart.set_checked(!on);
-                        }
+                        "preferences" => preferences(app),
                         "show" => anchor_strip(app),
                         "hide" => {
                             if let Some(window) = app.get_webview_window("main") {

@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "prefs",
+  "description": "The preferences window. It reads and writes settings and nothing else — none of the strip's window permissions, because it is an ordinary window that has no business moving itself or letting clicks through.",
+  "windows": [
+    "prefs"
+  ],
+  "permissions": [
+    "core:default",
+    "core:event:default"
+  ]
+}
