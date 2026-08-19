@@ -309,6 +309,11 @@ export const es: CompanionCopy = {
 			'Ahora tengo opiniones, y son peores.',
 			'No corrige nada. Nunca lo hizo.',
 		],
+		ninjamask: [
+			'No pod\u00e9s verme la cara. Ese es el trato.',
+			'Es sobre todo por el misterio.',
+			'Yo s\u00ed te veo.',
+		],
 	},
 
 	propFuss: {
@@ -349,6 +354,7 @@ export const es: CompanionCopy = {
 		sneakers: ['El izquierdo aprieta m\u00e1s.', 'Chirr\u00edan cuando pienso.'],
 		wellies: ['Me quedan medio n\u00famero grandes.', 'Uno tiene un charco dentro. No pregunt\u00e9s.'],
 		monocle: ['Se me cae cuando me sorprendo.', 'La cadena se engancha con todo.'],
+		ninjamask: ['Se me empa\u00f1a.', 'La correa va donde tendr\u00eda las orejas.'],
 	},
 
 	propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],

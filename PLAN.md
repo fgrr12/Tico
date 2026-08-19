@@ -665,8 +665,8 @@ accident.
 
 The face was one hard-coded drawing. It is now four slots — shell, hands, feet,
 antenna — each a registry of variants in `parts.tsx`, picked in a preferences
-window and stored in `tico.json`. Eight shells, five hands, six feet and six
-antennas is 1440 bodies out of twenty-five drawings, which is the entire argument
+window and stored in `tico.json`. Nine shells, five hands, six feet and six
+antennas is 1620 bodies out of twenty-six drawings, which is the entire argument
 for slots over drawing whole pets.
 
 **The landmark contract is the decision, and it is what makes this cheap.** Every

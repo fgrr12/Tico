@@ -516,6 +516,39 @@ const Prop = ({ kind }: { kind: string }) => {
 					<path d="M68.5 47 l9-2" strokeLinecap="round" />
 				</g>
 			)
+		case 'ninjamask':
+			// Three pieces rather than one shape with a hole cut in it, and the gap
+			// between them *is* the eye slot. Its edges are the numbers that matter:
+			// the widest eye he has runs y43–57, so the brow stops at 41.5 and the
+			// plate starts at 58.5. Anything greedier and a `wow` gets its eyes
+			// clipped by the thing that is supposed to be framing them.
+			return (
+				<g className="companion-prop">
+					<path
+						d="M26 33 H70 A10 10 0 0 1 80 43 V41.5 H16 V43 A10 10 0 0 1 26 33 Z"
+						fill="#2f3856"
+					/>
+					{/* A lit top edge, or the brow is a flat bar. */}
+					<path
+						d="M27 34.6 H69 A8.4 8.4 0 0 1 77.4 43 H76 A7 7 0 0 0 69 36 H27 A7 7 0 0 0 20 43 H18.6 A8.4 8.4 0 0 1 27 34.6 Z"
+						fill="#46527d"
+					/>
+
+					{/* The cheek struts, which are what turn a gap into a slot. */}
+					<rect x="16" y="41.5" width="5.4" height="17" fill="#2f3856" />
+					<rect x="74.6" y="41.5" width="5.4" height="17" fill="#2f3856" />
+
+					<path d="M16 58.5 H80 V65 Q80 75 69.5 75 H26.5 Q16 75 16 65 Z" fill="#2f3856" />
+					<path d="M16 58.5 H80 V60.4 H16 Z" fill="#46527d" />
+
+					{/* A vent, and the one hot colour the thing this copies has. */}
+					<g fill="#1e2438">
+						<rect x="36" y="65" width="24" height="1.8" rx="0.9" />
+						<rect x="39" y="68.6" width="18" height="1.8" rx="0.9" />
+					</g>
+					<path d="M64 63.5 l7-2 l-1.4 4 l1.4 4 l-7-2 z" fill="#e08a3c" />
+				</g>
+			)
 		case 'moustache':
 			return (
 				<g className="companion-prop">

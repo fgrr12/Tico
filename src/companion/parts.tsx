@@ -458,6 +458,69 @@ const SHELLS = slot({
 			</g>
 		</>
 	),
+	/*
+	 * The ninja out of the same game the white one came from: pearl helmet, dark
+	 * wrap, one hot orange accent.
+	 *
+	 * The thing it is copied from wears a mask across the lower half of its face
+	 * with a single glowing eye above it, and that cannot be done here — the eyes
+	 * and the mouth are the character, and a mask over them is a shell that has
+	 * deleted the expression it exists to frame. So the mask is split around the
+	 * face instead: a band across the brow, in the strip above the glass that is
+	 * nobody else's, and a wrap under the chin below it. Both live entirely
+	 * outside x15–81 / y32–74, which is the contract's whole point.
+	 */
+	ninja: ({ screenColor }: PartProps) => (
+		<>
+			<rect
+				x="8"
+				y="16"
+				width="80"
+				height="66"
+				rx="22"
+				fill="#dfe4ef"
+				stroke="#a9b1c5"
+				strokeWidth="2"
+			/>
+			<ellipse cx="48" cy="26" rx="25" ry="6.5" fill="#ffffff" opacity="0.6" />
+
+			<rect x="12" y="28" width="72" height="48" rx="16" fill="#212739" />
+
+			<rect
+				className="companion-screen"
+				x="15"
+				y="32"
+				width="66"
+				height="42"
+				rx="9"
+				fill={screenColor}
+				stroke="#14192a"
+			/>
+			<g clipPath="url(#tico-glass)">
+				<path d="M15 51 L34 32 H45 L15 62 Z" fill="url(#tico-glare)" />
+			</g>
+
+			{/* The wrap under his chin. It starts at 74, where the glass stops —
+			    a unit higher and it is drawn across the widest mouth he has. */}
+			<path d="M12 74 q36 7 72 0 v2.5 q-3 5-8 5.6 q-28 3-56 0 q-5-0.6-8-5.6 z" fill="#262d4a" />
+
+			{/* The band over the brow, sagging at the ends the way one does on a
+			    round head. */}
+			<path d="M12.5 29 Q48 20 83.5 29 V23.5 Q48 14.5 12.5 23.5 Z" fill="#262d4a" />
+			<path d="M12.5 26 Q48 17.2 83.5 26 V24.6 Q48 15.8 12.5 24.6 Z" fill="#333c63" />
+
+			{/* Knot and tails, off the right end. Above y=40, so the headphone cups
+			    and everything else worn at the sides still land on him. */}
+			<path d="M80 22.5 l6.5-3 l-1 5.5 l1 5.5 l-6.5-3 z" fill="#262d4a" />
+			<path d="M86 21 q9 1 12.5 7 q-5 0.5-9-2.5 z" fill="#333c63" />
+			<path d="M86 27.5 q9 3 11 9.5 q-5-1-8.5-4.5 z" fill="#262d4a" />
+
+			{/* The one hot colour, which is what makes it that ninja rather than a
+			    robot in a headband. */}
+			<circle cx="30" cy="22.6" r="3" fill="#e08a3c" />
+			<circle cx="30" cy="22.6" r="1.2" fill="#f6c79a" />
+		</>
+	),
 })
 
 const HANDS = slot({

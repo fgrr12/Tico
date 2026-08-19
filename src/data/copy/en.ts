@@ -304,6 +304,11 @@ export const en: CompanionCopy = {
 			'I have opinions now, and they are worse.',
 			'It corrects nothing. It never did.',
 		],
+		ninjamask: [
+			'You cannot see my face. That is the arrangement.',
+			'It is mostly for the mystery.',
+			'I can still see you.',
+		],
 	},
 
 	propFuss: {
@@ -344,6 +349,7 @@ export const en: CompanionCopy = {
 		sneakers: ['The left one is tighter.', 'They squeak when I think.'],
 		wellies: ['They are half a size out.', 'One of them has a puddle in it. Do not ask.'],
 		monocle: ['It falls out when I am surprised.', 'The chain catches on everything.'],
+		ninjamask: ['It fogs up.', 'The strap goes where my ears would be.'],
 	},
 
 	propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],

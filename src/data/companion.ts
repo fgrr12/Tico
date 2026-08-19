@@ -388,6 +388,7 @@ export const WEARS: Record<string, Where> = {
 	shades: 'face',
 	glasses: 'face',
 	monocle: 'face',
+	ninjamask: 'face',
 	moustache: 'face',
 	scarf: 'neck',
 	tie: 'neck',
@@ -435,6 +436,7 @@ export const PROPS = [
 	'sneakers',
 	'wellies',
 	'monocle',
+	'ninjamask',
 ]
 
 /**
