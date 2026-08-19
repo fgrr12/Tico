@@ -165,7 +165,9 @@ input[type="checkbox"] {
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	width: 52%;
+	/* As big as the ring's own clearance allows. Bigger than this and the
+	   handles on his edges start meeting the orbs. */
+	width: 58%;
 }
 
 .prefs-mark {

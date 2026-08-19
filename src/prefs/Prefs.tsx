@@ -416,9 +416,17 @@ export const Prefs = () => {
 							 */}
 							{region &&
 								lists.map((one, index) => {
-									const away = region.at[0] >= 48 ? 1 : -1
-									const x = region.at[0] + away * (14 + index * 4)
-									const y = region.at[1] + (lists.length === 1 ? 0 : index * 26 - 13)
+									// Placed *sideways* around him rather than straight out from
+									// him. Out was fine for the head, where sideways and out are
+									// the same thing, and wrong everywhere else: off the hand it
+									// pushed them along the radius and into the ring's own band,
+									// where they only stayed clear by landing in the gaps
+									// between two orbs. Along the tangent they keep the marker's
+									// distance from his centre, which is well inside the ring.
+									const a = Math.atan2(region.at[1] - 48, region.at[0] - 48)
+									const spread = lists.length === 1 ? 0 : index * 30 - 15
+									const x = region.at[0] + Math.cos(a) * 6 - Math.sin(a) * spread
+									const y = region.at[1] + Math.sin(a) * 6 + Math.cos(a) * spread
 
 									return (
 										<button
