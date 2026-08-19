@@ -14,6 +14,7 @@ import {
 	familiarityFrom,
 	PALETTE,
 	PROPS,
+	SOUVENIRS,
 	wornFrom,
 	TERRORS,
 	energyAt,
@@ -1634,7 +1635,6 @@ export const Companion = ({
 		 * bring back nothing at all — if he returned holding something every time,
 		 * behind the screen would be a vending machine rather than somewhere dusty.
 		 */
-		const SOUVENIRS = ['cobweb', 'bolt', 'dust']
 
 		const backFromBehind = () => {
 			if (Math.random() < 0.4) {

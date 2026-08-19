@@ -325,6 +325,14 @@ check('every prop is drawn, written and on the sheet', () => {
 	const worn = [...PROPS, ...SOUVENIRS, 'headphones']
 	const drawn = [...face.matchAll(/^\t\tcase '(\w+)':/gm)].map((m) => m[1])
 
+	// The wardrobe lives in the data and nowhere else. It was in the component
+	// once, and moving it left a copy behind: for a while the list this check
+	// validated and the list he actually drew from were two different lists, so a
+	// souvenir added to his could have had no place, no lines, and no way to know.
+	for (const list of ['PROPS', 'SOUVENIRS']) {
+		assert(!companion.includes(`const ${list} =`), `Companion.tsx has its own ${list} again`)
+	}
+
 	for (const kind of worn) {
 		// A prop with no place is dropped by `wornFrom` on its way to being drawn:
 		// he puts it on, says a line about it, and nothing appears. Silent, and

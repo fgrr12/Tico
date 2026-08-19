@@ -153,7 +153,7 @@ fn most_used(counts: &HashMap<String, u32>) -> Option<String> {
     counts
         .iter()
         .filter(|(_, used)| **used >= FAVOURITE_AFTER)
-        .max_by_key(|(kind, used)| (**used, kind.clone()))
+        .max_by_key(|(kind, used)| (**used, *kind))
         .map(|(kind, _)| kind.clone())
 }
 
