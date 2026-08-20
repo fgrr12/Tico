@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { FURNITURE, houseCopy, sceneAt } from '../src/house/house.ts'
+import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt } from '../src/house/house.ts'
 import { prefsCopy } from '../src/prefs/copy.ts'
 import {
 	companionCopy,
@@ -58,10 +58,26 @@ const assert = (ok, message) => {
 
 // ── the behaviour table, read out of the component ──────────────────────────
 
-const table = companion.slice(
-	companion.indexOf('const moments: Record<string, Moment>'),
-	companion.indexOf('const wear = (kind: string')
-)
+/**
+ * Sliced between two anchors in the source, and both are asserted rather than
+ * trusted.
+ *
+ * `indexOf` returns -1 when an anchor moves, and `slice(start, -1)` is not an
+ * error — it is the whole rest of the file, so every check below quietly starts
+ * scanning code that is not the behaviour table. That happened the moment `wear`
+ * was hoisted out of the poll, and the only symptom was the animation count
+ * going up by one.
+ */
+const between = (from, to) => {
+	const start = companion.indexOf(from)
+	const end = companion.indexOf(to)
+	if (start === -1 || end === -1 || end < start) {
+		throw new Error(`Companion.tsx no longer has the anchor: ${start === -1 ? from : to}`)
+	}
+	return companion.slice(start, end)
+}
+
+const table = between('const moments: Record<string, Moment>', 'const wearSomething =')
 const behaviours = [...table.matchAll(/^\t\t\t(\w+): \{/gm)].map((match) => match[1])
 
 /**
@@ -80,10 +96,7 @@ const moments = entries.map((match, index) => {
 })
 const animations = [...new Set([...table.matchAll(/'(\w+)'(?=, \d)/g)].map((match) => match[1]))]
 
-const byFeeling = companion.slice(
-	companion.indexOf('const BY_FEELING'),
-	companion.indexOf('const preferred')
-)
+const byFeeling = between('const BY_FEELING', 'const preferred')
 
 const feelings = Object.keys(PALETTE)
 
@@ -397,6 +410,31 @@ check('every prop is drawn, written and on the sheet', () => {
 	assert(unworn.length === 0, `drawn but never worn: ${unworn.join(', ')}`)
 
 	return `${worn.length} props`
+})
+
+check('what he brings up from the burrow is a thing that exists', () => {
+	// A typo here is a pet who comes up out of the floor wearing nothing and
+	// remarking on it — `wornFrom` drops a prop with no place, and a missing key
+	// in `copy.props` is `undefined`, which `wear` treats as "say nothing". Both
+	// are silent, and both look like the feature simply not having fired.
+	for (const [room, kind] of Object.entries(BROUGHT_UP)) {
+		assert(FURNITURE.includes(room), `${room} is not a room he can be in`)
+		assert(WEARS[kind], `he brings up ${kind} from the ${room}, and it has no place`)
+		for (const language of ['en', 'es']) {
+			assert(
+				companionCopy[language].props[kind]?.length > 0,
+				`${language} has nothing for the ${kind} he brings up`
+			)
+		}
+	}
+
+	// Every room has to give something, or one of the three burrows is the one
+	// where nothing ever happens and the payoff reads as random.
+	for (const room of FURNITURE) {
+		assert(BROUGHT_UP[room], `nothing ever comes up from the ${room}`)
+	}
+
+	return `${Object.values(BROUGHT_UP).join(', ')}`
 })
 
 check('every body part carries the hooks the rest of him drives it by', () => {

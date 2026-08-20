@@ -61,6 +61,30 @@ export const sceneAt = (since: number, now: number, favourite: string | null): S
 	return { at, minutes, settled: minutes >= 2 }
 }
 
+/**
+ * What he comes back up holding, by the room he was last in.
+ *
+ * **The house was the only absence in the app that returned nothing.** He went
+ * down, he came up, and nothing about him had changed — while `behind`, which is
+ * the same shape exactly (he leaves, you cannot see, he returns), pays off on his
+ * body with a cobweb. The payoff belongs where you are already looking, and a map
+ * you have to open is not that place.
+ *
+ * Every one of these is drawn *inside the room it comes from*: the mug is on the
+ * nook's shelf, the plant is in the warm room, and the long room is crates and
+ * barrels, which is where dust lives. That is the whole rule — the evidence has
+ * to already be in the picture, or it is a random hat with a story attached.
+ *
+ * Not recorded towards the favourite, for the same reason a cobweb is not: the
+ * favourite bends the next random draw, and something he only picked up because
+ * he happened to be standing next to it did not tell you anything about taste.
+ */
+export const BROUGHT_UP: Record<Furniture, string> = {
+	chair: 'coffee',
+	lamp: 'flower',
+	rug: 'dust',
+}
+
 type Lines = Record<Furniture, string[]>
 
 /**

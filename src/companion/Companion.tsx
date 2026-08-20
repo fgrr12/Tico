@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { CompanionFace } from './CompanionFace'
 import type { CompanionParts } from './parts'
 import { BurrowMap, Hatch } from '../house/House.tsx'
-import { FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
+import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
 
 import {
 	DAY_MILESTONES,
@@ -336,6 +336,16 @@ export const Companion = ({
 	 */
 	const [looking, setLooking] = useState<number | null>(null)
 	const homeAt = useRef(0)
+	/**
+	 * When he actually got *in*, as opposed to when he set off for the door.
+	 *
+	 * A ref rather than reading the `home` state, and that is not a style choice:
+	 * the timer that brings him back up is created inside `settleIn`, one render
+	 * before `home` is set, so a `comeOut` that closed over the state would be
+	 * holding the copy where he was never inside. This is read at the moment he
+	 * leaves, which is the only moment it is asked about.
+	 */
+	const homeSince = useRef(0)
 	const homeTimer = useRef(0)
 	const houseRef = useRef<HTMLButtonElement>(null)
 	const roomRef = useRef<HTMLDivElement>(null)
@@ -794,6 +804,50 @@ export const Companion = ({
 	}, [houseOn])
 
 	/**
+	 * Putting something on, and the one timer that takes it off again.
+	 *
+	 * Shared by the three things that can dress him — picking a hat for no reason,
+	 * coming back from behind the screen wearing what he found, and coming up out
+	 * of the burrow holding something from the room he was in — because all three
+	 * need the identical two-step exit. A souvenir that never came off would stop
+	 * being a souvenir and become a permanent feature. `lines` is already decided
+	 * by the caller: whether he comments on the thing is a different question for
+	 * a hat than it is for a cobweb.
+	 *
+	 * Out here rather than inside the idle poll, which is where it lived while
+	 * only that poll needed it. `comeOut` is not in the poll and cannot be.
+	 */
+	const wear = useCallback(
+		(kind: string, lines?: string[]) => {
+			setProp(kind)
+			// In case the last one was still on its way out. Whatever is arriving
+			// wins, and it should arrive putting itself on rather than taking itself
+			// off.
+			setPropLeaving(false)
+
+			// A beat after it appears, not with it. He puts the thing on and *then*
+			// has an opinion about it, which is the order those two happen in.
+			if (lines) window.setTimeout(() => say(pick(lines), 5_000), 1_200)
+
+			clearTimeout(propTimer.current)
+			propTimer.current = window.setTimeout(() => {
+				// Two steps: the exit plays, and only then does the node go. The
+				// second timer reuses the same ref, so the unmount cleanup already
+				// covers both halves and there is nothing new to tear down.
+				setPropLeaving(true)
+				// Taking it off is the smaller event and gets commented on less.
+				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
+
+				propTimer.current = window.setTimeout(() => {
+					setProp(null)
+					setPropLeaving(false)
+				}, PROP_LEAVE)
+			}, 25_000 + Math.random() * 70_000)
+		},
+		[copy, say]
+	)
+
+	/**
 	 * Going home, and coming out again.
 	 *
 	 * He walks to the door, stops existing on the strip for a while, and lets
@@ -810,7 +864,9 @@ export const Companion = ({
 	 * either is identical, including how long he then decides to stay.
 	 */
 	const settleIn = useCallback(() => {
-		setHome(Date.now())
+		const at = Date.now()
+		homeSince.current = at
+		setHome(at)
 		setBubble(null)
 		// Remembered on the way in rather than on the way out, so a session that
 		// ends while he is down there still counted the visit.
@@ -834,10 +890,36 @@ export const Companion = ({
 		setHome(null)
 		homeAt.current = Date.now()
 		react('happy', 'pop', 1_600)
-		if (Math.random() < 0.6) say(pick(houseCopy(language).leaving), 3_600)
+
+		/*
+		 * Something from the room he was last in, about half the time.
+		 *
+		 * The room is derived at the moment he leaves rather than at the moment
+		 * you last looked, so going in for the nook and coming up dusty is not a
+		 * mismatch — it is him having moved while the door was shut, which is what
+		 * `sceneAt` has always said happens.
+		 *
+		 * Half, because every time turns the burrow into a vending machine, which
+		 * is the exact note already written against the trips behind the screen.
+		 */
+		const brought =
+			homeSince.current > 0 && Math.random() < 0.5
+				? BROUGHT_UP[sceneAt(homeSince.current, Date.now(), opening.chair).at]
+				: null
+
+		if (brought) {
+			// Whatever he is holding *is* the arrival line. Saying "I am back" and
+			// then remarking on a mug a second later is two bubbles for one event,
+			// and the first one loses — `say` replaces the bubble, so the greeting
+			// would be cut off mid-word by its own punchline.
+			wear(brought, Math.random() < 0.75 ? copy.props[brought] : undefined)
+		} else if (Math.random() < 0.6) {
+			say(pick(houseCopy(language).leaving), 3_600)
+		}
+
 		// A few steps out of the doorway, so he does not stand in his own porch.
 		moveTo(HOUSE_X + 120 + Math.random() * 160, 0, WALK_SPEED)
-	}, [language, moveTo, react, say])
+	}, [language, moveTo, react, say, wear, copy, opening])
 
 	/** Stand where he stood last time, once the strip has a width to measure. */
 	// biome-ignore lint: runs once, on the remembered position.
@@ -1588,43 +1670,6 @@ export const Companion = ({
 			},
 		}
 
-		/**
-		 * Putting something on, and the one timer that takes it off again.
-		 *
-		 * Shared by the two things that can dress him — picking a hat for no
-		 * reason, and coming back from behind the screen wearing what he found —
-		 * because both need the identical two-step exit. A souvenir that never
-		 * came off would stop being a souvenir and become a permanent feature.
-		 * `lines` is already decided by the caller: whether he comments on the
-		 * thing is a different question for a hat than it is for a cobweb.
-		 */
-		const wear = (kind: string, lines?: string[]) => {
-			setProp(kind)
-			// In case the last one was still on its way out. Whatever is arriving
-			// wins, and it should arrive putting itself on rather than taking itself
-			// off.
-			setPropLeaving(false)
-
-			// A beat after it appears, not with it. He puts the thing on and *then*
-			// has an opinion about it, which is the order those two happen in.
-			if (lines) window.setTimeout(() => say(pick(lines), 5_000), 1_200)
-
-			clearTimeout(propTimer.current)
-			propTimer.current = window.setTimeout(() => {
-				// Two steps: the exit plays, and only then does the node go. The
-				// second timer reuses the same ref, so the unmount cleanup already
-				// covers both halves and there is nothing new to tear down.
-				setPropLeaving(true)
-				// Taking it off is the smaller event and gets commented on less.
-				if (Math.random() < 0.3) say(pick(copy.propOff), 4_000)
-
-				propTimer.current = window.setTimeout(() => {
-					setProp(null)
-					setPropLeaving(false)
-				}, PROP_LEAVE)
-			}, 25_000 + Math.random() * 70_000)
-		}
-
 		const wearSomething = () => {
 			// Headphones only while something is playing — the one prop with a
 			// reason, which is what makes the rest read as having none.
@@ -2038,6 +2083,7 @@ export const Companion = ({
 		houseOn,
 		moveTo,
 		clampPos,
+		wear,
 		limits,
 		peekRestX,
 		climb,
