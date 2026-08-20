@@ -104,17 +104,21 @@ the macOS half already written and a stub next to it.
 
 ## Install
 
-macOS, from a release build:
+**[Download from Releases](../../releases)** — `.dmg` for macOS (Apple Silicon and
+Intel), `.msi`/`.exe` for Windows, `.deb`/`.AppImage` for Linux. Every one of them
+is built by CI on its own platform.
+
+He is **not signed and will not be** — notarisation is $99/year to remove one
+right-click, and at this size that is not a trade worth making. So each system
+will complain once, and every release page carries the one command or the one
+click that answers it. On macOS it is this, after copying him to `/Applications`:
 
 ```sh
-pnpm install
-pnpm t:b
-# then copy src-tauri/target/release/bundle/macos/tico.app to /Applications
 xattr -d com.apple.quarantine /Applications/tico.app
 ```
 
-He is **not signed and will not be** — notarization is $99/year to remove one
-right-click. That last command is what stands in for it; the reasoning is in
+Without it macOS says *"tico is damaged and can't be opened"*, which is its
+unhelpful phrasing for "unsigned". The longer reasoning is in
 [RELEASING.md](RELEASING.md).
 
 ## Build and hack on him

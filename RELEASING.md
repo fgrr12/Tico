@@ -1,5 +1,23 @@
 # Releasing tico
 
+## Cutting one
+
+```sh
+# tauri.conf.json's version and the tag have to match — CI refuses otherwise
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` then builds on all four targets — macOS on both
+architectures, Windows, Linux — and hangs every bundle off a **draft** release.
+It stops there on purpose: the last step is a person reading the page and
+pressing Publish, because the alternative is a mistyped tag becoming an
+announcement. The draft already carries the unsigned-install instructions below.
+
+Building by hand is still what the rest of this file is about, and it is what CI
+is doing on your behalf.
+
+---
+
 `pnpm t:b` produces both bundles on macOS:
 
 ```
