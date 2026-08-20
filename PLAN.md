@@ -658,6 +658,95 @@ Side effect worth keeping: `smallest_model()` picking the smallest installed
 model was a bet on latency. The 7B comparison makes it the quality bet too, for
 this workload.
 
+## Tried and rejected: the model as a chooser
+
+The seventh attempt, and the last idea standing after the other six. Everything
+before it asked a model to *write*; this asked it only to **choose**, which is
+the one job the Spanish finding does not rule out. It never produces a word. It
+is handed the moment and the pool of hand-written lines the chatter already
+draws from, and returns an index. Register cannot break, because nothing is
+generated.
+
+The question it was built to answer is the honest, marginal one: the ladder
+already picks the feeling and the feeling already builds the pool, so **does
+choosing inside that pool beat `pick()`?** That is the gap this document names
+— a distribution is varied, not alive.
+
+It is in `scripts/pick.mjs`, with the kill criterion written down *before* the
+run rather than negotiated after it. Two gates: a mechanical one that costs
+nothing, and only if that passes, a blind A/B against the random draw needing
+65% of 60 moments with "neither" counting against the model.
+
+**It died at the first gate and the A/B was never run.** The shape of the
+failure moved twice while it was being measured, and both moves are the finding.
+
+**It was measured wrong first, in two ways, and both were flattering.** The
+stability check asked the same question with the list in the same order — at
+temperature zero that is guaranteed, so it scored 100% and meant nothing. And
+the pool is built `idle` first with the feeling's lines *last*, so a model that
+prefers the top of a numbered list never reaches them: the median chosen
+position was **2 out of 52**. Those were bugs in the exam, not results. Fixing
+them did not rescue the model — it made the failure honest, which is the only
+reason the rest is worth recording.
+
+**Then the length of the list turned out to be most of the answer.** One of
+fifty-two: reshuffling changed the answer essentially every time. One of eight:
+it holds an answer through a reshuffle about twice as often as guessing does.
+Same model, same lines, smaller question. So the first verdict written here —
+that the model simply *is* `pick()` — was too strong, and this is the correction.
+
+Where it ended, 60 moments, 8 candidates, qwen2.5:3b:
+
+| | |
+| --- | --- |
+| returns a usable index | 100% |
+| median latency | 374ms |
+| distinct lines chosen | 35 |
+| **same line under two list orders** | **25%** — chance is 13%, the bar was 70% |
+| picked from the feeling's own lines | 38%, against a chance rate of 50% |
+
+Twice chance is a real signal and nowhere near enough: something that changes
+its mind on three moments in four when only the *order* moved is glancing at the
+moment, not reading it. The second number settles it — half the candidates are
+the lines written for that exact moment and it picks them **less often than a
+coin would**.
+
+Two variants were tried before calling it, 20 moments each:
+
+| | same line | from the feeling |
+| --- | --- | --- |
+| 8 candidates | 45% | 45% |
+| + a long, exact persona and explicit selection rules | 45% | 55% |
+| + told outright which feeling he is in | 55% | 80% |
+
+**A richer description of who he is bought nothing measurable**, which is worth
+knowing because it is the obvious lever and it is the wrong one. The task is not
+"know tico"; it is "read eight Spanish sentences and compare them against five
+facts", and no amount of character sheet helps with that.
+
+The last row closes the question rather than opening one. Hand it the feeling
+and it follows the feeling — but the feeling is `feelingFrom`, thirteen `if`s
+that run in a microsecond, being read back to us for 374ms and 1.8 GB. What is
+left for a model *after* the ladder has chosen is picking among four lines
+already known to fit, and that job is too small to pay for a runtime dependency
+even if it were done well.
+
+Not retried at 7B: the comparison above already found more latency and no more
+skill on the neighbouring task, and 7B at Q4 is over the 4 GB ceiling this was
+asked to fit inside.
+
+What this closes: **selection was the last cheap place a model could have gone.**
+Writing was ruled out six times over, and choosing turns out not to be a smaller
+ask — it is the same reading-comprehension problem with the output truncated to
+an integer. The remaining idea is the one that costs the most and was ranked last
+on purpose: a model that distils *what you told him* into a handful of facts. It
+is untried, and nothing here argues for or against it.
+
+`scripts/pick.mjs` stays as the apparatus and the record. It imports from the
+real copy and the real ladder, so it can be pointed at a better model in a year
+without being rewritten, and it is one `rm` whenever that stops being
+interesting.
+
 ## He has a body now, and it is a costume
 
 Not in the original plan, and worth writing down before somebody reverses it by

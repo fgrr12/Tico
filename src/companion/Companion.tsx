@@ -115,6 +115,37 @@ const HEAT_FULL = 0.7
 const SAY_REVEAL = 16
 
 /**
+ * How often he simply does not finish what he started.
+ *
+ * Everything he does currently works. He never reaches for something and misses,
+ * never abandons a sequence halfway, never loses the thread — and a creature that
+ * completes every routine it begins reads as a script running, because that is
+ * what it is. Failure is the cheapest thing here to write and the most of what
+ * reads as an interior.
+ */
+const LOSES_INTEREST = 0.3
+/**
+ * How long an interrupted intention is worth coming back to.
+ *
+ * The other half of the same idea. Chains only ever ran forwards: interrupt him
+ * mid-yawn and the sit that was coming never happened and was never missed.
+ * Going back to what he was doing is what makes it look like there was a plan,
+ * and a plan is the difference between a sequence and a shuffle.
+ */
+const RESUME_WITHIN = 25_000
+/** He will not set himself somewhere to be more often than this. */
+const ERRAND_EVERY = 190_000
+
+/**
+ * The feelings in which being petted is not automatically welcome.
+ *
+ * He has always responded to every single pet, which makes him a button rather
+ * than a creature. These are the states where a small animal would want a minute
+ * instead — and three of the five are ones that being handled just caused.
+ */
+const PRICKLY: Feeling[] = ['rattled', 'scared', 'worried', 'restless', 'sleepy']
+
+/**
  * How fast he talks, by feeling. Not decoration: a line blurted out in nine
  * milliseconds a character and the same line dragged out at thirty are two
  * different deliveries of the same words, and delivery is most of what tone is.
@@ -363,6 +394,11 @@ export const Companion = ({
 	const homeX = useRef<number | null>(null)
 	const waveAt = useRef(0)
 	const silent = useRef({ quietUntil: 0, presenting: false })
+	/** What he was about to do next, kept across whatever got in the way of it. */
+	const chain = useRef<{ next: string; until: number } | null>(null)
+	/** Somewhere he decided to be, for no reason he would give. */
+	const errand = useRef<number | null>(null)
+	const errandAt = useRef(0)
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -958,9 +994,29 @@ export const Companion = ({
 			clearTimeout(petTimer.current)
 			petTimer.current = window.setTimeout(() => {
 				if (dragged.current) return
+				// Counted either way. Whether he was in the mood is his business;
+				// that you did it is the fact the memory is keeping.
+				onRemember('pet')
+
+				/*
+				 * Sometimes he is not in the mood, and it is never random.
+				 *
+				 * Responding to every single pet with the same delight is what makes
+				 * something a button. The states this declines in are mostly ones
+				 * being handled just caused — rattled from being thrown around,
+				 * restless, or simply asleep on his feet at two in the morning — and
+				 * his own lines for that feeling are already exactly the right words
+				 * for being touched during it, so there is nothing new to write.
+				 */
+				if (PRICKLY.includes(feelingNow.current) && Math.random() < 0.6) {
+					react('idle', 'shake', 1_100)
+					lookAt(0, 0.5, 1_400)
+					say(pick(copy.feelings[feelingNow.current]), 3_600)
+					return
+				}
+
 				react('love', 'pop', 3_200)
 				say(pick(copy.pet), 3_600)
-				onRemember('pet')
 			}, PET_AFTER)
 		} else if (!inside && hovering.current) {
 			hovering.current = false
@@ -971,7 +1027,7 @@ export const Companion = ({
 
 		if (!inside && near && moodNow.current === 'idle') setMood('watching')
 		else if (!near && moodNow.current === 'watching') setMood('idle')
-	}, [cursor, copy, pending, react, say, applyLook])
+	}, [cursor, copy, pending, react, say, applyLook, lookAt, onRemember])
 
 	useEffect(() => {
 		let open = 0
@@ -1228,6 +1284,21 @@ export const Companion = ({
 		 * Costs nothing: this is a different keyframe name on a `react` that was
 		 * already being called. No animation runs that was not running before.
 		 */
+		/**
+		 * He got where he was going. There was nothing there.
+		 *
+		 * That is the whole payoff and it is deliberate: an errand with something
+		 * at the end of it is a fetch quest, and he would be running it for you.
+		 * The point is that he wanted to be somewhere, which is the only thing he
+		 * does in the entire state machine that is not a reaction to you.
+		 */
+		const arrive = () => {
+			if (errand.current === null) return
+			errand.current = null
+			react('watching', undefined, 2_000)
+			lookAt(0, 0.4, 1_600)
+		}
+
 		const performDance = (scale = 1) => {
 			const music = nowPlaying
 			if (!music) {
@@ -1365,6 +1436,40 @@ export const Companion = ({
 				min: 0.5,
 				travels: true,
 				run: () => cross(backFromBehind),
+			},
+
+			/**
+			 * Somewhere to be.
+			 *
+			 * Every feeling he has is reactive — he feels because of something you
+			 * did — and until this, so was everything he *did*. This is one number
+			 * and one walk, and what makes it read is not the walk: it is what
+			 * happens when you pick him up on the way. He does not forget where he
+			 * was going. He goes back to going there, which is the cheapest
+			 * possible evidence of an intention that is his rather than yours.
+			 *
+			 * Behind its own floor rather than the shared moment clock, because it
+			 * takes him across the strip and a pet that is always marching
+			 * somewhere is not purposeful, it is agitated.
+			 */
+			errand: {
+				min: 0.35,
+				travels: true,
+				run: () => {
+					if (Date.now() - errandAt.current < ERRAND_EVERY) return
+					errandAt.current = Date.now()
+
+					const { minX, maxX } = limits()
+					const from = posNow.current.x
+					const wanted = minX + Math.random() * (maxX - minX)
+					// Far enough that it is a journey. Anything nearer is a step, and
+					// a step is not worth being interrupted out of.
+					const target =
+						Math.abs(wanted - from) < 200 ? (from < (minX + maxX) / 2 ? maxX : minX) : wanted
+
+					errand.current = target
+					moveTo(target, 0, WALK_SPEED, arrive)
+				},
 			},
 
 			// ── noticing himself ─────────────────────────────────────────────
@@ -1649,13 +1754,46 @@ export const Companion = ({
 			if (Math.random() < 0.55) say(pick(copy.behind), 5_000)
 		}
 
+		/**
+		 * Is anything in the way of him carrying on? The same set the poll below
+		 * guards on, read through refs because this runs from inside a timer rather
+		 * than from a render.
+		 */
+		const free = () =>
+			!asleep.current &&
+			moodNow.current === 'idle' &&
+			!motionNow.current &&
+			!dragged.current &&
+			home === null
+
 		const perform = (key: string) => {
 			const moment = moments[key]
 			if (!moment) return
 			moment.run()
-			if (moment.then) {
-				window.setTimeout(() => moments[moment.then as string]?.run(), 1_900)
-			}
+
+			const next = moment.then
+			if (!next) return
+
+			window.setTimeout(() => {
+				if (free()) {
+					// Sometimes he just does not finish it. `shake` is him noticing he
+					// has lost the thread, and it is the whole of *poder fallar*: the
+					// alternative is a pet that completes every sequence it starts,
+					// which is a script with a face on it.
+					if (Math.random() < LOSES_INTEREST * 0.5) {
+						moments.shake.run()
+						return
+					}
+					moments[next]?.run()
+					return
+				}
+
+				// Something got in the way — you picked him up, or the cursor came
+				// past, or he went somewhere. The intention is kept rather than
+				// dropped on the floor, and the poll below decides whether he still
+				// cares by the time he is free again.
+				chain.current = { next, until: Date.now() + RESUME_WITHIN }
+			}, 1_900)
 		}
 
 		const id = window.setInterval(() => {
@@ -1712,6 +1850,50 @@ export const Companion = ({
 					)
 				}
 				return
+			}
+
+			/*
+			 * Back to what he was doing, ahead of anything else unprompted.
+			 *
+			 * A resumed intention is the tail of something you already watched
+			 * start, so it goes stale far faster than a fresh idea does — which is
+			 * why it jumps the queue and why it expires. And it does not always
+			 * come back: half the time it is a pet finishing what he started, and
+			 * the rest of the time he has forgotten, which is the half that makes
+			 * the first half read as memory rather than as a queue.
+			 */
+			if (chain.current) {
+				const { next, until } = chain.current
+				chain.current = null
+				momentAt.current = now
+				perform(now < until && Math.random() > LOSES_INTEREST ? next : 'shake')
+				return
+			}
+
+			/*
+			 * Put down somewhere else halfway to somewhere: he goes back to going
+			 * there, annoyed about it.
+			 *
+			 * Nothing needs to hook the drop for this. Picking him up clears the
+			 * walk timer, so the callback that would have cleared the errand never
+			 * runs and the target is simply still sitting there — being interrupted
+			 * is the *absence* of the arrival rather than an event to catch.
+			 */
+			if (errand.current !== null) {
+				// Re-clamped every tick rather than trusted as stored. The strip's
+				// limits move — a call starting or ending changes how far past the
+				// edge he is allowed — so a target saved under the old ones can end
+				// up somewhere `moveTo` will not take him, and he would walk at it
+				// every 3.5 seconds forever.
+				const target = clampPos(errand.current, 0).x
+				if (Math.abs(posNow.current.x - target) <= 40) {
+					errand.current = null
+				} else {
+					momentAt.current = now
+					react('idle', 'shake', 700)
+					moveTo(target, 0, WALK_SPEED, arrive)
+					return
+				}
 			}
 
 			// Having been somewhere a long time is worth more than a stock line
@@ -1855,6 +2037,7 @@ export const Companion = ({
 		home,
 		houseOn,
 		moveTo,
+		clampPos,
 		limits,
 		peekRestX,
 		climb,

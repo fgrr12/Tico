@@ -177,6 +177,42 @@ check('he still has something to do from the corner of a call', () => {
 	return `${pool.length} calm, stationary moments`
 })
 
+check('anything that walks him somewhere is marked as travelling', () => {
+	// `travels` is what withholds a behaviour while he is peeking from the corner
+	// of a call, and forgetting it is invisible in every other situation: the
+	// moment works perfectly, and then one day he marches into the middle of a
+	// screen share. The energy floor does not cover it — `flee` costs 0.3 and
+	// crosses the whole strip.
+	const walkers = entries
+		.map((match, index) => {
+			const body = table.slice(match.index, entries[index + 1]?.index ?? table.length)
+			return { name: match[1], moves: body.includes('moveTo('), travels: body.includes('travels: true') }
+		})
+		.filter((one) => one.moves && !one.travels)
+
+	assert(walkers.length === 0, `moves him but is not travelling: ${walkers.map((o) => o.name).join(', ')}`)
+	return `${moments.filter((one) => one.travels).length} travelling`
+})
+
+check('an interrupted behaviour is still picked back up', () => {
+	// Two halves in two different places: `perform` parks the intention when
+	// something gets in the way, and the poll decides later whether he still
+	// cares. Delete either one and nothing errors — chains simply stop resuming,
+	// which looks exactly like a pet that was never going to do the second half.
+	assert(companion.includes('chain.current = { next'), 'nothing parks an interrupted behaviour')
+	assert(companion.includes('if (chain.current)'), 'nothing ever picks one back up')
+
+	// And the errand, whose interruption is the *absence* of its arrival rather
+	// than an event: the target has to be re-clamped, or limits that moved while
+	// he was walking leave him walking at somewhere he cannot stand, forever.
+	assert(companion.includes('errand.current = target'), 'he no longer has anywhere to be')
+	assert(
+		companion.includes('clampPos(errand.current, 0).x'),
+		'the errand target is trusted as stored, which is the forever-walk'
+	)
+	return 'parked, resumed, and re-clamped'
+})
+
 check('every dance has choreography, and every style has a dance', () => {
 	// `DANCES` sits outside the behaviour table, so the animation check below has
 	// never seen it — and a dance whose name has no CSS is a pet that "dances"

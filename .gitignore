@@ -13,3 +13,6 @@ models/
 
 # Sidecar binaries are fetched per platform at build time.
 src-tauri/binaries/
+
+# The A/B answers from scripts/pick.mjs. One afternoon of one person.
+pick-results.json

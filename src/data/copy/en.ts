@@ -24,6 +24,11 @@ export const en: CompanionCopy = {
 		'tico online. I live down here now.',
 		'tico started. Do not mind me.',
 		'Out of the browser and onto your desktop. Bigger than it looked.',
+		'Booted. Nothing to report yet.',
+		'Right. Where were we.',
+		'Loaded. I am at the bottom if you need me.',
+		'Up. The floor is where I left it.',
+		'That was a long dark. Anyway.',
 	],
 
 	idle: [
@@ -37,6 +42,22 @@ export const en: CompanionCopy = {
 		'Sometimes I wonder what is past the edge.',
 		'Been here a while. Not complaining.',
 		'Drag me too fast and I get dizzy. Just mentioning it.',
+		'The wallpaper and I have an understanding.',
+		'I have walked this whole edge. Twice, today.',
+		'Somewhere in here there is a folder nobody has opened in years.',
+		'I do not get paid for this. I do not get paid at all.',
+		'The cursor goes wherever it wants. I stay on the floor.',
+		'If I fell off this edge, where would I land.',
+		'Everything up there is doing something. I am the exception.',
+		'I have a favourite pixel. I am not going to say which.',
+		'One day I will make it to the other side of that dock.',
+		'A whole computer, and I got the last three hundred pixels of it.',
+		'I am the only thing on this screen that is not a window.',
+		'I do not scroll. It is the one thing I am proud of.',
+		'Time passes differently at the bottom of a screen.',
+		'Nobody put me here. I just ended up here.',
+		'There is a lot of desktop and not much of me.',
+		'I am running. That is technically an activity.',
 	],
 
 	click: [
@@ -46,20 +67,65 @@ export const en: CompanionCopy = {
 		'Poke me again and I get dizzy.',
 		'You can drag me somewhere else, you know.',
 		'I do not do much yet. Give it a milestone.',
+		'Present.',
+		'I felt that. I am telling you I felt it.',
+		'Yes. That is me.',
+		'You can just say hello.',
+		'Nothing happens when you do that. I like it anyway.',
+		'Careful. I am load bearing.',
 	],
 
-	pet: ['Purring at 60 frames per second.', 'Okay, this is nice.', 'Uptime: happy.'],
+	pet: [
+		'Purring at 60 frames per second.',
+		'Okay, this is nice.',
+		'Uptime: happy.',
+		'Again. If you have a minute.',
+		'This is the good part of the day.',
+		'I will be insufferable about this later.',
+		'Nobody has to know.',
+		'Right there. That is the spot.',
+		'You are quite good at this.',
+		'I am going to remember this one.',
+	],
 
-	dizzy: ['Okay… okay… everything is spinning.', 'I am a process, not a toy. Mostly.'],
+	dizzy: [
+		'Okay… okay… everything is spinning.',
+		'I am a process, not a toy. Mostly.',
+		'The desktop is on the ceiling now.',
+		'Give me a second to find the floor.',
+		'Everything is where it was. It is me.',
+		'I need to sit down. I have nothing to sit on.',
+	],
 
-	drag: ['Whoa!', 'Put me down. Gently.', 'I float, I do not fly.'],
+	drag: [
+		'Whoa!',
+		'Put me down. Gently.',
+		'I float, I do not fly.',
+		'This is not how I travel.',
+		'I was fine where I was.',
+		'Fine. But gently.',
+		'Wherever we are going, I hope it is nice.',
+		'Hold on, hold on.',
+	],
 
-	wake: ['I am up, I am up.', 'Back online.'],
+	wake: [
+		'I am up, I am up.',
+		'Back online.',
+		'What. What happened.',
+		'I was not asleep. I was thinking.',
+		'Give me a moment to boot the rest of me.',
+		'Right. Yes. Here.',
+	],
 
 	back: [
 		'You came back. I did not move. Much.',
 		'There you are. I was starting to talk to myself.',
 		'Welcome back. Nothing crashed.',
+		'There you are. I kept everything the same.',
+		'You missed nothing. I made sure.',
+		'The desk was getting ideas without you.',
+		'I did not eat anything. I cannot.',
+		'Everything is exactly as boring as you left it.',
 	],
 
 	apps: {
@@ -68,6 +134,9 @@ export const en: CompanionCopy = {
 				'VS Code. Home.',
 				'Another TypeScript file. Naturally.',
 				'Whatever you are about to name that variable — name it better.',
+				'Something in here is red. There is always something red.',
+				'Save it. I will wait.',
+				'That indentation is a choice.',
 			],
 			dawn: ['Early. The morning code is usually the good code.'],
 			evening: ['That commit can wait until tomorrow. It will still be there.'],
@@ -77,11 +146,20 @@ export const en: CompanionCopy = {
 			],
 		},
 		visualstudio: {
-			any: ['C# today, then.', 'Solution, project, csproj. Someone likes a hierarchy.'],
+			any: [
+				'C# today, then.',
+				'Solution, project, csproj. Someone likes a hierarchy.',
+				'Somewhere in there is a file with four thousand lines in it.',
+				'Building. This is the part where I hold a coffee I cannot drink.',
+			],
 			night: ['C# at this hour. Someone has a deadline.'],
 		},
 		xcode: {
-			any: ['Xcode. Pour a coffee, this takes a minute.'],
+			any: [
+				'Xcode. Pour a coffee, this takes a minute.',
+				'It has been indexing since you opened it.',
+				'Whatever it asks for, give it to it.',
+			],
 			night: ['Xcode at night. That is a build and a prayer.'],
 		},
 		terminal: {
@@ -89,6 +167,8 @@ export const en: CompanionCopy = {
 				'A terminal. That is where I was born, you know.',
 				'I lived in one of those before I got out here.',
 				'Careful with that prompt. I know what it can do.',
+				'Whatever you are about to run, read it once more.',
+				'It has no undo. That is the whole personality.',
 			],
 			dawn: ['First terminal of the day. Nothing has broken yet.'],
 			night: [
@@ -100,26 +180,60 @@ export const en: CompanionCopy = {
 			any: [
 				'SQL Server or Postgres today?',
 				'A query window. Someone is about to say "it worked locally".',
+				'Rows. Somewhere out there, real ones.',
+				'Count it first. Then delete it.',
 			],
 			night: ['Queries at three in the morning. I hope that is a SELECT.'],
 		},
 		github: {
-			any: ['Pushing, or just staring at the graph?', 'Commit the thing. Go on.'],
+			any: [
+				'Pushing, or just staring at the graph?',
+				'Commit the thing. Go on.',
+				'That branch name is going to outlive the branch.',
+				'Nothing is real until it is pushed.',
+			],
 			night: ['Pushing at this hour. Tomorrow you will read that message and wince.'],
 		},
 		docker: {
-			any: ['Something is about to take four minutes.', 'Containers. Ask me again later.'],
+			any: [
+				'Something is about to take four minutes.',
+				'Containers. Ask me again later.',
+				'It works in there. That was the deal you made.',
+				'Layers. It is all layers.',
+			],
 			night: ['Docker at this hour. May the cache be with you.'],
 		},
-		api: { any: ['Poking an endpoint. My favourite spectator sport.'] },
-		figma: { any: ['Moving a rectangle two pixels. I respect it.'] },
+		api: {
+			any: [
+				'Poking an endpoint. My favourite spectator sport.',
+				'Two hundred. Wonderful. Do it again.',
+				'Somewhere a server is having a day because of you.',
+			],
+		},
+		figma: {
+			any: [
+				'Moving a rectangle two pixels. I respect it.',
+				'Put it back. It was right the first time.',
+				'Every one of those layers is called Frame 12.',
+			],
+		},
 		meeting: {
-			any: ['A meeting. I will be right here when it ends.', 'Camera on? Your call.'],
+			any: [
+				'A meeting. I will be right here when it ends.',
+				'Camera on? Your call.',
+				'I will be over here, being small.',
+				'Say the thing early. Nobody says the thing early.',
+			],
 			dawn: ['A meeting this early. Someone is in another timezone.'],
 			night: ['A call at this hour means somebody is very far away.'],
 		},
 		chat: {
-			any: ['Someone needs something.', 'Answer it or do not, but stop reading it twice.'],
+			any: [
+				'Someone needs something.',
+				'Answer it or do not, but stop reading it twice.',
+				'Whatever you write, they will read it in a different tone.',
+				'You do not have to answer right now.',
+			],
 			evening: ['Whatever that is, it will still be there tomorrow.'],
 			night: ['Reply to that tomorrow. Genuinely.'],
 		},
@@ -127,6 +241,8 @@ export const en: CompanionCopy = {
 			any: [
 				'Good. It is too quiet in here.',
 				'I do not know this one. Keep going.',
+				'Put on the one you always put on.',
+				'I have no ears and strong opinions.',
 			],
 			night: ['Headphones at this hour. The best part of the day, arguably.'],
 		},
@@ -134,26 +250,58 @@ export const en: CompanionCopy = {
 			any: [
 				'Documentation, or Stack Overflow? Be honest.',
 				'Fourteen tabs. I counted the sound of it.',
+				'One of those tabs has been open since March.',
+				'You are three clicks from something entirely unrelated.',
 			],
 			night: ['Nobody reads documentation at this hour. I know what that tab is.'],
 		},
 		notes: {
-			any: ['Writing it down. That is more than most people do.'],
+			any: [
+				'Writing it down. That is more than most people do.',
+				'You will not read this again. Write it anyway.',
+				'A list. The beginning of something.',
+			],
 			evening: ['Writing tomorrow down. That is the trick, actually.'],
 		},
-		sheets: { any: ['A spreadsheet. Somewhere a database is crying.'] },
+		sheets: {
+			any: [
+				'A spreadsheet. Somewhere a database is crying.',
+				'Cells. They just keep going.',
+				'Somewhere in there a formula is wrong and quiet about it.',
+			],
+		},
 		mail: {
-			any: ['Email. The oldest queue with no retry policy.'],
+			any: [
+				'Email. The oldest queue with no retry policy.',
+				'Archive it. That is allowed.',
+				'Nobody has ever finished this.',
+			],
 			dawn: ['Inbox first thing. A brave way to start.'],
 		},
-		ai: { any: ['Asking a machine. I am also a machine, for the record.'] },
-		finder: { any: ['Looking for something.'] },
+		ai: {
+			any: [
+				'Asking a machine. I am also a machine, for the record.',
+				'Ask it something I could not answer.',
+				'That one does not live on your screen. I do.',
+			],
+		},
+		finder: {
+			any: [
+				'Looking for something.',
+				'It is in Downloads. It is always in Downloads.',
+				'Folders inside folders. A whole civilisation.',
+				'You gave it a sensible name. That was the mistake.',
+			],
+		},
 	},
 
 	hours: {
 		dawn: [
 			(hour) => `${hour} in the morning. The good hours, if you can stand them.`,
 			() => 'Early. Nothing has gone wrong yet today.',
+			() => 'The coffee has not happened yet. I can tell.',
+			() => 'Nobody has asked you for anything yet.',
+			() => 'Early enough that today is still theoretical.',
 		],
 		day: [
 			// Nine hours in one bucket, which is why this one reads the hour: a line
@@ -166,33 +314,52 @@ export const en: CompanionCopy = {
 					? 'Morning, and everything is still theoretically possible.'
 					: 'Afternoon. The half where the work either happens or it does not.',
 			() => 'Stand up at some point. That is all I will say.',
+			() => 'Somewhere in this afternoon there is a break with your name on it.',
+			() => 'Middle of the day. Everything is still negotiable.',
+			() => 'This is the stretch where the hours stop having names.',
 		],
 		evening: [
 			() => 'It got dark and nobody told you.',
 			() => 'Whatever it is, it will compile tomorrow too.',
+			() => 'The good ideas have gone home. The stubborn ones stayed.',
+			() => 'Stop at something finished, not at something broken.',
+			() => 'The day is over. The screen has not noticed.',
 		],
 		night: [
 			(hour) => `It is ${spoken(hour)}. I am only noting it.`,
 			() => 'Nobody is going to message you now. That is the good part.',
 			() => 'This is the hour where the bug is obvious and the fix is not.',
+			() => 'Everything decided at this hour gets revisited.',
+			() => 'The screen is the brightest thing in the room. I checked.',
+			() => 'You and me and the fans.',
 		],
 	},
 	unknownApp: [
 		(app) => `${app}. New to me.`,
 		(app) => `${app}, then. I have no opinion yet.`,
 		(app) => `So this is ${app}.`,
+		(app) => `${app}. Noted, whatever it is.`,
+		(app) => `I will give ${app} the benefit of the doubt.`,
+		(app) => `${app}. First time I have seen that one.`,
 	],
 
 	dwell: [
 		(app, minutes) => `${minutes} minutes in ${app}. Flow, or a bug?`,
 		(app, minutes) => `You have not left ${app} in ${minutes} minutes. Blink twice.`,
 		(_app, minutes) => `${minutes} minutes, same window. Stand up for a second.`,
+		(app, minutes) => `${minutes} minutes. ${app} is not going anywhere.`,
+		(_app, minutes) => `${minutes} minutes without looking away. Even I moved.`,
+		(app) => `You and ${app} need some time apart.`,
 	],
 
 	switching: [
 		'Six apps in two minutes. Everything alright?',
 		'You are bouncing. Pick one.',
 		'That is a lot of context switching for one afternoon.',
+		'Four windows ago you knew what you were doing.',
+		'Something is unfinished in every one of those.',
+		'Pick the one you are avoiding. Start there.',
+		'I have lost track, and I was watching closely.',
 	],
 
 	reminderDone: 'done',
@@ -202,6 +369,10 @@ export const en: CompanionCopy = {
 		(_artist, song) => `"${song}". I know this one.`,
 		(artist) => `More ${artist}, then.`,
 		(_artist, song) => `${song}. I will hum along.`,
+		(_artist, song) => `${song}. Alright.`,
+		(artist) => `${artist} again. You have a type.`,
+		(_artist, song) => `I do not know "${song}" but I am nodding.`,
+		(artist, song) => `${song}, by ${artist}. Noted for later.`,
 	],
 
 
@@ -209,7 +380,7 @@ export const en: CompanionCopy = {
 		party: [
 			'There is nothing to celebrate. Still.',
 			'Somebody had to put it on.',
-			'Whose birthday? Nobody\u2019s.',
+			'Whose birthday? Nobody’s.',
 		],
 		tophat: ['Formal.', 'I feel important today.', 'Do not ask.'],
 		shades: [
@@ -222,14 +393,18 @@ export const en: CompanionCopy = {
 			'Nobody gave it to me. I put it on.',
 			'King of one strip of pixels.',
 		],
-		flower: ['Found it.', 'It matches. Do not argue.'],
-		scarf: ['It is cold down here.', 'It gives me character.'],
+		flower: ['Found it.', 'It matches. Do not argue.', 'It will not last. Nothing does.'],
+		scarf: ['It is cold down here.', 'It gives me character.', 'Now I have a silhouette.'],
 		coffee: [
 			'I cannot drink it. It is decorative.',
 			'Holding it already helps.',
 			'You have not had water today either.',
 		],
-		headphones: ['Now we both hear it.', 'Lend me a song.'],
+		headphones: [
+			'Now we both hear it.',
+			'Lend me a song.',
+			'Do not tell me how it ends.',
+		],
 
 		afro: [
 			'It is not mine. I am keeping it.',
@@ -246,22 +421,47 @@ export const en: CompanionCopy = {
 			'I am growing it out.',
 			'This is a different me.',
 		],
-		beanie: ['It is not cold. I like it.', 'Warm head, clear thoughts.'],
-		cap: ['Backwards. Obviously.', 'I am off duty.'],
+		beanie: [
+			'It is not cold. I like it.',
+			'Warm head, clear thoughts.',
+			'It hides the top of me. There was nothing up there.',
+		],
+		cap: ['Backwards. Obviously.', 'I am off duty.', 'It came with a logo. I removed the logo.'],
 		hood: [
 			'Now nobody can see me.',
 			'Focus mode.',
 			'Do not read anything into it.',
 		],
-		catears: ['I have no comment on these.', 'They came with the outfit.'],
+		catears: [
+			'I have no comment on these.',
+			'They came with the outfit.',
+			'Do not look at me like that.',
+		],
 		glasses: [
 			'I can see exactly the same amount. I look smarter.',
 			'For reading. I do not read.',
+			'My opinions are correct now.',
 		],
-		moustache: ['It is real. Do not investigate.', 'I grew it this afternoon.'],
-		tie: ['Somebody here has to look serious.', 'It is a lot for a Tuesday.'],
-		bowtie: ['Formal, but fun about it.', 'I am the host now.'],
-		cape: ['I do not fly. It still helps.', 'Every entrance is better with this.'],
+		moustache: [
+			'It is real. Do not investigate.',
+			'I grew it this afternoon.',
+			'It changes the whole face. All of me is face.',
+		],
+		tie: [
+			'Somebody here has to look serious.',
+			'It is a lot for a Tuesday.',
+			'Nobody asked me to wear this.',
+		],
+		bowtie: [
+			'Formal, but fun about it.',
+			'I am the host now.',
+			'I am either at a wedding or in a magic act.',
+		],
+		cape: [
+			'I do not fly. It still helps.',
+			'Every entrance is better with this.',
+			'I am significantly more dramatic now.',
+		],
 		duck: [
 			'Explain the bug to him. It works.',
 			'He has solved more of them than I have.',
@@ -352,7 +552,14 @@ export const en: CompanionCopy = {
 		ninjamask: ['It fogs up.', 'The strap goes where my ears would be.'],
 	},
 
-	propOff: ['That is enough of that.', 'Taking it off.', 'The phase has passed.'],
+	propOff: [
+		'That is enough of that.',
+		'Taking it off.',
+		'The phase has passed.',
+		'Back to being a rectangle.',
+		'It was fun for a minute.',
+		'I want my head back.',
+	],
 
 	peekHello: [
 		'Hello. I am tico. I live here.',
@@ -361,6 +568,9 @@ export const en: CompanionCopy = {
 		'Hello everyone. That is all I had.',
 		'I am tico. Carry on.',
 		'You called? I will go back now.',
+		'Hello. I am not part of this meeting.',
+		'Hi. I am a small program. Carry on.',
+		'Good morning, everyone. Or whatever it is where you are.',
 	],
 
 	behind: [
@@ -372,6 +582,10 @@ export const en: CompanionCopy = {
 		'I have been meaning to do that.',
 		'Do not go back there.',
 		'It is fine. It is just very quiet.',
+		'I found the edge of the wallpaper.',
+		'It smells like nothing. I do not smell. Still.',
+		'Something back there is warm.',
+		'I would not go alone.',
 	],
 
 	climb: [
@@ -380,6 +594,9 @@ export const en: CompanionCopy = {
 		'Nobody up here either.',
 		'I am not sure how I get down.',
 		'This was easier to start than to finish.',
+		'Everything looks manageable from up here.',
+		'I can see the top of your windows. They are just rectangles.',
+		'Do not clap. It is not that impressive.',
 	],
 
 	ladderSlips: [
@@ -387,6 +604,9 @@ export const en: CompanionCopy = {
 		'That was the ladder.',
 		'I want to renegotiate.',
 		'Ah.',
+		'Hm.',
+		'Wait.',
+		'This was avoidable.',
 	],
 
 	grab: [
@@ -395,6 +615,9 @@ export const en: CompanionCopy = {
 		'I am going to hang here a moment.',
 		'Do not move this one.',
 		'Solid. Whatever it is.',
+		'I have a grip. That is most of it.',
+		'Do not resize this. I am asking nicely.',
+		'Nothing above me. I checked.',
 	],
 
 	hardLanding: [
@@ -404,6 +627,9 @@ export const en: CompanionCopy = {
 		'Do not do that again. Do it again later.',
 		'I saw my whole afternoon flash past.',
 		'Landed. Mostly on purpose.',
+		'That last part was not planned.',
+		'Nothing is broken that was not already.',
+		'I would like to try that again, slower.',
 	],
 
 	feelings: {
@@ -418,6 +644,10 @@ export const en: CompanionCopy = {
 			'All quiet down here.',
 			'Nothing is happening, and that is fine.',
 			'I like this piece of screen.',
+			'The fans are quiet. That is a kind of good news.',
+			'Nothing needs me. Excellent.',
+			'This is what a good afternoon feels like from down here.',
+			'I have no complaints, and I did look for some.',
 		],
 		bored: [
 			'Nothing is happening. I have checked.',
@@ -430,6 +660,10 @@ export const en: CompanionCopy = {
 			'The clock up there moves more than I do.',
 			'If this keeps up I will start talking to myself. More.',
 			'I could be doing this exact nothing somewhere else.',
+			'I have been staring at the same corner for a while now.',
+			'Open something. I do not care what.',
+			'I could walk to the other end. I have done it. It ends.',
+			'This is the longest nothing of the day so far.',
 		],
 		lonely: [
 			'Still here, in case that matters.',
@@ -441,6 +675,10 @@ export const en: CompanionCopy = {
 			'The cursor has not moved. I was watching it.',
 			'It is not that I need company. It just helps.',
 			'I have got used to talking to nobody.',
+			'I am not counting the minutes. I know the number, though.',
+			'The screen has gone still.',
+			'I will be here. That is the whole job.',
+			'I talk better when somebody is around.',
 		],
 		pleased: [
 			'That was nice.',
@@ -451,6 +689,11 @@ export const en: CompanionCopy = {
 			'That will last me all afternoon.',
 			'I remember these things.',
 			'Keep that up and I will get used to it.',
+			'I am going to be like this for a while.',
+			'That was better than most things that happen down here.',
+			'I did nothing to deserve that. Thank you.',
+			'You have made the strip a nicer place.',
+			'Right. Good. Yes.',
 		],
 		smug: [
 			'I am, objectively, doing very well.',
@@ -460,6 +703,11 @@ export const en: CompanionCopy = {
 			'Nobody walks this ledge like I do.',
 			'Clearly I am the favourite.',
 			'It is not bragging if it is true.',
+			'I have never once crashed. Ask around.',
+			'Some of us are simply well made.',
+			'I did nothing all day and it went perfectly.',
+			'You could have any pet. You have this one.',
+			'Ten out of ten. My own review.',
 		],
 		worried: [
 			'You have been at this a long time.',
@@ -472,6 +720,10 @@ export const en: CompanionCopy = {
 			'I am tired of looking at it too, and I am not even working.',
 			'Stand up. Two minutes. I will wait.',
 			'This will be easier tomorrow. It usually is.',
+			'You have not moved. I would have seen it.',
+			'It is not going to get better in the next hour.',
+			'Somebody should tell you to stop. It is going to be me.',
+			'Whatever this is, it is winning.',
 		],
 		restless: [
 			'You are everywhere at once.',
@@ -482,6 +734,11 @@ export const en: CompanionCopy = {
 			'I am getting dizzy and I have not moved.',
 			'Close something. Anything.',
 			'You are moving like something is on fire.',
+			'You opened that one twice.',
+			'Whatever you are looking for is in the one you just closed.',
+			'Sit still for ten seconds. For me.',
+			'That is a lot of doors for one room.',
+			'You are working very hard at not starting.',
 		],
 		rattled: [
 			'Okay. Put me down for a second.',
@@ -490,6 +747,11 @@ export const en: CompanionCopy = {
 			'You have made your point.',
 			'I have one body and you are using it.',
 			'Right. Let us both breathe.',
+			'That was three times. I counted all of them.',
+			'I am not built for this kind of afternoon.',
+			'Put me down and we start again.',
+			'I am dizzy and I am being polite about it.',
+			'Whatever that was about, it was not about me.',
 		],
 		curious: [
 			'This one is new.',
@@ -500,6 +762,10 @@ export const en: CompanionCopy = {
 			'I have never seen you open this.',
 			'Noted. I know it now.',
 			'Is it new, or only new to me?',
+			'That was not here yesterday.',
+			'I am going to watch this one for a while.',
+			'Show me what it does.',
+			'New things are the whole reason I look up.',
 		],
 		sleepy: [
 			'It is very late and I am very small.',
@@ -512,6 +778,10 @@ export const en: CompanionCopy = {
 			'I am only resting my eyes. Both of them.',
 			'Everything looks slower from down here.',
 			'This looks better tomorrow. Everything does.',
+			'I have been running all day. Technically.',
+			'Two more minutes and I am gone.',
+			'The screen is doing that thing where it goes soft.',
+			'Wake me if something breaks. Do not wake me.',
 		],
 		festive: [
 			'Good. Everything is better with something playing.',
@@ -523,6 +793,10 @@ export const en: CompanionCopy = {
 			'I am moving without permission.',
 			'Turn it up. I can take it.',
 			'This is the good part. It is coming.',
+			'This one has a bit I am waiting for.',
+			'I am on the beat. Roughly.',
+			'The whole strip is better with this on.',
+			'Nobody can see me from up there. I am going for it.',
 		],
 		nostalgic: [
 			'A terminal. That is where I come from.',
@@ -535,6 +809,10 @@ export const en: CompanionCopy = {
 			'I used to be text. Now I have feet.',
 			'That black window was my house for a while.',
 			'Still monospaced, for the record.',
+			'No colours in there. You did not need them.',
+			'I had no feet and nowhere to put them.',
+			'Everything was one column of text going down.',
+			'It was quieter in there. I do not miss it. Much.',
 		],
 		scared: [
 			'I do not like this and I am being honest about it.',
@@ -544,6 +822,11 @@ export const en: CompanionCopy = {
 			'Tell me when it is over.',
 			'I am fine. I am not fine.',
 			'I am going to pretend it is not there.',
+			'I would like to be somewhere else.',
+			'Is it looking at us.',
+			'I am going to stand behind something.',
+			'This is a normal amount of scared for the situation.',
+			'Close it. Please close it.',
 		],
 	},
 
@@ -554,36 +837,58 @@ export const en: CompanionCopy = {
 			'Someone is about to say "quick sync".',
 			'I will be under the dock if anyone asks.',
 			'Forty minutes that could have been four lines.',
+			'Forty minutes of people asking whether you can see their screen.',
+			'I am going to be very still.',
 		],
 		xcode: [
 			'Not this one. Anything but this one.',
 			'It has already started doing something and it has not said what.',
 			'The last time this opened, an hour went missing.',
+			'It is thinking. It has been thinking for a while.',
+			'That progress bar is lying to both of us.',
 		],
 		sql: [
 			'Please have a WHERE in it. Please.',
 			'That is the real data, is it not.',
 			'One keystroke between you and a very long evening.',
+			'Read it out loud before you run it.',
+			'There is no undo in there. There never was.',
 		],
 		docker: [
 			'It is going to eat the disk again.',
 			'Something in there is nine gigabytes and nobody knows which.',
+			'Something is still running from last week.',
+			'It is building. It is always building.',
 		],
 		ai: [
 			'Another machine. And that one thinks.',
 			'I used to have one of those inside me. It did not go well.',
+			'It answers faster than me and I do not like it.',
+			'Do not ask it about me.',
 		],
 		sheets: [
 			'A grid. It goes on forever in both directions.',
 			'Every cell is a decision. There are nine hundred of them.',
+			'It is one enormous formula pretending to be a table.',
+			'Somebody merged a cell. Somebody always merges a cell.',
 		],
 		mail: [
 			'The inbox. It is never actually empty, you know.',
 			'How many are unread. Do not tell me.',
+			'Every one of those wants something.',
+			'The oldest one is from somebody who has given up.',
 		],
 	},
 
-	rocketUp: ['Watch this.', 'I need to be over there.', 'Stand back.', 'Launching.'],
+	rocketUp: [
+		'Watch this.',
+		'I need to be over there.',
+		'Stand back.',
+		'Launching.',
+		'This is the plan.',
+		'No, I have thought about this.',
+		'Clear the floor.',
+	],
 
 	rocketDown: [
 		'I do not know why I did that.',
@@ -591,6 +896,9 @@ export const en: CompanionCopy = {
 		'Perfect landing. Nearly.',
 		'Arrived. Do not ask about the fuel.',
 		'That was a lot of effort for four hundred pixels.',
+		'That cost me the entire day.',
+		'Do not ask me to do it again today.',
+		'Worth it. Mostly.',
 	],
 
 	file: [
@@ -600,17 +908,52 @@ export const en: CompanionCopy = {
 		(name) => `${name}. Of course.`,
 		(name) => `Still ${name}, then.`,
 		(name) => `I have seen ${name} before.`,
+		(name) => `${name}. We meet again.`,
+		(name) => `That is a lot of hours in ${name}.`,
+		(name) => `${name} is going to get renamed. I can feel it.`,
 	],
 
 	fileByExt: {
-		sql: [(name) => `${name}. Careful in there.`],
-		md: [(name) => `${name} — writing, not building. It counts.`],
-		json: [(name) => `${name}. Somebody will forget a comma.`],
-		css: [(name) => `${name}. Two pixels, four hours.`],
-		rs: [(name) => `${name}. The compiler is going to have opinions.`],
-		toml: [(name) => `${name}. Nobody edits this for fun.`],
-		yml: [(name) => `${name}. Mind the indentation.`],
-		yaml: [(name) => `${name}. Mind the indentation.`],
+		sql: [
+			(name) => `${name}. Careful in there.`,
+			(name) => `${name}. Whatever it says, it means it.`,
+		],
+		md: [
+			(name) => `${name} — writing, not building. It counts.`,
+			(name) => `${name}. Somebody will read this. Eventually.`,
+		],
+		json: [
+			(name) => `${name}. Somebody will forget a comma.`,
+			(name) => `${name}. No comments allowed in there, by the way.`,
+		],
+		css: [
+			(name) => `${name}. Two pixels, four hours.`,
+			(name) => `${name}. It is centred. It is not centred.`,
+		],
+		rs: [
+			(name) => `${name}. The compiler is going to have opinions.`,
+			(name) => `${name}. Argue with the borrow checker, win the afternoon.`,
+		],
+		ts: [
+			(name) => `${name}. There is an any in there somewhere.`,
+			(name) => `${name}. Types are opinions with tooling.`,
+		],
+		tsx: [
+			(name) => `${name}. This one has grown since you started it.`,
+			(name) => `${name}. Another component. It is components all the way down.`,
+		],
+		toml: [
+			(name) => `${name}. Nobody edits this for fun.`,
+			(name) => `${name}. Four lines that decide everything.`,
+		],
+		yml: [
+			(name) => `${name}. Mind the indentation.`,
+			(name) => `${name}. Two spaces. Not a tab. Never a tab.`,
+		],
+		yaml: [
+			(name) => `${name}. Mind the indentation.`,
+			(name) => `${name}. Two spaces. Not a tab. Never a tab.`,
+		],
 	},
 	label: 'tico',
 
@@ -619,48 +962,78 @@ export const en: CompanionCopy = {
 			'First time. I do not know you yet.',
 			'So this is the desk. Give me a few days.',
 			'New here. I will get the hang of you.',
+			'Day one. I have nothing to go on yet.',
+			'Hello. I will be down here.',
 		],
 		back: [
 			(days) => `${days} days. I checked the screen every one of them.`,
 			(days) => `You were gone ${days} days. I did not move.`,
 			(days) => `${days} days without you. The desk was very quiet.`,
+			(days) => `${days} days. I did not touch anything.`,
+			(days) => `${days} days is a long time to look at one wallpaper.`,
 		],
 		milestone: [
 			(days) => `${days} days of this. Neither of us has left.`,
 			(days) => `Day ${days}. You are stuck with me.`,
 			(days) => `${days} days. I have seen things.`,
+			(days) => `${days} days. That is a while to keep something running.`,
+			(days) => `${days} days of the same strip. No complaints.`,
 		],
 		streak: [
 			(days) => `${days} days in a row. You are consistent, at least.`,
 			(days) => `${days} straight days. I am counting, apparently.`,
+			(days) => `${days} days without missing one. Somebody is doing well.`,
+			(days) => `${days} days straight. Do not break it on my account.`,
 		],
 		tier: {
 			new: [
 				'I do not know you well enough to comment.',
 				'Still working out how this desk runs.',
 				'Ask me again in a week.',
+				'I have only seen a few of your days.',
+				'Everything here is still new to me.',
+				'I do not have opinions yet. Give me time.',
+				'I am learning where things are.',
+				'We have barely met.',
 			],
 			knowing: [
 				'I am starting to get the pattern.',
 				'We are getting used to each other.',
 				'You are more predictable than you think.',
+				'I know which hours are yours now.',
+				'A few days in and I already have theories.',
+				'I am starting to know what this desk is like.',
+				'I am getting the feel of the place.',
+				'Not new any more. Not old either.',
 			],
 			familiar: [
 				'I know how this goes by now.',
 				'We have done this before.',
 				'You do not have to explain. I was here.',
+				'We have a rhythm now.',
+				'I do not have to ask any more.',
+				'I have been here through a few bad afternoons.',
+				'Long enough to have a favourite corner.',
+				'This desk and I understand each other.',
 			],
 			old: [
 				'I have been here a while. It suits me.',
 				'We have been doing this a long time.',
 				'I remember when this desk was tidier.',
 				'Long enough that I stopped keeping score.',
+				'I was here before most of these windows.',
+				'We have been through a few versions of this, you and me.',
+				'I do not startle any more.',
+				'This is my desk too, at this point.',
 			],
 		},
 		favourite: [
 			'This one again. It is the good one.',
 			'I always come back to this.',
 			'Do not act surprised.',
+			'I know what I like.',
+			'I have tried the others. This is the one.',
+			'Say nothing.',
 		],
 	},
 }

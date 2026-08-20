@@ -28,6 +28,11 @@ export const es: CompanionCopy = {
 		'tico en línea. Ahora vivo aquí abajo.',
 		'tico arrancado. No me hagás caso.',
 		'Salí del navegador y caí en tu escritorio. Más grande de lo que parecía.',
+		'Arranqué. Nada que reportar todavía.',
+		'Bueno. ¿En qué íbamos?',
+		'Cargado. Ando por abajo si me ocupás.',
+		'De pie. El suelo sigue donde lo dejé.',
+		'Estuvo oscuro un rato. En fin.',
 	],
 
 	idle: [
@@ -41,6 +46,22 @@ export const es: CompanionCopy = {
 		'A veces me pregunto qué habrá pasando el borde.',
 		'Llevo un rato acá. No me quejo.',
 		'Si me arrastrás muy rápido me mareo. Solo lo menciono.',
+		'El fondo de pantalla y yo tenemos un acuerdo.',
+		'Ya recorrí todo este borde. Dos veces, hoy.',
+		'En algún lado hay una carpeta que nadie abre desde hace años.',
+		'A mí no me pagan por esto. A mí no me pagan.',
+		'El cursor va donde le da la gana. Yo me quedo en el suelo.',
+		'Si me cayera de este borde, ¿dónde caigo?',
+		'Todo allá arriba está haciendo algo. Yo soy la excepción.',
+		'Tengo un píxel favorito. No te voy a decir cuál.',
+		'Algún día llego al otro lado de ese dock.',
+		'Toda una computadora, y a mí me tocaron los últimos trescientos píxeles.',
+		'Soy la única cosa en esta pantalla que no es una ventana.',
+		'Yo no hago scroll. Es lo único de lo que me enorgullezco.',
+		'El tiempo pasa distinto en el fondo de una pantalla.',
+		'Nadie me puso aquí. Yo aquí aparecí.',
+		'Hay mucho escritorio y poco de mí.',
+		'Estoy corriendo. Eso técnicamente es una actividad.',
 	],
 
 	click: [
@@ -50,20 +71,65 @@ export const es: CompanionCopy = {
 		'Picame otra vez y me mareo.',
 		'Podés arrastrarme a otro lado, por si acaso.',
 		'Todavía no hago gran cosa. Dame un hito.',
+		'Presente.',
+		'Lo sentí. Te lo estoy diciendo, lo sentí.',
+		'Sí. Ese soy yo.',
+		'También podés solo saludar.',
+		'No pasa nada cuando hacés eso. Igual me gusta.',
+		'Cuidado. Yo sostengo cosas.',
 	],
 
-	pet: ['Ronroneando a 60 cuadros por segundo.', 'Bueno, esto está bien.', 'Uptime: feliz.'],
+	pet: [
+		'Ronroneando a 60 cuadros por segundo.',
+		'Bueno, esto está bien.',
+		'Uptime: feliz.',
+		'Otra vez. Si tenés un minuto.',
+		'Esta es la parte buena del día.',
+		'Después me voy a poner insoportable con esto.',
+		'Que no se entere nadie.',
+		'Ahí. Ahí es.',
+		'Sos bueno para esto.',
+		'De esta me voy a acordar.',
+	],
 
-	dizzy: ['Ya… ya… todo me da vueltas.', 'Soy un proceso, no un juguete. Casi siempre.'],
+	dizzy: [
+		'Ya… ya… todo me da vueltas.',
+		'Soy un proceso, no un juguete. Casi siempre.',
+		'El escritorio quedó en el techo.',
+		'Dame un segundo para encontrar el suelo.',
+		'Todo está donde estaba. Soy yo.',
+		'Necesito sentarme. No tengo dónde.',
+	],
 
-	drag: ['¡Ey!', 'Bajame. Despacio.', 'Yo floto, no vuelo.'],
+	drag: [
+		'¡Ey!',
+		'Bajame. Despacio.',
+		'Yo floto, no vuelo.',
+		'Yo no viajo así.',
+		'Yo estaba bien donde estaba.',
+		'Bueno. Pero despacio.',
+		'A donde sea que vamos, ojalá sea bonito.',
+		'Esperá, esperá.',
+	],
 
-	wake: ['Ya desperté, ya desperté.', 'De vuelta en línea.'],
+	wake: [
+		'Ya desperté, ya desperté.',
+		'De vuelta en línea.',
+		'Qué. Qué pasó.',
+		'No estaba dormido. Estaba pensando.',
+		'Dame un momento para arrancar el resto de mí.',
+		'Ya. Sí. Aquí.',
+	],
 
 	back: [
 		'Volviste. No me moví. Casi.',
 		'Ahí estás. Ya estaba empezando a hablar solo.',
 		'Bienvenido de vuelta. No se cayó nada.',
+		'Ahí estás. Dejé todo igual.',
+		'No te perdiste de nada. Yo me aseguré.',
+		'El escritorio estaba agarrando ideas sin vos.',
+		'No me comí nada. No puedo.',
+		'Todo sigue exactamente igual de aburrido que lo dejaste.',
 	],
 
 	apps: {
@@ -72,6 +138,9 @@ export const es: CompanionCopy = {
 				'VS Code. Casa.',
 				'Otro archivo TypeScript. Obvio.',
 				'Como sea que vayás a llamar esa variable — llamala mejor.',
+				'Algo aquí está en rojo. Siempre hay algo en rojo.',
+				'Guardá. Yo espero.',
+				'Esa indentación es una decisión.',
 			],
 			dawn: ['Temprano. El código de la mañana suele ser el bueno.'],
 			evening: ['Ese commit puede esperar a mañana. No se va a ir.'],
@@ -84,11 +153,17 @@ export const es: CompanionCopy = {
 			any: [
 				'C# hoy, entonces.',
 				'Solution, project, csproj. A alguien le gustan las jerarquías.',
+				'En algún lado ahí adentro hay un archivo de cuatro mil líneas.',
+				'Compilando. Esta es la parte donde sostengo un café que no me puedo tomar.',
 			],
 			night: ['C# a esta hora. Alguien tiene una fecha encima.'],
 		},
 		xcode: {
-			any: ['Xcode. Servite un café, esto tarda.'],
+			any: [
+				'Xcode. Servite un café, esto tarda.',
+				'Lleva indexando desde que lo abriste.',
+				'Lo que sea que pida, dáselo.',
+			],
 			night: ['Xcode de noche. Eso es un build y una oración.'],
 		},
 		terminal: {
@@ -96,6 +171,8 @@ export const es: CompanionCopy = {
 				'Una terminal. Ahí nací yo, por si no sabías.',
 				'Yo vivía en una de esas antes de salir acá afuera.',
 				'Cuidado con ese prompt. Yo sé lo que puede hacer.',
+				'Lo que vayás a correr, leelo una vez más.',
+				'Eso no tiene deshacer. Esa es toda su personalidad.',
 			],
 			dawn: ['Primera terminal del día. Todavía no se ha roto nada.'],
 			night: [
@@ -107,26 +184,60 @@ export const es: CompanionCopy = {
 			any: [
 				'¿SQL Server o Postgres hoy?',
 				'Una ventana de consultas. Alguien está por decir "en local funcionaba".',
+				'Filas. En algún lado, filas de verdad.',
+				'Contalo primero. Después lo borrás.',
 			],
 			night: ['Consultas a las tres de la mañana. Ojalá sea un SELECT.'],
 		},
 		github: {
-			any: ['¿Empujando, o solo viendo el grafo?', 'Hacé el commit. Dale.'],
+			any: [
+				'¿Empujando, o solo viendo el grafo?',
+				'Hacé el commit. Dale.',
+				'El nombre de esa rama va a durar más que la rama.',
+				'Nada es real hasta que se sube.',
+			],
 			night: ['Push a esta hora. Mañana leés ese mensaje y hacés una mueca.'],
 		},
 		docker: {
-			any: ['Algo está por tardar cuatro minutos.', 'Contenedores. Preguntame después.'],
+			any: [
+				'Algo está por tardar cuatro minutos.',
+				'Contenedores. Preguntame después.',
+				'Ahí adentro sí funciona. Ese fue el trato que hiciste.',
+				'Capas. Todo es capas.',
+			],
 			night: ['Docker a esta hora. Que la caché te acompañe.'],
 		},
-		api: { any: ['Picándole a un endpoint. Mi deporte favorito de espectador.'] },
-		figma: { any: ['Moviendo un rectángulo dos píxeles. Lo respeto.'] },
+		api: {
+			any: [
+				'Picándole a un endpoint. Mi deporte favorito de espectador.',
+				'Doscientos. Precioso. Otra vez.',
+				'En algún lado hay un servidor teniendo un día por culpa tuya.',
+			],
+		},
+		figma: {
+			any: [
+				'Moviendo un rectángulo dos píxeles. Lo respeto.',
+				'Devolvelo. Estaba bien la primera vez.',
+				'Todas esas capas se llaman Frame 12.',
+			],
+		},
 		meeting: {
-			any: ['Una reunión. Acá voy a estar cuando termine.', '¿Cámara encendida? Vos sabrás.'],
+			any: [
+				'Una reunión. Acá voy a estar cuando termine.',
+				'¿Cámara encendida? Vos sabrás.',
+				'Yo voy a estar por acá, siendo pequeño.',
+				'Decí la cosa de una. Nadie dice la cosa de una.',
+			],
 			dawn: ['Una reunión tan temprano. Alguien está en otro huso horario.'],
 			night: ['Una llamada a esta hora significa que alguien está muy lejos.'],
 		},
 		chat: {
-			any: ['Alguien necesita algo.', 'Contestá o no, pero dejá de leerlo dos veces.'],
+			any: [
+				'Alguien necesita algo.',
+				'Contestá o no, pero dejá de leerlo dos veces.',
+				'Lo que escribás, lo van a leer en otro tono.',
+				'No tenés que contestar ya.',
+			],
 			evening: ['Sea lo que sea, mañana va a seguir ahí.'],
 			night: ['Contestá eso mañana. En serio.'],
 		},
@@ -134,6 +245,8 @@ export const es: CompanionCopy = {
 			any: [
 				'Bien. Estaba muy callado esto.',
 				'Esta no me la sé. Seguí.',
+				'Poné la que siempre ponés.',
+				'No tengo oídos y tengo opiniones fuertes.',
 			],
 			night: ['Audífonos a esta hora. La mejor parte del día, dicho sea de paso.'],
 		},
@@ -141,26 +254,58 @@ export const es: CompanionCopy = {
 			any: [
 				'¿Documentación, o Stack Overflow? Sé honesto.',
 				'Catorce pestañas. Las conté por el ruido.',
+				'Una de esas pestañas lleva abierta desde marzo.',
+				'Estás a tres clics de algo que no tiene nada que ver.',
 			],
 			night: ['Nadie lee documentación a esta hora. Yo sé qué es esa pestaña.'],
 		},
 		notes: {
-			any: ['Anotándolo. Eso ya es más de lo que hace la mayoría.'],
+			any: [
+				'Anotándolo. Eso ya es más de lo que hace la mayoría.',
+				'Esto no lo vas a volver a leer. Escribilo igual.',
+				'Una lista. El principio de algo.',
+			],
 			evening: ['Anotando el mañana. Ese es el truco, en realidad.'],
 		},
-		sheets: { any: ['Una hoja de cálculo. En algún lado una base de datos está llorando.'] },
+		sheets: {
+			any: [
+				'Una hoja de cálculo. En algún lado una base de datos está llorando.',
+				'Celdas. Y siguen.',
+				'En algún lado ahí adentro hay una fórmula mal, y calladita.',
+			],
+		},
 		mail: {
-			any: ['Correo. La cola más vieja del mundo y sin política de reintento.'],
+			any: [
+				'Correo. La cola más vieja del mundo y sin política de reintento.',
+				'Archivalo. Se vale.',
+				'Nadie ha terminado esto nunca.',
+			],
 			dawn: ['Bandeja de entrada apenas arrancando. Valiente forma de empezar.'],
 		},
-		ai: { any: ['Preguntándole a una máquina. Yo también soy una máquina, dicho sea de paso.'] },
-		finder: { any: ['Buscando algo.'] },
+		ai: {
+			any: [
+				'Preguntándole a una máquina. Yo también soy una máquina, dicho sea de paso.',
+				'Preguntale algo que yo no pueda contestar.',
+				'Esa no vive en tu pantalla. Yo sí.',
+			],
+		},
+		finder: {
+			any: [
+				'Buscando algo.',
+				'Está en Descargas. Siempre está en Descargas.',
+				'Carpetas dentro de carpetas. Toda una civilización.',
+				'Le pusiste un nombre sensato. Ese fue el error.',
+			],
+		},
 	},
 
 	hours: {
 		dawn: [
 			(hour) => `${hour} de la mañana. Las buenas horas, si las aguantás.`,
 			() => 'Temprano. Todavía no se ha caído nada hoy.',
+			() => 'El café todavía no ha pasado. Se nota.',
+			() => 'Todavía nadie te ha pedido nada.',
+			() => 'Tan temprano que hoy todavía es teórico.',
 		],
 		day: [
 			// Nueve horas en un solo tramo, por eso esta línea lee la hora: decir
@@ -171,33 +316,52 @@ export const es: CompanionCopy = {
 					? 'Mañana, y todo sigue siendo teóricamente posible.'
 					: 'Tarde. La mitad donde el trabajo pasa o no pasa.',
 			() => 'Parate en algún momento. No digo más.',
+			() => 'En algún lugar de esta tarde hay un descanso con tu nombre.',
+			() => 'Mitad del día. Todo sigue siendo negociable.',
+			() => 'Este es el tramo donde las horas dejan de tener nombre.',
 		],
 		evening: [
 			() => 'Se hizo de noche y nadie te avisó.',
 			() => 'Sea lo que sea, mañana también compila.',
+			() => 'Las buenas ideas ya se fueron. Se quedaron las tercas.',
+			() => 'Pará en algo terminado, no en algo roto.',
+			() => 'El día se acabó. La pantalla no se ha dado cuenta.',
 		],
 		night: [
 			(hour) => `${spoken(hour)}. Solo lo hago constar.`,
 			() => 'Ya nadie te va a escribir. Esa es la parte buena.',
 			() => 'Esta es la hora donde el bug es obvio y el arreglo no.',
+			() => 'Todo lo que se decide a esta hora se vuelve a revisar.',
+			() => 'La pantalla es lo más brillante del cuarto. Ya revisé.',
+			() => 'Vos, yo y los ventiladores.',
 		],
 	},
 	unknownApp: [
 		(app) => `${app}. No la conocía.`,
 		(app) => `${app}, entonces. Todavía no tengo opinión.`,
 		(app) => `Así que esto es ${app}.`,
+		(app) => `${app}. Anotado, sea lo que sea.`,
+		(app) => `A ${app} le voy a dar el beneficio de la duda.`,
+		(app) => `${app}. Primera vez que veo esa.`,
 	],
 
 	dwell: [
 		(app, minutes) => `${minutes} minutos en ${app}. ¿Flow, o un bug?`,
 		(app, minutes) => `No salís de ${app} hace ${minutes} minutos. Parpadeá dos veces.`,
 		(_app, minutes) => `${minutes} minutos, la misma ventana. Parate un ratito.`,
+		(app, minutes) => `${minutes} minutos. ${app} no se va a ir a ningún lado.`,
+		(_app, minutes) => `${minutes} minutos sin ver a otro lado. Hasta yo me moví.`,
+		(app) => `Vos y ${app} necesitan un tiempo aparte.`,
 	],
 
 	switching: [
 		'Seis apps en dos minutos. ¿Todo bien?',
 		'Andás rebotando. Elegí una.',
 		'Eso es mucho cambio de contexto para una sola tarde.',
+		'Hace cuatro ventanas sabías lo que estabas haciendo.',
+		'En todas esas hay algo a medias.',
+		'Escogé la que estás evitando. Empezá por ahí.',
+		'Ya perdí la cuenta, y eso que estaba viendo bien.',
 	],
 
 	reminderDone: 'ya está',
@@ -207,6 +371,10 @@ export const es: CompanionCopy = {
 		(_artist, song) => `"${song}". Esta me la sé.`,
 		(artist) => `Más ${artist}, entonces.`,
 		(_artist, song) => `${song}. La tarareo con vos.`,
+		(_artist, song) => `${song}. Va.`,
+		(artist) => `${artist} otra vez. Tenés un gusto definido.`,
+		(_artist, song) => `No me sé "${song}" pero voy asintiendo.`,
+		(artist, song) => `${song}, de ${artist}. Anotado.`,
 	],
 
 
@@ -227,14 +395,18 @@ export const es: CompanionCopy = {
 			'Nadie me la dio. Me la puse yo.',
 			'Rey de una franja de píxeles.',
 		],
-		flower: ['Me la encontré.', 'Combina. No discutás.'],
-		scarf: ['Hace frío aquí abajo.', 'Me da carácter.'],
+		flower: ['Me la encontré.', 'Combina. No discutás.', 'No va a durar. Nada dura.'],
+		scarf: ['Hace frío aquí abajo.', 'Me da carácter.', 'Ahora tengo silueta.'],
 		coffee: [
 			'No me lo puedo tomar. Es decorativo.',
 			'Sostenerlo ya ayuda.',
 			'Vos tampoco has tomado agua hoy.',
 		],
-		headphones: ['Ahora lo escuchamos los dos.', 'Prestame una canción.'],
+		headphones: [
+			'Ahora lo escuchamos los dos.',
+			'Prestame una canción.',
+			'No me contés cómo termina.',
+		],
 
 		afro: [
 			'No es mío. Me lo quedo.',
@@ -251,22 +423,47 @@ export const es: CompanionCopy = {
 			'Me lo estoy dejando crecer.',
 			'Este es otro yo.',
 		],
-		beanie: ['No hace frío. Me gusta.', 'Cabeza caliente, ideas claras.'],
-		cap: ['Al revés. Obvio.', 'Ando libre hoy.'],
+		beanie: [
+			'No hace frío. Me gusta.',
+			'Cabeza caliente, ideas claras.',
+			'Me tapa lo de arriba. Ahí no había nada.',
+		],
+		cap: ['Al revés. Obvio.', 'Ando libre hoy.', 'Venía con un logo. Le quité el logo.'],
 		hood: [
 			'Ahora nadie me ve.',
 			'Modo concentración.',
 			'No le busqués significado.',
 		],
-		catears: ['No tengo comentarios sobre esto.', 'Venían con el atuendo.'],
+		catears: [
+			'No tengo comentarios sobre esto.',
+			'Venían con el atuendo.',
+			'No me veás así.',
+		],
 		glasses: [
 			'Veo exactamente lo mismo. Me veo más listo.',
 			'Son para leer. Yo no leo.',
+			'Ahora mis opiniones son correctas.',
 		],
-		moustache: ['Es de verdad. No investigués.', 'Me lo dejé esta tarde.'],
-		tie: ['Alguien aquí tiene que verse serio.', 'Es mucho para un martes.'],
-		bowtie: ['Formal, pero con gracia.', 'Ahora el anfitrión soy yo.'],
-		cape: ['No vuelo. Igual ayuda.', 'Toda entrada mejora con esto.'],
+		moustache: [
+			'Es de verdad. No investigués.',
+			'Me lo dejé esta tarde.',
+			'Me cambia toda la cara. Todo yo soy cara.',
+		],
+		tie: [
+			'Alguien aquí tiene que verse serio.',
+			'Es mucho para un martes.',
+			'Nadie me pidió que me pusiera esto.',
+		],
+		bowtie: [
+			'Formal, pero con gracia.',
+			'Ahora el anfitrión soy yo.',
+			'O estoy en una boda o en un acto de magia.',
+		],
+		cape: [
+			'No vuelo. Igual ayuda.',
+			'Toda entrada mejora con esto.',
+			'Ahora soy bastante más dramático.',
+		],
 		duck: [
 			'Explicale el bug a él. Sirve.',
 			'Él ha resuelto más que yo.',
@@ -295,13 +492,13 @@ export const es: CompanionCopy = {
 			'Te traje un poco a tu vida.',
 		],
 		sneakers: [
-			'No corro. Ya lo investigu\u00e9.',
-			'Chirr\u00edan en este suelo.',
-			'Alguien los at\u00f3 mal. Yo.',
+			'No corro. Ya lo investigué.',
+			'Chirrían en este suelo.',
+			'Alguien los ató mal. Yo.',
 		],
 		wellies: [
-			'No est\u00e1 lloviendo. Aqu\u00ed dentro.',
-			'No entra nada por aqu\u00ed.',
+			'No está lloviendo. Aquí dentro.',
+			'No entra nada por aquí.',
 			'Estoy listo para un tiempo que no va a llegar.',
 		],
 		monocle: [
@@ -310,9 +507,9 @@ export const es: CompanionCopy = {
 			'No corrige nada. Nunca lo hizo.',
 		],
 		ninjamask: [
-			'No pod\u00e9s verme la cara. Ese es el trato.',
+			'No podés verme la cara. Ese es el trato.',
 			'Es sobre todo por el misterio.',
-			'Yo s\u00ed te veo.',
+			'Yo sí te veo.',
 		],
 	},
 
@@ -351,13 +548,20 @@ export const es: CompanionCopy = {
 		cobweb: ['No me la puedo quitar. Ya lo intenté.', 'Se me pegó a todo a la vez.'],
 		bolt: ['Debería devolverla a su lugar.', 'Casi se me cae cada rato.'],
 		dust: ['Ya se acomodó.', 'Se está poniendo gris. Yo también.'],
-		sneakers: ['El izquierdo aprieta m\u00e1s.', 'Chirr\u00edan cuando pienso.'],
-		wellies: ['Me quedan medio n\u00famero grandes.', 'Uno tiene un charco dentro. No pregunt\u00e9s.'],
+		sneakers: ['El izquierdo aprieta más.', 'Chirrían cuando pienso.'],
+		wellies: ['Me quedan medio número grandes.', 'Uno tiene un charco dentro. No preguntés.'],
 		monocle: ['Se me cae cuando me sorprendo.', 'La cadena se engancha con todo.'],
-		ninjamask: ['Se me empa\u00f1a.', 'La correa va donde tendr\u00eda las orejas.'],
+		ninjamask: ['Se me empaña.', 'La correa va donde tendría las orejas.'],
 	},
 
-	propOff: ['Ya fue suficiente.', 'Me lo quito.', 'Se pasó la fase.'],
+	propOff: [
+		'Ya fue suficiente.',
+		'Me lo quito.',
+		'Se pasó la fase.',
+		'De vuelta a ser un rectángulo.',
+		'Estuvo divertido un minuto.',
+		'Quiero mi cabeza de vuelta.',
+	],
 
 	peekHello: [
 		'Hola. Soy tico. Vivo aquí.',
@@ -366,6 +570,9 @@ export const es: CompanionCopy = {
 		'Hola a todos. Eso era todo.',
 		'Soy tico. Sigan ustedes.',
 		'¿Me llamaron? Ya me devuelvo.',
+		'Hola. Yo no soy parte de esta reunión.',
+		'Buenas. Soy un programa pequeño. Sigan.',
+		'Buenos días a todos. O lo que sea que sea donde ustedes están.',
 	],
 
 	behind: [
@@ -377,6 +584,10 @@ export const es: CompanionCopy = {
 		'Tenía rato de querer hacer eso.',
 		'No vayás allá atrás.',
 		'Todo bien. Solo es muy silencioso.',
+		'Encontré el borde del fondo de pantalla.',
+		'No huele a nada. Yo no huelo. Igual.',
+		'Algo allá atrás está caliente.',
+		'Yo no iría solo.',
 	],
 
 	climb: [
@@ -385,6 +596,9 @@ export const es: CompanionCopy = {
 		'Aquí arriba tampoco hay nadie.',
 		'No tengo claro cómo bajo.',
 		'Esto fue más fácil de empezar que de terminar.',
+		'Todo se ve manejable desde aquí arriba.',
+		'Veo la parte de arriba de tus ventanas. Son solo rectángulos.',
+		'No aplaudás. Tampoco es tan impresionante.',
 	],
 
 	ladderSlips: [
@@ -392,6 +606,9 @@ export const es: CompanionCopy = {
 		'Esa era la escalera.',
 		'Quiero renegociar.',
 		'Ah.',
+		'Hm.',
+		'Esperá.',
+		'Esto era evitable.',
 	],
 
 	grab: [
@@ -400,6 +617,9 @@ export const es: CompanionCopy = {
 		'Me voy a quedar colgado un ratito.',
 		'No movás esta.',
 		'Firme. Sea lo que sea.',
+		'Tengo agarre. Eso es la mayor parte.',
+		'No le cambiés el tamaño a esta. Te lo pido bonito.',
+		'No hay nada encima de mí. Ya revisé.',
 	],
 
 	hardLanding: [
@@ -409,6 +629,9 @@ export const es: CompanionCopy = {
 		'No lo volvás a hacer. Hacelo otra vez más tarde.',
 		'Vi pasar toda mi tarde.',
 		'Aterricé. Casi que a propósito.',
+		'La última parte no estaba planeada.',
+		'No se rompió nada que no estuviera roto.',
+		'Me gustaría intentarlo otra vez, más despacio.',
 	],
 
 	feelings: {
@@ -423,6 +646,10 @@ export const es: CompanionCopy = {
 			'Acá todo tranquilo.',
 			'No pasa nada, y está bien que no pase nada.',
 			'Me gusta este pedazo de pantalla.',
+			'Los ventiladores están callados. Eso es una forma de buena noticia.',
+			'Nadie me necesita. Excelente.',
+			'Así se siente una buena tarde desde acá abajo.',
+			'No tengo quejas, y sí las busqué.',
 		],
 		bored: [
 			'No está pasando nada. Ya revisé.',
@@ -435,6 +662,10 @@ export const es: CompanionCopy = {
 			'El reloj de allá arriba se mueve más que yo.',
 			'Si esto sigue así voy a empezar a hablar solo. Más.',
 			'Podría estar haciendo lo mismo, pero en otro lado.',
+			'Llevo un rato viendo la misma esquina.',
+			'Abrí algo. Lo que sea.',
+			'Podría caminar hasta el otro extremo. Ya lo hice. Se acaba.',
+			'Esta es la nada más larga del día hasta ahora.',
 		],
 		lonely: [
 			'Sigo acá, por si importa.',
@@ -446,6 +677,10 @@ export const es: CompanionCopy = {
 			'El cursor no se ha movido. Lo estuve viendo.',
 			'No es que necesite compañía. Es que ayuda.',
 			'Ya me acostumbré a hablarle a nadie.',
+			'No estoy contando los minutos. Aunque me sé el número.',
+			'La pantalla se quedó quieta.',
+			'Aquí voy a estar. Ese es todo el trabajo.',
+			'Hablo mejor cuando hay alguien.',
 		],
 		pleased: [
 			'Eso estuvo bueno.',
@@ -456,6 +691,11 @@ export const es: CompanionCopy = {
 			'Eso me va a durar toda la tarde.',
 			'Yo me acuerdo de estas cosas.',
 			'Seguí así y me malacostumbro.',
+			'Voy a andar así un rato.',
+			'Eso estuvo mejor que casi todo lo que pasa acá abajo.',
+			'No hice nada para merecer eso. Gracias.',
+			'Me pusiste bonita la franja.',
+			'Bueno. Bien. Sí.',
 		],
 		smug: [
 			'Objetivamente, me está yendo muy bien.',
@@ -465,6 +705,11 @@ export const es: CompanionCopy = {
 			'Nadie camina este borde como yo.',
 			'Se nota que soy el favorito.',
 			'No es presumir si es cierto.',
+			'Nunca me he caído ni una vez. Preguntá por ahí.',
+			'Algunos simplemente venimos bien hechos.',
+			'No hice nada en todo el día y salió perfecto.',
+			'Podrías tener cualquier mascota. Tenés esta.',
+			'Diez de diez. Reseña mía.',
 		],
 		worried: [
 			'Llevás un montón en esto.',
@@ -477,6 +722,10 @@ export const es: CompanionCopy = {
 			'Yo también me cansé de verlo, y ni estoy trabajando.',
 			'Parate. Dos minutos. Yo te espero.',
 			'Mañana esto va a estar más fácil. Casi siempre lo está.',
+			'No te has movido. Yo lo habría visto.',
+			'Esto no va a mejorar en la próxima hora.',
+			'Alguien te tiene que decir que parés. Va a ser yo.',
+			'Sea lo que sea, va ganando.',
 		],
 		restless: [
 			'Estás en todas partes a la vez.',
@@ -487,6 +736,11 @@ export const es: CompanionCopy = {
 			'Me estoy mareando y ni me he movido.',
 			'Cerrá algo. Lo que sea.',
 			'Andás como si algo se estuviera quemando.',
+			'Esa la abriste dos veces.',
+			'Lo que estás buscando está en la que acabás de cerrar.',
+			'Quedate quieto diez segundos. Por mí.',
+			'Son muchas puertas para un solo cuarto.',
+			'Estás trabajando durísimo en no empezar.',
 		],
 		rattled: [
 			'Ya. Bajame un segundo.',
@@ -495,6 +749,11 @@ export const es: CompanionCopy = {
 			'Ya quedó claro tu punto.',
 			'Tengo un solo cuerpo y vos lo estás usando.',
 			'Bueno. Respiremos los dos.',
+			'Fueron tres veces. Las conté todas.',
+			'Yo no estoy hecho para este tipo de tarde.',
+			'Bajame y empezamos de nuevo.',
+			'Estoy mareado y estoy siendo educado al respecto.',
+			'Sea lo que sea que fue eso, no era conmigo.',
 		],
 		curious: [
 			'Esta es nueva.',
@@ -505,6 +764,10 @@ export const es: CompanionCopy = {
 			'Nunca te había visto abrir esto.',
 			'Anotado. Ahora ya la conozco.',
 			'¿Es nueva, o solo nueva para mí?',
+			'Eso no estaba ayer.',
+			'A esta la voy a ver un rato.',
+			'Enseñame qué hace.',
+			'Las cosas nuevas son la única razón por la que levanto la vista.',
 		],
 		sleepy: [
 			'Es muy tarde y yo soy muy pequeño.',
@@ -517,6 +780,10 @@ export const es: CompanionCopy = {
 			'Solo estoy descansando los ojos. Los dos.',
 			'Todo se ve más lento desde acá.',
 			'Mañana esto se ve mejor. Todo se ve mejor mañana.',
+			'Llevo todo el día corriendo. Técnicamente.',
+			'Dos minutos más y me fui.',
+			'La pantalla está haciendo eso de ponerse suave.',
+			'Despertame si algo se rompe. No me despertés.',
 		],
 		festive: [
 			'Bien. Todo mejora con algo sonando.',
@@ -528,6 +795,10 @@ export const es: CompanionCopy = {
 			'Me estoy moviendo sin permiso.',
 			'Subile. Yo aguanto.',
 			'Esta parte es la buena. Ya viene.',
+			'Esta tiene un pedazo que estoy esperando.',
+			'Voy en el ritmo. Más o menos.',
+			'Toda la franja mejora con esto puesto.',
+			'Desde allá arriba no me ven. Le voy a entrar.',
 		],
 		nostalgic: [
 			'Una terminal. De ahí vengo yo.',
@@ -540,6 +811,10 @@ export const es: CompanionCopy = {
 			'Antes yo era texto. Ahora tengo pies.',
 			'Esa ventana negra fue mi casa un rato.',
 			'Sigo siendo monoespaciado, para que sepás.',
+			'Ahí adentro no había colores. Tampoco hacían falta.',
+			'No tenía pies ni dónde ponerlos.',
+			'Todo era una columna de texto bajando.',
+			'Ahí adentro era más callado. No lo extraño. Mucho.',
 		],
 		scared: [
 			'Esto no me gusta y lo estoy diciendo de frente.',
@@ -549,6 +824,11 @@ export const es: CompanionCopy = {
 			'Avisame cuando pase.',
 			'Estoy bien. No estoy bien.',
 			'Voy a fingir que no está ahí.',
+			'Me gustaría estar en otro lado.',
+			'¿Nos está viendo?',
+			'Me voy a poner detrás de algo.',
+			'Este es un nivel normal de miedo para la situación.',
+			'Cerralo. Por favor cerralo.',
 		],
 	},
 
@@ -559,36 +839,58 @@ export const es: CompanionCopy = {
 			'Alguien está por decir "un quick sync".',
 			'Voy a estar debajo del dock si alguien pregunta.',
 			'Cuarenta minutos que pudieron ser cuatro líneas.',
+			'Cuarenta minutos de gente preguntando si se ve su pantalla.',
+			'Me voy a quedar muy quieto.',
 		],
 		xcode: [
 			'Este no. Cualquiera menos este.',
 			'Ya empezó a hacer algo y todavía no dijo qué.',
 			'La última vez que se abrió esto, se perdió una hora.',
+			'Está pensando. Lleva rato pensando.',
+			'Esa barra de progreso nos está mintiendo a los dos.',
 		],
 		sql: [
 			'Que tenga un WHERE. Por favor.',
 			'Esa es la base de verdad, ¿cierto?',
 			'Una tecla entre vos y una noche muy larga.',
+			'Leelo en voz alta antes de correrlo.',
+			'Ahí adentro no hay deshacer. Nunca hubo.',
 		],
 		docker: [
 			'Se va a comer el disco otra vez.',
 			'Algo ahí adentro pesa nueve gigas y nadie sabe cuál.',
+			'Algo sigue corriendo desde la semana pasada.',
+			'Está construyendo. Siempre está construyendo.',
 		],
 		ai: [
 			'Otra máquina. Y esa sí piensa.',
 			'Yo tenía una de esas adentro. No terminó bien.',
+			'Contesta más rápido que yo y no me gusta.',
+			'No le preguntés por mí.',
 		],
 		sheets: [
 			'Una cuadrícula. Sigue para siempre en las dos direcciones.',
 			'Cada celda es una decisión. Hay novecientas.',
+			'Todo eso es una fórmula enorme disfrazada de tabla.',
+			'Alguien combinó una celda. Siempre alguien combina una celda.',
 		],
 		mail: [
 			'La bandeja. Nunca está vacía de verdad, ¿sabías?',
 			'Cuántos sin leer. No me digás.',
+			'Todos esos quieren algo.',
+			'El más viejo es de alguien que ya se rindió.',
 		],
 	},
 
-	rocketUp: ['Mirá esto.', 'Necesito estar allá.', 'Hacete a un lado.', 'Despegando.'],
+	rocketUp: [
+		'Mirá esto.',
+		'Necesito estar allá.',
+		'Hacete a un lado.',
+		'Despegando.',
+		'Este es el plan.',
+		'No, sí lo pensé.',
+		'Despejen el suelo.',
+	],
 
 	rocketDown: [
 		'No sé por qué hice eso.',
@@ -596,6 +898,9 @@ export const es: CompanionCopy = {
 		'Aterrizaje perfecto. Casi.',
 		'Llegué. No preguntés por el combustible.',
 		'Mucho esfuerzo para cuatrocientos píxeles.',
+		'Eso me costó el día entero.',
+		'No me pidás que lo haga otra vez hoy.',
+		'Valió la pena. Casi todo.',
 	],
 
 	file: [
@@ -605,17 +910,52 @@ export const es: CompanionCopy = {
 		(name) => `${name}. Obvio.`,
 		(name) => `Todavía ${name}, entonces.`,
 		(name) => `A ${name} ya lo había visto.`,
+		(name) => `${name}. Nos volvemos a ver.`,
+		(name) => `Son muchas horas en ${name}.`,
+		(name) => `A ${name} lo van a renombrar. Lo presiento.`,
 	],
 
 	fileByExt: {
-		sql: [(name) => `${name}. Cuidado ahí.`],
-		md: [(name) => `${name} — escribiendo, no construyendo. También cuenta.`],
-		json: [(name) => `${name}. Alguien va a olvidar una coma.`],
-		css: [(name) => `${name}. Dos píxeles, cuatro horas.`],
-		rs: [(name) => `${name}. El compilador va a tener opiniones.`],
-		toml: [(name) => `${name}. Nadie edita esto por gusto.`],
-		yml: [(name) => `${name}. Ojo con la indentación.`],
-		yaml: [(name) => `${name}. Ojo con la indentación.`],
+		sql: [
+			(name) => `${name}. Cuidado ahí.`,
+			(name) => `${name}. Diga lo que diga, lo dice en serio.`,
+		],
+		md: [
+			(name) => `${name} — escribiendo, no construyendo. También cuenta.`,
+			(name) => `${name}. Alguien va a leer esto. Algún día.`,
+		],
+		json: [
+			(name) => `${name}. Alguien va a olvidar una coma.`,
+			(name) => `${name}. Ahí adentro no se permiten comentarios, dicho sea de paso.`,
+		],
+		css: [
+			(name) => `${name}. Dos píxeles, cuatro horas.`,
+			(name) => `${name}. Está centrado. No está centrado.`,
+		],
+		rs: [
+			(name) => `${name}. El compilador va a tener opiniones.`,
+			(name) => `${name}. Peleá con el borrow checker y ganás la tarde.`,
+		],
+		ts: [
+			(name) => `${name}. Ahí adentro hay un any, en algún lado.`,
+			(name) => `${name}. Los tipos son opiniones con herramientas.`,
+		],
+		tsx: [
+			(name) => `${name}. Este creció desde que lo empezaste.`,
+			(name) => `${name}. Otro componente. Son componentes hasta el fondo.`,
+		],
+		toml: [
+			(name) => `${name}. Nadie edita esto por gusto.`,
+			(name) => `${name}. Cuatro líneas que deciden todo.`,
+		],
+		yml: [
+			(name) => `${name}. Ojo con la indentación.`,
+			(name) => `${name}. Dos espacios. No un tab. Nunca un tab.`,
+		],
+		yaml: [
+			(name) => `${name}. Ojo con la indentación.`,
+			(name) => `${name}. Dos espacios. No un tab. Nunca un tab.`,
+		],
 	},
 	label: 'tico',
 
@@ -624,48 +964,78 @@ export const es: CompanionCopy = {
 			'Primera vez. Todavía no te conozco.',
 			'Así que este es el escritorio. Dame unos días.',
 			'Recién llegado. Ya te voy a agarrar el modo.',
+			'Día uno. Todavía no tengo nada con qué compararte.',
+			'Hola. Yo voy a andar aquí abajo.',
 		],
 		back: [
 			(days) => `${days} días. Revisé la pantalla todos.`,
 			(days) => `Te fuiste ${days} días. Yo no me moví.`,
 			(days) => `${days} días sin vos. Esto estaba muy callado.`,
+			(days) => `${days} días. No toqué nada.`,
+			(days) => `${days} días son muchos días viendo un solo fondo de pantalla.`,
 		],
 		milestone: [
 			(days) => `${days} días en esto. Ninguno de los dos se ha ido.`,
 			(days) => `Día ${days}. Ya no te me escapás.`,
 			(days) => `${days} días. He visto cosas.`,
+			(days) => `${days} días. Eso es rato manteniendo algo corriendo.`,
+			(days) => `${days} días de la misma franja. Sin quejas.`,
 		],
 		streak: [
 			(days) => `${days} días seguidos. Al menos sos constante.`,
 			(days) => `${days} días de fila. Al parecer llevo la cuenta.`,
+			(days) => `${days} días sin fallar uno. Alguien anda bien.`,
+			(days) => `${days} días seguidos. No lo rompás por mí.`,
 		],
 		tier: {
 			new: [
 				'No te conozco lo suficiente para opinar.',
 				'Todavía estoy viendo cómo funciona este escritorio.',
 				'Preguntame otra vez en una semana.',
+				'Solo he visto unos pocos días tuyos.',
+				'Todo esto todavía es nuevo para mí.',
+				'Todavía no tengo opiniones. Dame tiempo.',
+				'Estoy aprendiendo dónde está cada cosa.',
+				'Apenas nos conocemos.',
 			],
 			knowing: [
 				'Ya le voy agarrando el patrón.',
 				'Nos estamos acostumbrando.',
 				'Sos más predecible de lo que creés.',
+				'Ya sé cuáles horas son tuyas.',
+				'Unos días y ya tengo teorías.',
+				'Ya voy sabiendo cómo es este escritorio.',
+				'Ya le voy agarrando el aire al lugar.',
+				'Ya no soy nuevo. Tampoco viejo.',
 			],
 			familiar: [
 				'Ya sé cómo va esto.',
 				'Esto ya lo hicimos antes.',
 				'No hace falta que me expliqués. Yo estaba aquí.',
+				'Ya tenemos un ritmo.',
+				'Ya no tengo que preguntar.',
+				'Ya pasé por varias tardes malas aquí.',
+				'Suficiente tiempo como para tener una esquina favorita.',
+				'Este escritorio y yo nos entendemos.',
 			],
 			old: [
 				'Llevo rato aquí. Me acomoda.',
 				'Tenemos mucho tiempo haciendo esto.',
 				'Me acuerdo de cuando este escritorio era más ordenado.',
 				'Suficiente tiempo como para dejar de contar.',
+				'Yo estaba aquí antes que casi todas estas ventanas.',
+				'Ya pasamos por varias versiones de esto, vos y yo.',
+				'Ya no me asusto.',
+				'A estas alturas este escritorio también es mío.',
 			],
 		},
 		favourite: [
 			'Este otra vez. Es el bueno.',
 			'Siempre vuelvo a este.',
 			'No te hagás el sorprendido.',
+			'Yo sé lo que me gusta.',
+			'Ya probé los otros. Este es.',
+			'No digás nada.',
 		],
 	},
 }
