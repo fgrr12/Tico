@@ -46,7 +46,18 @@ pub struct Memory {
     /// a second way to have a preference would have been the tell that it was not.
     #[serde(default)]
     pub furniture: HashMap<String, u32>,
+    /// Things he was wearing when he was posted down the hatch, and left there.
+    ///
+    /// A set, not a tally: the burrow is showing you *which* hats ended up down
+    /// there, and leaving the same one twice is not twice as much hat. Capped,
+    /// because the walls are finite and an unbounded list in a file that lives
+    /// forever is a leak with a face on it.
+    #[serde(default)]
+    pub left: Vec<String>,
 }
+
+/// How many things can be left in the burrow before the oldest one goes.
+const KEEPS: usize = 6;
 
 /// What the frontend gets at boot: the stored counters plus the few things only
 /// the date arithmetic knows.
@@ -67,6 +78,8 @@ pub struct Opening {
     /// The same idea indoors: what he sits on most, once he has sat anywhere
     /// enough for it to be a habit rather than a coincidence.
     pub chair: Option<String>,
+    /// What has been left down there, oldest first.
+    pub left: Vec<String>,
 }
 
 /// Worn this many times before it counts as a preference rather than an accident.
@@ -172,6 +185,7 @@ fn open(app: &AppHandle) -> Opening {
             drags: 0,
             favourite: None,
             chair: None,
+            left: Vec::new(),
         };
     };
 
@@ -192,6 +206,7 @@ fn open(app: &AppHandle) -> Opening {
         drags: memory.drags,
         favourite: most_used(&memory.props),
         chair: most_used(&memory.furniture),
+        left: memory.left.clone(),
     }
 }
 
@@ -220,6 +235,19 @@ pub fn remember(app: AppHandle, what: String, key: Option<String>) {
         "furniture" => {
             if let Some(kind) = key {
                 *memory.furniture.entry(kind).or_insert(0) += 1;
+            }
+        }
+        "left" => {
+            let Some(kind) = key else { return };
+            // Already down there: nothing to record, and re-recording it would
+            // shuffle it to the newest end and evict something that is still
+            // hanging on the wall.
+            if memory.left.contains(&kind) {
+                return;
+            }
+            memory.left.push(kind);
+            while memory.left.len() > KEEPS {
+                memory.left.remove(0);
             }
         }
         // An unknown event is a frontend that has moved on without this file.

@@ -335,6 +335,16 @@ export const Companion = ({
 	 * same thing was quietly false. Frozen at the moment the hatch comes up.
 	 */
 	const [looking, setLooking] = useState<number | null>(null)
+	/**
+	 * What you have left down there.
+	 *
+	 * Seeded from disk and appended to as it happens, rather than read once at
+	 * boot like the rest of `opening`. Everything else the memory holds is a
+	 * *count* you cannot see change; this is an object on a wall, and posting a
+	 * hat down the hatch and finding the rail empty until tomorrow would read as
+	 * the feature not working.
+	 */
+	const [left, setLeft] = useState<string[]>(opening.left)
 	const homeAt = useRef(0)
 	/**
 	 * When he actually got *in*, as opposed to when he set off for the door.
@@ -346,6 +356,16 @@ export const Companion = ({
 	 * leaves, which is the only moment it is asked about.
 	 */
 	const homeSince = useRef(0)
+	/**
+	 * Why he went down, taken at the moment he went.
+	 *
+	 * Frozen, and that is the whole of what makes it honest. The bay he is in
+	 * now depends on the mood he had when he climbed in — a pet whose hiding
+	 * place changed because *your* mood changed half an hour later would be
+	 * reading you rather than remembering himself, and it would break the one
+	 * promise the burrow makes: look twice, see the same room.
+	 */
+	const homeReason = useRef<Feeling | null>(null)
 	const homeTimer = useRef(0)
 	const houseRef = useRef<HTMLButtonElement>(null)
 	const roomRef = useRef<HTMLDivElement>(null)
@@ -866,6 +886,7 @@ export const Companion = ({
 	const settleIn = useCallback(() => {
 		const at = Date.now()
 		homeSince.current = at
+		homeReason.current = feelingNow.current
 		setHome(at)
 		setBubble(null)
 		// Remembered on the way in rather than on the way out, so a session that
@@ -904,7 +925,7 @@ export const Companion = ({
 		 */
 		const brought =
 			homeSince.current > 0 && Math.random() < 0.5
-				? BROUGHT_UP[sceneAt(homeSince.current, Date.now(), opening.chair).at]
+				? BROUGHT_UP[sceneAt(homeSince.current, Date.now(), opening.chair, homeReason.current).at]
 				: null
 
 		if (brought) {
@@ -2292,6 +2313,22 @@ export const Companion = ({
 		 * in the floor, so the end of the gesture is gravity either way.
 		 */
 		if (houseOn && home === null && overHatch()) {
+			/*
+			 * Posted down the hole wearing something, and it stays down there.
+			 *
+			 * The only way anything of yours ever gets into the burrow, and it is
+			 * deliberately the only way: there is no "put item in house" gesture to
+			 * learn, just the one you already use to send him down. Whatever he had
+			 * on comes off on the way in and turns up on the rail.
+			 */
+			if (prop) {
+				onRemember('left', prop)
+				setLeft((were) => (were.includes(prop) ? were : [...were, prop].slice(-6)))
+				clearTimeout(propTimer.current)
+				setProp(null)
+				setPropLeaving(false)
+			}
+
 			homeAt.current = Date.now()
 			moveTo(HOUSE_X + 30, 0, FALL_SPEED, settleIn)
 			window.setTimeout(() => {
@@ -2332,7 +2369,8 @@ export const Companion = ({
 	// edge he is nearest, a wide bubble can never reach past the screen edge.
 	// Derived once, at the moment of looking, from how long he has been down there
 	// and which chamber he favours. Nothing was running below to produce it.
-	const scene = looking === null ? null : sceneAt(home ?? looking, looking, opening.chair)
+	const scene =
+		looking === null ? null : sceneAt(home ?? looking, looking, opening.chair, homeReason.current)
 
 	return (
 		<>
@@ -2360,6 +2398,9 @@ export const Companion = ({
 						faceColor={PALETTE[feeling].face}
 						screenColor={PALETTE[feeling].screen}
 						ledColor={PALETTE[feeling].led}
+						// How long you have known each other, as furniture.
+						familiarity={familiarity}
+						left={left}
 						innerRef={roomRef}
 						onPetClick={() => {
 							setLooking(null)

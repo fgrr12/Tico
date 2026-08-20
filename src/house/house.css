@@ -25,30 +25,30 @@
 }
 
 /*
- * The lid's own tones, out of the same family as the burrow's.
+ * The service panel's own tones, out of the same family as the burrow's.
  *
  * On `.tico-hatch` as well as `.tico-map` because the two are separate elements
- * on the strip and the hatch has to be able to reach `--earth` for the hole it
- * is covering.
+ * on the strip and the panel has to be able to reach `--board` for the opening
+ * it is covering.
  */
 .tico-hatch {
-	--earth: #1a1511;
-	--plank: #6b563f;
-	--wood: #8d6f4d;
-	--wood-dark: #5b4830;
+	--board: #0d0f14;
+	--deck: #262a34;
+	--chassis: #333846;
+	--chassis-dark: #232733;
 }
 
 /*
- * The same wood as the floor it lies in, not a lighter panel set into it.
+ * The same plate as the deck it lies in, not a lighter panel set into it.
  *
- * The comment on the drawing says the shut hatch is "a seam in the boards", and
- * with the lid a tone brighter than the planks around it that was simply not
+ * The comment on the drawing says the shut hatch is a seam in the floor, and
+ * with the lid a tone brighter than the deck around it that was simply not
  * true — it was the brightest object on the strip's floor, pulling the eye to a
- * trapdoor nobody had asked about yet. It is the seam and the pull that say
- * there is a door here. The tone should say nothing at all.
+ * service panel nobody had asked about yet. It is the seam and the pull that say
+ * there is a way down here. The tone should say nothing at all.
  */
-.tico-hatch svg .lid { fill: var(--plank); }
-.tico-hatch svg .lid-edge { fill: var(--wood-dark); }
+.tico-hatch svg .lid { fill: var(--deck); }
+.tico-hatch svg .lid-edge { fill: var(--chassis-dark); }
 .tico-hatch svg .lid-pull { fill: #000000; opacity: 0.34; }
 
 .tico-hatch svg {
@@ -150,7 +150,7 @@
 	/*
 	 * And down onto the floor. His drawing is a 96×96 box whose feet land at
 	 * y77–87, so the bottom 9 units of it are empty — sitting the *box* on the
-	 * floor line left him hovering a few pixels above the plank, which is the
+	 * floor line left him hovering a few pixels above the deck, which is the
 	 * kind of thing that looks like a bug in the room rather than in a number.
 	 * 9/96 of his own height, which is what a percentage on `translateY` means.
 	 */
@@ -168,94 +168,96 @@
 }
 
 /*
- * A hole in the ground, seen from the side — and made of his palette.
+ * The inside of the machine.
  *
- * **Every colour down here used to be invented on the spot.** Thirty-five
- * literal browns and yellows that appeared nowhere else in the app, under a pet
- * built entirely out of `--bg-pane`, `--line`, `--amber` and three traffic
- * lights. It did not look wrong on its own. It looked like a different
- * application, which is a harder thing to notice and a worse thing to have.
+ * **Every colour down here is one of his.** It used to be thirty-five browns and
+ * yellows invented on the spot, under a pet built entirely out of `--bg-pane`,
+ * `--line`, `--amber` and three traffic lights. It did not look wrong on its
+ * own — it looked like a different application, which is a harder thing to
+ * notice and a worse thing to have.
  *
- * The rule now: the burrow is *his neutrals rotated toward lamplight*, keeping
- * the same value steps, and **every accent in it is one of his five colours**
- * darkened for a room lit by one lamp. The shade and the candle are `--amber`,
- * which is the colour already pulsing on his antenna; the leaves are `--green`,
- * which is the terminal he came from; the cushion and the rug are `--pink`; the
- * book is `--cyan`; the painted sun is `--amber` again.
+ * So: the board is his darkest neutral, the bays are his chassis greys, and
+ * every light in here is a colour he already wears. The standby beacon and the
+ * tube are `--amber`, which is the colour pulsing on his own antenna two feet
+ * away. Drive activity is `--cyan`. The circuit traces and the plant are
+ * `--green`, which is the terminal he keeps saying he came from. A fault light
+ * would be `--pink`, and there is deliberately not one: nothing is wrong down
+ * there.
  *
- * That is what makes it his house rather than a house. It is still the brightest
- * thing on the strip, because a lit room underground *is* the bright thing.
+ * The one thing that is *not* his palette is the plant, and that is the joke —
+ * it is the only living thing in the machine, so it is the only thing allowed to
+ * be a colour the machine did not choose.
  */
 .tico-map {
-	/*
-	 * His neutrals, warmed — and then lifted back up.
-	 *
-	 * The first pass at this took the burrow all the way down to his values and
-	 * it lost the thing it is for: a room underground lit by one lamp is the
-	 * *bright* object on the strip, and at `--bg-pane` warmed it was a dark hole
-	 * with dark things in it. What matters for belonging is that the steps
-	 * between these are his steps and the accents are his colours, not that the
-	 * absolute values match a pet who is meant to be a dark object on a desktop.
-	 *
-	 * The gap between an unlit room and the lit one is deliberately wide. It is
-	 * the only thing telling you which room he is in.
-	 */
-	--earth: #191410;
-	/*
-	 * The wall is *background* and the wood is *foreground*, and the first pass
-	 * had them four values apart — the chair disappeared into the room behind it
-	 * and the whole burrow read as one brown mass. Separating them is worth more
-	 * than any amount of detail on the chair.
-	 */
-	--wall: #221a13;
-	/*
-	 * The room he is in, and it is lit *by the lamp* rather than merely paler:
-	 * this is `--amber` at the value of a wall, so the light in the room is the
-	 * same colour as the thing making it. It is also the only signal telling you
-	 * which of the three rooms he is in, so the gap to `--wall` is deliberately
-	 * enormous — and `--wall` sits almost down on the earth for the same reason.
-	 * A room with the light off has to read as *off*, and it is competing for
-	 * that reading against a lamp two rooms over that is the brightest object on
-	 * the sheet whether or not he is standing under it.
-	 */
-	--wall-lit: #5c4527;
-	--seam: #120e0a;
-	--plank: #6b563f;
+	/* The board everything is mounted on. Below --bg-pane, because it is behind
+	   the chassis rather than part of it. */
+	--board: #0d0f14;
+	/* An unlit bay and a lit one. The gap is enormous on purpose: it is the only
+	   thing telling you which of the three he is in, and it is competing against
+	   a beacon two bays over that is bright whether or not he is under it. */
+	--bay: #171a21;
+	--bay-lit: #2d2822;
+	--seam: #0a0c10;
+	--deck: #262a34;
 
-	/* Wood, which is the only thing down here that is not one of his colours —
-	   it is the *material*, and it sits between the earth and the lamp. */
-	--wood: #9a7a52;
-	--wood-lit: #c4a075;
-	--wood-dark: #5f4b31;
+	/*
+	 * The chassis, and it has to sit clearly *above* the bay behind it.
+	 *
+	 * This is the same mistake twice: the first pass at the wooden version put
+	 * the furniture four values off the wall and the chair vanished into the room
+	 * behind it, and the first pass at this one did it again with `--chassis` at
+	 * #333846 against a lit bay at #33302c — identical brightness, so the cradle
+	 * read as a hole rather than as a thing standing in front of something.
+	 * Background and foreground separating is worth more than any amount of
+	 * detail on the object.
+	 */
+	--chassis: #474e61;
+	--chassis-dark: #2a2f3c;
+	--metal: #59617a;
 }
 
 .tico-burrow-earth {
-	fill: var(--earth);
+	fill: var(--board);
 }
 
-/* The back wall of a room — what you see through the missing fourth wall. */
+/* The back wall of a bay — what you see through the missing fourth wall. */
 .tico-burrow-wall {
-	fill: var(--wall);
+	fill: var(--bay);
 	stroke: var(--seam);
 	stroke-width: 1.2;
 }
 
-/* The room he is in, lit. Everything else is a room with the light off, which
-   is what makes one of them read as occupied. */
+/* The bay he is in, and it is lit by the beacon rather than merely paler: this
+   is --amber at the value of a wall, so the light in the room is the colour of
+   the thing making it. */
 .tico-burrow-wall[data-here="true"] {
-	fill: var(--wall-lit);
+	fill: var(--bay-lit);
 }
 
+/*
+ * Circuit traces in the board behind the bays, instead of wood panelling.
+ *
+ * Green, faint, and they are the whole reason the background reads as a machine
+ * rather than as a dark rectangle — the same job the scanlines do on his screen,
+ * done by the thing that is actually behind a floor.
+ */
 .tico-burrow-panel {
 	fill: none;
-	stroke: #ffffff;
-	stroke-opacity: 0.05;
-	stroke-width: 0.9;
-	stroke-linecap: round;
+	stroke: var(--green);
+	stroke-opacity: 0.22;
+	stroke-width: 0.7;
+	stroke-linecap: square;
+	stroke-linejoin: miter;
+}
+
+/* The via at the end of a trace. A trace that just stops is a scratch. */
+.tico-burrow-via {
+	fill: var(--green);
+	opacity: 0.3;
 }
 
 .tico-burrow-floor {
-	fill: var(--plank);
+	fill: var(--deck);
 	stroke: var(--seam);
 	stroke-width: 1;
 }
@@ -264,57 +266,98 @@
  * The palette for everything inside.
  *
  * Colour lives here rather than in the drawing, so a piece is a shape and only a
- * shape. What changed is that a piece is now *one* shape in one tone with the
- * shared gradient over it, instead of a lit polygon beside a dark one — the same
- * way his shell gets its volume, and the only way a rounded corner can have a
- * shaded face without a seam showing through it.
+ * shape. A piece is now *one* shape in one tone with the shared gradient over
+ * it, instead of a lit polygon beside a dark one — the same way his shell gets
+ * its volume, and the only way a rounded corner can have a shaded face without a
+ * seam showing through it.
  */
 .tico-map svg .vol { fill: url(#tico-burrow-vol); }
 
-.tico-map svg .wood { fill: var(--wood); }
-.tico-map svg .wood-lit { fill: var(--wood-lit); }
-.tico-map svg .wood-dark { fill: var(--wood-dark); }
+.tico-map svg .chassis { fill: var(--chassis); }
+.tico-map svg .chassis-dark { fill: var(--chassis-dark); }
+.tico-map svg .metal { fill: var(--metal); }
 
-/* His pink, at the brightness of a room lit by one lamp. */
-.tico-map svg .cloth { fill: #8f5a5f; }
-.tico-map svg .cloth-lit { fill: #a86d70; }
-.tico-map svg .fringe {
+/* Indicator LEDs. The one thing the machine does constantly. */
+.tico-map svg .led-green { fill: var(--green); }
+.tico-map svg .led-amber { fill: var(--amber); }
+.tico-map svg .led-cyan { fill: var(--cyan); }
+.tico-map svg .led-off { fill: #171a22; }
+
+/* The cradle's pad and its contact plate — the two soft things in a bay. */
+.tico-map svg .pad { fill: #6b5a72; }
+.tico-map svg .contact { fill: var(--amber); opacity: 0.32; }
+
+/* The standby beacon. `--amber`, which is his own. */
+.tico-map svg .beacon { fill: #4a4234; }
+.tico-map svg .glow { fill: var(--amber); }
+/* The light on the deck under the beacon, which is most of what says "lamp". */
+.tico-map svg .glow-spill { fill: var(--amber); opacity: 0.09; }
+
+/* Braided cable, coiled into something to lie on. */
+.tico-map svg .cable { fill: #2f3543; }
+.tico-map svg .cable-lit { fill: #3d4557; }
+.tico-map svg .cable-line,
+.tico-map svg .cable-run {
 	fill: none;
-	stroke: #6d444a;
-	stroke-width: 1.1;
+	stroke: var(--purple);
+	stroke-opacity: 0.5;
+	stroke-width: 1.2;
 	stroke-linecap: round;
 }
 
-.tico-map svg .metal { fill: #6b7285; }
+/* Modules on a shelf, and drive caddies. */
+.tico-map svg .module { fill: #3e4657; }
+.tico-map svg .module-alt { fill: var(--cyan); opacity: 0.55; }
+.tico-map svg .vent {
+	fill: none;
+	stroke: #0d0f14;
+	stroke-width: 1;
+	stroke-linecap: round;
+}
 
-/* The lamp and the candle are literally `--amber`. */
-.tico-map svg .lamp { fill: var(--amber); }
-.tico-map svg .glow { fill: #f6dfae; }
-.tico-map svg .flame { fill: var(--amber); }
-.tico-map svg .flame-halo { fill: var(--amber); opacity: 0.13; }
-.tico-map svg .wax { fill: #e2d8c2; }
+/* A capacitor, which is what the barrel became. */
+.tico-map svg .cap { fill: #2b3040; }
+.tico-map svg .cap-lit { fill: #3a4054; }
+.tico-map svg .cap-stripe {
+	fill: none;
+	stroke: #c8d0e0;
+	stroke-opacity: 0.55;
+	stroke-width: 2.4;
+	stroke-linecap: round;
+}
 
-/* His cyan, and his green. */
-.tico-map svg .book { fill: #4f7c93; }
-.tico-map svg .glass { fill: #74a099; opacity: 0.85; }
-.tico-map svg .canvas { fill: #3f6076; }
-.tico-map svg .canvas-ink { fill: #2f4c60; }
-.tico-map svg .canvas-sun { fill: var(--amber); }
+/* A dead monitor still showing hills, which is the best idea in the burrow. */
+.tico-map svg .screen { fill: #16324a; }
+.tico-map svg .screen-ink { fill: #0f2436; }
+.tico-map svg .screen-sun { fill: var(--amber); }
+.tico-map svg .screen-scan { fill: url(#tico-burrow-scan); }
+
+/* The tube in the wall, older than everything around it. */
+.tico-map svg .tube { fill: #2a2f3c; }
+.tico-map svg .tube-glow { fill: var(--amber); opacity: 0.8; }
+.tico-map svg .tube-halo { fill: var(--amber); opacity: 0.12; }
+
+/* The fan. Sunk into the back wall, and not turning — nothing runs down here. */
+.tico-map svg .fan-hub { fill: #171a22; }
+.tico-map svg .fan-blade { fill: #3a4152; }
+.tico-map svg .fan-pin { fill: var(--metal); }
+
+/* The plant: the only living thing in the machine, and the only colour the
+   machine did not choose. */
 .tico-map svg .leaf {
 	fill: #6c9455;
 	stroke: #4c6b3b;
 	stroke-width: 1;
 	stroke-linejoin: round;
 }
-
 .tico-map svg .pot { fill: #9c5f43; }
 .tico-map svg .pot-rim { fill: #b06d4b; }
 
-.tico-map svg .brace,
-.tico-map svg .hoop {
+/* The rail, and what you have left hanging on it. */
+.tico-map svg .hook {
 	fill: none;
-	stroke: var(--wood-dark);
-	stroke-width: 1.1;
+	stroke: var(--metal);
+	stroke-width: 1;
 	stroke-linecap: round;
 }
 
@@ -349,10 +392,8 @@
  *
  * It was a brown rectangle with a tan border — its own little design system,
  * three shades that appear nowhere else in the app, sitting under a drawing that
- * is *supposed* to look like earth and lamplight. The drawing keeping its own
- * palette is the point of it; the controls around the drawing having one too is
- * how a feature ends up looking bolted on. There is one button style in tico and
- * this is it.
+ * is *supposed* to look like the inside of a machine. There is one button style
+ * in tico and this is it.
  */
 .tico-map-call {
 	flex: none;

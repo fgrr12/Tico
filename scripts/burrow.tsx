@@ -1,104 +1,131 @@
 import { createRoot } from 'react-dom/client'
 
-import { PALETTE, wornFrom } from '../src/data/companion'
+import { bodyFrom } from '../src/companion/parts'
+import { PALETTE, PROPS, type Familiarity, wornFrom } from '../src/data/companion'
 import { BurrowMap, Hatch } from '../src/house/House.tsx'
 import { FURNITURE, sceneAt } from '../src/house/house.ts'
-import { bodyFrom } from '../src/companion/parts'
 
 import '../src/companion.css'
 
 /**
  * The burrow, rendered, because `check.mjs` cannot see a drawing.
  *
- * The same reason `sheet.html` exists and the same reason `prefs.html` does: the
- * room he stands in is a 200×132 cutaway and he is a 96×96 SVG positioned over
- * it in percentages, and no type or assertion has an opinion about whether that
- * lands him on the floor or halfway through it. `pnpm dev` and open
- * `/scripts/burrow.html`.
+ * The same reason `sheet.html` exists and the same reason `prefs.html` does.
+ * `pnpm dev` and open `/scripts/burrow.html`.
  *
- * Every row is a different body and a different thing worn, because that is the
- * change this page was added for — the wardrobe and the preferences window used
- * to stop at the trapdoor.
+ * Three axes on one page, because all three change what is drawn and none of
+ * them is visible in a type: which bay he is in, **how well he knows you** —
+ * which is how furnished the place is — and what you have left on the rail.
  */
-
-const CASES: { label: string; parts: Parameters<typeof bodyFrom>[0]; pinned: Record<string, string>; own: string | null; feeling: keyof typeof PALETTE }[] = [
-	{ label: 'default · nothing on', parts: null, pinned: {}, own: null, feeling: 'content' },
-	{ label: 'default · top hat', parts: null, pinned: {}, own: 'tophat', feeling: 'sleepy' },
-	{ label: 'capsule + wheels · coffee', parts: { shell: 'capsule', feet: 'wheels' }, pinned: {}, own: 'coffee', feeling: 'pleased' },
-	{ label: 'default · dust, up from the long room', parts: null, pinned: {}, own: 'dust', feeling: 'bored' },
-	{ label: 'default · flower + scarf pinned', parts: null, pinned: { neck: 'scarf' }, own: 'flower', feeling: 'lonely' },
-	{ label: 'default · afro, just got in', parts: null, pinned: {}, own: 'afro', feeling: 'curious' },
-]
 
 const at = 1_700_000_000_000
 
-/** The trapdoor at three sizes, shut and open, since it is drawn on the floor
- *  of the strip and never inside the map. */
-const Hatches = () => (
-	<div className="row" style={{ alignItems: 'flex-end', gap: 70 }}>
-		{[
-			['shut', false],
-			['open', true],
-		].map(([label, open]) => (
-			<div key={label as string} style={{ position: 'relative', width: 160, height: 90 }}>
-				<p className="lab">{`hatch · ${label}`}</p>
-				<Hatch x={0} open={open as boolean} onClick={() => {}} innerRef={null} />
-			</div>
-		))}
-	</div>
-)
+/** Walk the clock until the hash lands him in the bay this row wants. */
+const minutesInto = (room: (typeof FURNITURE)[number]) => {
+	let minutes = 0
+	while (minutes < 400 && sceneAt(at, at + minutes * 60_000, room).at !== room) minutes++
+	return minutes
+}
+
+const Cell = ({
+	label,
+	room,
+	familiarity,
+	left = [],
+	parts = null,
+	pinned = {},
+	own = null,
+	feeling = 'content' as keyof typeof PALETTE,
+	present = true,
+}: {
+	label: string
+	room: (typeof FURNITURE)[number]
+	familiarity: Familiarity
+	left?: string[]
+	parts?: Parameters<typeof bodyFrom>[0]
+	pinned?: Record<string, string>
+	own?: string | null
+	feeling?: keyof typeof PALETTE
+	present?: boolean
+}) => {
+	const scene = sceneAt(at, at + minutesInto(room) * 60_000, room)
+	const palette = PALETTE[feeling]
+	return (
+		<div className="cell">
+			<p className="lab">{label}</p>
+			<BurrowMap
+				scene={scene}
+				language="es"
+				present={present}
+				parts={bodyFrom(parts)}
+				worn={wornFrom(pinned, own)}
+				faceColor={palette.face}
+				screenColor={palette.screen}
+				ledColor={palette.led}
+				familiarity={familiarity}
+				left={left}
+				onPetClick={() => {}}
+				innerRef={null}
+			/>
+		</div>
+	)
+}
+
+const TIERS: Familiarity[] = ['new', 'knowing', 'familiar', 'old']
 
 const App = () => (
 	<>
-		<Hatches />
-		{FURNITURE.map((room, index) => {
-			// Walk `sceneAt` forward until it lands in the room this row wants, so
-			// every room is on the page rather than whichever the hash picked.
-			let minutes = 0
-			while (minutes < 400 && sceneAt(at, at + minutes * 60_000, room).at !== room) minutes++
-
-			return (
-				<div className="row" key={room}>
-					{CASES.slice(index * 2, index * 2 + 2).map((one) => {
-						const scene = sceneAt(at, at + minutes * 60_000, room)
-						const palette = PALETTE[one.feeling]
-						return (
-							<div className="cell" key={one.label}>
-								<p className="lab">{`${room} · ${one.label}`}</p>
-								<BurrowMap
-									scene={scene}
-									language="es"
-									present
-									parts={bodyFrom(one.parts)}
-									worn={wornFrom(one.pinned, one.own)}
-									faceColor={palette.face}
-									screenColor={palette.screen}
-									ledColor={palette.led}
-									onPetClick={() => {}}
-									innerRef={null}
-								/>
-							</div>
-						)
-					})}
-					{/* And the one state where he is not down there at all. */}
-					<div className="cell">
-						<p className="lab">{`${room} · empty, he is outside`}</p>
-						<BurrowMap
-							scene={sceneAt(at, at + minutes * 60_000, room)}
-							language="es"
-							present={false}
-							parts={bodyFrom(null)}
-							worn={[]}
-							faceColor={PALETTE.content.face}
-							screenColor={PALETTE.content.screen}
-							ledColor={PALETTE.content.led}
-							onPetClick={() => {}}
-							innerRef={null}
-						/>
-					</div>
+		<div className="row" style={{ alignItems: 'flex-end', gap: 70 }}>
+			{[
+				['shut', false],
+				['open', true],
+			].map(([label, open]) => (
+				<div key={label as string} style={{ position: 'relative', width: 170, height: 90 }}>
+					<p className="lab">{`service panel · ${label}`}</p>
+					<Hatch x={0} open={open as boolean} onClick={() => {}} innerRef={null} />
 				</div>
-			)
-		})}
+			))}
+		</div>
+
+		{/* How the burrow fills up. Day one to day sixty, same bay, same pet. */}
+		<div className="row">
+			{TIERS.map((tier) => (
+				<Cell key={tier} label={`grows · ${tier}`} room="chair" familiarity={tier} />
+			))}
+		</div>
+
+		{/* Every bay, furnished, with a different body and a different thing worn. */}
+		<div className="row">
+			<Cell label="cradle · top hat" room="chair" familiarity="old" own="tophat" feeling="sleepy" />
+			<Cell
+				label="warm bay · capsule + wheels"
+				room="lamp"
+				familiarity="old"
+				parts={{ shell: 'capsule', feet: 'wheels' }}
+				own="coffee"
+				feeling="pleased"
+			/>
+			<Cell label="long bay · dust" room="rug" familiarity="old" own="dust" feeling="scared" />
+		</div>
+
+		{/* The rail: what you have posted down the hatch, at every place it can
+		    be worn, so a prop that hangs wrong is visible rather than reasoned
+		    about. */}
+		<div className="row">
+			<Cell
+				label="rail · six things left"
+				room="rug"
+				familiarity="old"
+				left={['tophat', 'shades', 'scarf', 'cape', 'coffee', 'wellies']}
+			/>
+			<Cell
+				label="rail · everything, one of each place"
+				room="chair"
+				familiarity="familiar"
+				left={PROPS.slice(0, 6)}
+			/>
+			<Cell label="nobody home, day one" room="lamp" familiarity="new" present={false} />
+		</div>
 	</>
 )
 

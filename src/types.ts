@@ -116,4 +116,7 @@ export interface Opening {
 	favourite: string | null
 	/** The same idea indoors: what he sits on most, once it is a habit. */
 	chair: string | null
+	/** What he was wearing when you posted him down the hatch, and left there.
+	 *  Oldest first, and capped in Rust — the walls down there are finite. */
+	left: string[]
 }

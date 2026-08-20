@@ -306,7 +306,14 @@ export const CompanionFace = ({
  * with a colour near `--bg-chrome` — that is the top hat that came out
  * invisible, twice.
  */
-const Prop = ({ kind }: { kind: string }) => {
+/**
+ * Exported for the burrow, which hangs the things you have left down there on a
+ * rail. It draws in *his* 96×96 space against the landmarks — a hat near his
+ * head, a cup at his hand — so anything reusing it has to move it, and the only
+ * honest way to do that is by `WEARS` place. Six offsets, not thirty: the same
+ * argument that stopped every shell carrying its own prop table.
+ */
+export const Prop = ({ kind }: { kind: string }) => {
 	switch (kind) {
 		case 'party':
 			return (

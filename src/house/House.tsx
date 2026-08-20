@@ -1,8 +1,8 @@
-import { CompanionFace } from '../companion/CompanionFace'
+import { CompanionFace, Prop } from '../companion/CompanionFace'
 import type { CompanionParts } from '../companion/parts'
-import type { Language } from '../data/companion.ts'
-import type { WornProp } from '../data/companion.ts'
-import { type Furniture, type Scene, houseCopy, lineFor } from './house.ts'
+import { WEARS, type Where } from '../data/companion.ts'
+import type { Familiarity, Language, WornProp } from '../data/companion.ts'
+import { type Furniture, type Scene, houseCopy, lineFor, reached } from './house.ts'
 
 /**
  * The way down, and the map of what is down there.
@@ -70,22 +70,22 @@ export const Hatch = ({
 				</linearGradient>
 				{/* Boards that stop being boards at the edges, rather than ending. */}
 				<linearGradient id="tico-floor" x1="0" y1="0" x2="1" y2="0">
-					<stop offset="0%" stopColor="#6b563f" stopOpacity="0" />
-					<stop offset="20%" stopColor="#6b563f" stopOpacity="0.95" />
-					<stop offset="80%" stopColor="#6b563f" stopOpacity="0.95" />
-					<stop offset="100%" stopColor="#6b563f" stopOpacity="0" />
+					<stop offset="0%" stopColor="#262a34" stopOpacity="0" />
+					<stop offset="20%" stopColor="#262a34" stopOpacity="0.95" />
+					<stop offset="80%" stopColor="#262a34" stopOpacity="0.95" />
+					<stop offset="100%" stopColor="#262a34" stopOpacity="0" />
 				</linearGradient>
 			</defs>
 
 			{/*
 			  * A patch of boards for it to be cut into.
 			  *
-			  * Without this the hatch was a plank lying over a black box, and it read
-			  * as exactly that. The strip is transparent — there is no floor here to
-			  * put a hole in — so the floor has to be drawn, and only just enough of
-			  * it that the hole has an edge to belong to. It fades out at both ends
-			  * rather than stopping, because a rectangle of wood on the desktop is a
-			  * plank too.
+			  * Without this the hatch was a panel lying over a black box, and it
+			  * read as exactly that. The strip is transparent — there is no floor
+			  * here to put a hole in — so the deck has to be drawn, and only just
+			  * enough of it that the opening has an edge to belong to. It fades out
+			  * at both ends rather than stopping, because a rectangle of plate on the
+			  * desktop is a rectangle of plate.
 			  *
 			  * The two hairline grain lines that used to run across it are gone. He
 			  * has no hairlines anywhere on him; what he has is a rim light, so the
@@ -95,7 +95,7 @@ export const Hatch = ({
 			<path d="M6 23.4 L114 23.4" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="1.2" strokeLinecap="round" fill="none" />
 
 			{/* The hole, cut into those boards. Always drawn, simply covered. */}
-			<path d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" fill="var(--earth)" />
+			<path d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" fill="var(--board)" />
 			<path d="M26 26 L94 26 L91 32 L29 32 z" fill="#000000" opacity="0.45" />
 
 			{/*
@@ -144,38 +144,33 @@ export const Hatch = ({
 
 /* ── The things in it ───────────────────────────────────────────────────────
  *
- * **Redrawn to be made of the same stuff he is.** They were hard-cornered
- * polygons in three flat browns — `.w-lit`, `.w-mid`, `.w-dark` — and next to a
- * pet whose body is a rounded rectangle with a gradient and a rim light they
- * read as a different illustration pasted underneath him. The concept was never
- * the problem: a machine who has made himself a warm wooden hole with a painting
- * of hills he has never seen is a good idea and it stays.
+ * **Everything down here is now made of what he is made of.** The wooden nook
+ * is gone: a chair is a docking cradle, a lamp is an amber standby beacon, a rug
+ * is a mat of braided cable, a barrel is a capacitor and a crate is a drive
+ * caddy. The painting stays a painting, because "he has never been outside and
+ * this is aspirational" was the best idea in the room — it is a dead monitor
+ * showing hills now, which is the same joke with the machine's own hardware
+ * telling it.
  *
- * Two changes, and they are the two the eye actually sees:
+ * Two rules carried over from his own drawing and they are why this reads as one
+ * app instead of two:
  *
- * 1. **Corners.** He is `rx="15"` on an 80-wide body and `rx="9"` on his screen.
- *    Nothing down here had a radius at all.
- * 2. **Volume is light over a shape, not two shapes in two colours.** One fill
- *    and one shared gradient, which is exactly what `tico-case` does to his
- *    shell — and it is *less* drawing than the lit-face/dark-face pair it
- *    replaces, not more, while being the thing that rounds correctly.
+ * 1. **Corners.** He is `rx="15"` on an 80-wide body. Nothing in here is square.
+ * 2. **Volume is light over a shape**, one shared gradient, exactly what
+ *    `tico-case` does to his shell — never a lit polygon beside a dark one.
  *
- * Every object is still its own component with its base at the origin, rising
- * into negative `y`, so placing one is `translate(x, floorLine)`.
+ * Every object is its own component with its base at the origin, rising into
+ * negative `y`, so placing one is `translate(x, floorLine)`.
  */
 
-/**
- * A rounded box with the light already on it. Nearly everything down here is
- * one of these, which is the point — the burrow is now built out of the same
- * primitive he is.
- */
+/** A rounded box with the light already on it. Nearly everything is one. */
 const Box = ({
 	x,
 	y,
 	w,
 	h,
 	r = 2,
-	tone = 'wood',
+	tone = 'chassis',
 }: {
 	x: number
 	y: number
@@ -190,98 +185,126 @@ const Box = ({
 	</>
 )
 
+/** A row of indicator LEDs. The one thing the machine does constantly. */
+const Leds = ({ x, y, on = 'led-green' }: { x: number; y: number; on?: string }) => (
+	<g>
+		<circle className={on} cx={x} cy={y} r="0.9" />
+		<circle className="led-off" cx={x + 3} cy={y} r="0.9" />
+		<circle className="led-amber" cx={x + 6} cy={y} r="0.9" />
+	</g>
+)
+
+/** The cradle he docks in. A chair, if a chair were a charging bay. */
 const Chair = () => (
 	<g>
-		<Box x={2} y={-7} w={3} h={7} r={1.2} />
-		<Box x={19} y={-7} w={3} h={7} r={1.2} />
-		<Box x={0} y={-11} w={24} h={4} r={1.6} />
-		{/* The cushion is what stops it reading as a bench. */}
-		<Box x={2} y={-14} w={20} h={3} r={1.4} tone="cloth" />
-		<Box x={0} y={-30} w={4} h={19} r={1.8} />
+		{/*
+		  * A cradle he backs into, not a chair with a tall post beside it.
+		  *
+		  * The first version had a 5×21 upright for a back, which at this size is
+		  * a rod standing next to a box — and the amber contact plate on it read
+		  * as a second object again. It is one shape now: a low bath with a
+		  * raised rear wall and the contacts as a strip *inside* it, which is
+		  * what makes it read as somewhere he fits rather than somewhere he sits.
+		  */}
+		<Box x={0} y={-8} w={28} h={8} r={2.6} />
+		<Box x={0} y={-19} w={28} h={11} r={3} tone="chassis-dark" />
+		<Box x={2.5} y={-17} w={23} h={9} r={2.2} tone="pad" />
+		<Box x={5} y={-16} w={18} h={1.8} r={0.9} tone="contact" />
+		<Leds x={10} y={-3.6} />
 	</g>
 )
 
+/** The standby beacon. It is `--amber`, which is the colour on his antenna. */
 const Lamp = () => (
 	<g>
-		<Box x={-9} y={-3} w={18} h={3} r={1.4} tone="wood-dark" />
-		<Box x={-2} y={-30} w={4} h={27} r={1.6} tone="metal" />
+		{/* The spill first, so the post stands *in* the light rather than being
+		    painted by it. Drawn over the post it turned the stem white. */}
+		<path className="glow-spill" d="M-6.4 -36.4 L6.4 -36.4 L13 -3 L-13 -3 z" />
+		<Box x={-9} y={-4} w={18} h={4} r={1.8} tone="chassis-dark" />
+		<Box x={-2} y={-30} w={4} h={26} r={1.8} tone="metal" />
 		{/*
-		  * The shade stays a trapezoid — a shade is one — but it is his amber now
-		  * rather than a yellow of its own. The same colour pulses on his antenna
-		  * two feet away, which is the whole argument for a palette: the thing
-		  * lighting his house is a colour he is already made of.
+		  * A beacon housing, not a lampshade — but the first version was a wide
+		  * rounded box with a lit circle in the middle of it, which is a monitor
+		  * on a stand and read as exactly that. A light is a *narrow* thing that
+		  * throws downward, so: a small hood, a bright lens under it, and the
+		  * spill on the deck doing most of the work.
 		  */}
-		{/* A shade is a trapezoid and stays one. An attempt at rounding its top
-		    corners by hand put a spike through the ceiling, which is the second
-		    thing `burrow.html` caught in an afternoon. */}
-		<path className="lamp" d="M-14 -30 L14 -30 L8 -46 L-8 -46 z" />
-		<path className="vol" d="M-14 -30 L14 -30 L8 -46 L-8 -46 z" />
-		<rect className="glow" x={-13} y={-30.5} width={26} height={2.5} rx={1.2} />
+		<path className="beacon" d="M-8 -44 q0 -3 3 -3 L5 -47 q3 0 3 3 L8 -38 L-8 -38 z" />
+		<path className="vol" d="M-8 -44 q0 -3 3 -3 L5 -47 q3 0 3 3 L8 -38 L-8 -38 z" />
+		<rect className="glow" x={-7} y={-38.6} width={14} height={2.6} rx={1.3} />
 	</g>
 )
 
+/** Braided cable, coiled into something to lie on. */
 const Rug = () => (
 	<g>
-		<ellipse className="cloth" cx="0" cy="-2" rx="38" ry="4" />
-		<ellipse className="cloth-lit" cx="0" cy="-2.5" rx="26" ry="2.2" />
-		<g className="fringe">
-			<path d="M-38 -2 L-42 -4 M-35 -1 L-38 2 M35 -1 L38 2 M38 -2 L42 -4" />
+		<ellipse className="cable" cx="0" cy="-2" rx="38" ry="4" />
+		<ellipse className="cable-lit" cx="0" cy="-2.5" rx="26" ry="2.2" />
+		<g className="cable-line">
+			<path d="M-30 -2 q8 -1.4 16 0 q8 1.4 16 0" />
+			<path d="M-38 -2 q-4 -2 -8 -1 M38 -2 q4 -2 8 -1" />
 		</g>
 	</g>
 )
 
+/** A shelf of modules, and the mug — which is the thing he brings back up. */
 const Shelf = () => (
 	<g>
-		<Box x={0} y={-2.5} w={26} h={2.5} r={1.1} />
-		{/* A book, a jar and a mug — three silhouettes, not three boxes. And the
-		    mug is the one he comes back up holding. */}
-		<Box x={3} y={-10} w={4} h={7.5} r={1} tone="book" />
-		<path className="glass" d="M11 -2.5 L16 -2.5 L16 -8 q-2.5 -2 -5 0 z" />
-		<Box x={10} y={-9} w={7} h={1.2} r={0.6} tone="wood-dark" />
-		<Box x={20} y={-7} w={4} h={4.5} r={1.2} tone="cloth" />
-		<path className="cloth" d="M24 -6 q2 1 0 3" />
+		<Box x={0} y={-2.5} w={28} h={2.5} r={1.1} tone="metal" />
+		{/* Three cartridges standing on end, one pulled half out. */}
+		<Box x={2.5} y={-11} w={4} h={8.5} r={1.2} tone="module" />
+		<Box x={7.5} y={-9.5} w={4} h={7} r={1.2} tone="module-alt" />
+		<Box x={12.5} y={-11} w={4} h={8.5} r={1.2} tone="module" />
+		{/* The mug. The one thing down here that is not hardware. */}
+		<Box x={21} y={-7.5} w={4.5} h={5} r={1.4} tone="pad" />
+		<path className="pad" d="M25.5 -6.4 q2.2 1.1 0 3.2" />
 	</g>
 )
 
+/** A drive caddy, which is what a crate is in here. */
 const Crate = () => (
 	<g>
-		<Box x={0} y={-18} w={18} h={18} r={1.8} />
-		{/* Bracing, corner to corner. Two diagonals are the whole difference
-		    between a crate and a brown square — pulled in off the corners while
-		    the radius was being tuned, they stopped reading as bracing and the
-		    crate turned into a barrel with a cross on it. */}
-		<g className="brace">
-			<path d="M1.4 -1.4 L16.6 -16.6 M1.4 -16.6 L16.6 -1.4 M0.4 -9 L17.6 -9" />
+		<Box x={0} y={-18} w={18} h={18} r={2} />
+		<Box x={2} y={-15.5} w={14} h={5} r={1.2} tone="chassis-dark" />
+		<g className="vent">
+			<path d="M3.4 -13.6 L14.6 -13.6 M3.4 -12 L14.6 -12" />
 		</g>
+		<Leds x={4} y={-4.4} on="led-cyan" />
+		<Box x={13} y={-7.5} w={3.4} h={1.4} r={0.7} tone="metal" />
 	</g>
 )
 
+/** A capacitor. It was a barrel and the silhouette barely had to move. */
 const Barrel = () => (
 	<g>
-		<path className="wood" d="M-8 0 q-3 -9 0 -18 L8 -18 q3 9 0 18 z" />
-		<path className="vol" d="M-8 0 q-3 -9 0 -18 L8 -18 q3 9 0 18 z" />
-		<ellipse className="wood-lit" cx="0" cy="-18" rx="8" ry="2.2" />
-		<g className="hoop">
-			<path d="M-9.2 -5 L9.2 -5 M-9.2 -13 L9.2 -13" />
-		</g>
+		<path className="cap" d="M-8 0 q-1.6 -9 0 -18 q8 -2.4 16 0 q1.6 9 0 18 q-8 2.4 -16 0 z" />
+		<path className="vol" d="M-8 0 q-1.6 -9 0 -18 q8 -2.4 16 0 q1.6 9 0 18 q-8 2.4 -16 0 z" />
+		<ellipse className="cap-lit" cx="0" cy="-18" rx="8" ry="2.4" />
+		{/* The stripe down the negative side, which is the only marking every
+		    electrolytic capacitor in the world has. */}
+		<path className="cap-stripe" d="M4.4 -17 q1.4 8 0 16" />
 	</g>
 )
 
+/** A dead monitor, still showing hills. */
 const Picture = () => (
 	<g>
-		<Box x={0} y={-14} w={18} h={14} r={1.6} tone="wood-dark" />
-		<Box x={2} y={-12} w={14} h={10} r={1} tone="canvas" />
-		{/* Hills and a small sun. He has never been outside; this is aspirational. */}
-		<path className="canvas-ink" d="M2 -5 q4 -4 7 0 q3 -3 7 0 L16 -2.6 L2 -2.6 z" />
-		<circle className="canvas-sun" cx="12" cy="-9" r="1.8" />
+		<Box x={0} y={-15} w={20} h={15} r={2.2} tone="chassis-dark" />
+		<Box x={2} y={-13} w={16} h={11} r={1.4} tone="screen" />
+		{/* Hills and a small sun. He has never been outside; this is aspirational,
+		    and it is better on a screen than in a frame — the only window in the
+		    machine is one somebody left an image on. */}
+		<path className="screen-ink" d="M2 -6 q4.5 -4.5 8 0 q3.5 -3.5 8 0 L18 -2.6 L2 -2.6 z" />
+		<circle className="screen-sun" cx="13.5" cy="-10" r="1.9" />
+		<rect className="screen-scan" x={2} y={-13} width={16} height={11} rx={1.4} />
 	</g>
 )
 
+/** A real plant. The only living thing in the machine, which is the joke. */
 const Plant = () => (
 	<g>
-		<path className="pot" d="M-5 0 L5 0 L4 -7 L-4 -7 z" />
-		<path className="vol" d="M-5 0 L5 0 L4 -7 L-4 -7 z" />
-		<Box x={-5.5} y={-9} w={11} h={2} r={0.9} tone="pot-rim" />
+		<Box x={-5} y={-7} w={10} h={7} r={1.6} tone="pot" />
+		<Box x={-5.5} y={-9} w={11} h={2.2} r={1} tone="pot-rim" />
 		<g className="leaf">
 			<path d="M0 -9 q-6 -3 -5 -8 q5 1 5 8 z" />
 			<path d="M0 -9 q6 -4 6 -9 q-6 2 -6 9 z" />
@@ -290,28 +313,70 @@ const Plant = () => (
 	</g>
 )
 
-/** A wall candle. The only thing down here that moves, and it does not. */
+/**
+ * A vacuum tube in a wall socket, glowing.
+ *
+ * It replaces the candle and it is the same object: the small warm light on the
+ * wall that is older than everything around it. He was born in a terminal and
+ * says so constantly; this is the one piece of hardware down here that would
+ * have been obsolete before he existed.
+ */
 const Candle = () => (
 	<g>
-		<Box x={0} y={-1.5} w={6} h={1.5} r={0.7} tone="metal" />
-		<Box x={1.5} y={-8} w={3} h={6.5} r={1.2} tone="wax" />
-		<path className="flame" d="M3 -8 q2.5 -2 0 -5.5 q-2.5 3.5 0 5.5 z" />
-		<circle className="flame-halo" cx="3" cy="-10" r="6" />
+		<Box x={-1} y={-2.4} w={8} h={2.4} r={1} tone="metal" />
+		<path className="tube" d="M0.4 -2.4 L5.6 -2.4 L5.6 -10 q-2.6 -2.6 -5.2 0 z" />
+		<path className="tube-glow" d="M1.6 -3.6 L4.4 -3.6 L4.4 -8.4 q-1.4 -1.2 -2.8 0 z" />
+		<circle className="tube-halo" cx="3" cy="-7" r="7" />
 	</g>
 )
 
-const PIECES = { Chair, Lamp, Rug, Shelf, Crate, Barrel, Picture, Plant, Candle } as const
+/** A cooling fan, sunk into the back wall. */
+const Fan = () => (
+	<g>
+		<Box x={-9} y={-18} w={18} h={18} r={4} tone="chassis-dark" />
+		<circle className="fan-hub" cx="0" cy="-9" r="6.4" />
+		<g className="fan-blade">
+			<path d="M0 -9 q5 -3.4 6 1 q-4.4 2.2 -6 -1 z" />
+			<path d="M0 -9 q-3.4 -5 -5.6 -0.6 q3.6 3 5.6 0.6 z" />
+			<path d="M0 -9 q-1.6 5.6 3.4 5 q0.8 -4 -3.4 -5 z" />
+		</g>
+		<circle className="fan-pin" cx="0" cy="-9" r="1.4" />
+	</g>
+)
+
+/** A cable run, going somewhere. He has already told you about this one. */
+const Cable = () => (
+	<g className="cable-run">
+		{/* Kept flat on purpose. The first version swept up thirty units and out
+		    through the ceiling of its own bay — a drawing placed against a deck
+		    line has to stay inside the box it was placed in, and nothing in the
+		    room table clips it. */}
+		<path d="M0 0 q9 -7 18 -3 q9 4 18 -4" />
+		<path d="M2 -5 q10 -6 20 -2" />
+	</g>
+)
+
+const PIECES = { Chair, Lamp, Rug, Shelf, Crate, Barrel, Picture, Plant, Candle, Fan, Cable } as const
 
 /* ── The rooms ─────────────────────────────────────────────────────────── */
 
 const ROOM = { w: 78, h: 46 }
-/** The plank band at the bottom of each room. Everything stands on its top. */
+/** The deck at the bottom of each bay. Everything stands on its top. */
 const FLOOR = 7
 
 interface Item {
 	piece: keyof typeof PIECES
-	/** From the room's left edge, and from its floor line — up is negative. */
+	/** From the bay's left edge, and from its deck line — up is negative. */
 	at: [number, number]
+	/**
+	 * How well he has to know you before this is down there.
+	 *
+	 * Undefined means day one. Everything else arrives over two months, and this
+	 * is the only place in the app where the day count is *seen* rather than
+	 * heard — everywhere else it colours a line he says. A burrow fully furnished
+	 * the moment you install it has nothing left to show you on day sixty.
+	 */
+	since?: Familiarity
 }
 
 const ROOMS: Record<
@@ -323,15 +388,15 @@ const ROOMS: Record<
 		y: 26,
 		w: ROOM.w,
 		items: [
-			{ piece: 'Chair', at: [12, 0] },
-			{ piece: 'Shelf', at: [46, -22] },
-			{ piece: 'Candle', at: [6, -26] },
+			{ piece: 'Chair', at: [10, 0] },
+			{ piece: 'Shelf', at: [44, -22], since: 'knowing' },
+			{ piece: 'Candle', at: [6, -28], since: 'old' },
 		],
-		// Chosen around the furniture, not at the middle of the room: standing in
-		// the centre put him on top of the chair, hiding the one object the room
+		// Chosen around the hardware, not at the middle of the bay: standing in
+		// the centre put him on top of the cradle, hiding the one object the bay
 		// exists to show.
-		stand: 52,
-		label: { en: 'the nook', es: 'el rincón' },
+		stand: 54,
+		label: { en: 'the cradle', es: 'el módulo' },
 	},
 	lamp: {
 		x: 100,
@@ -339,27 +404,89 @@ const ROOMS: Record<
 		w: ROOM.w,
 		items: [
 			{ piece: 'Lamp', at: [40, 0] },
-			{ piece: 'Picture', at: [6, -24] },
-			{ piece: 'Plant', at: [66, 0] },
+			{ piece: 'Picture', at: [4, -25], since: 'familiar' },
+			{ piece: 'Plant', at: [68, 0], since: 'familiar' },
 		],
-		stand: 12,
-		label: { en: 'the warm room', es: 'el cuarto tibio' },
+		stand: 13,
+		label: { en: 'the warm bay', es: 'la bahía tibia' },
 	},
 	rug: {
 		x: 16,
 		y: 78,
 		w: ROOM.w * 2 + 6,
 		items: [
-			{ piece: 'Crate', at: [8, 0] },
-			{ piece: 'Crate', at: [28, 0] },
-			{ piece: 'Barrel', at: [56, 0] },
 			{ piece: 'Rug', at: [104, 0] },
+			{ piece: 'Fan', at: [150, -16] },
+			{ piece: 'Crate', at: [8, 0], since: 'knowing' },
+			{ piece: 'Cable', at: [26, -21], since: 'knowing' },
+			{ piece: 'Crate', at: [28, 0], since: 'familiar' },
+			{ piece: 'Barrel', at: [56, 0], since: 'old' },
 		],
-		// On the rug, which is the one place standing on the furniture is the point.
+		// On the cable mat, which is the one place standing on the furniture is
+		// the point.
 		stand: 96,
-		label: { en: 'the long room', es: 'la sala larga' },
+		label: { en: 'the long bay', es: 'la bahía larga' },
 	},
 }
+
+/**
+ * Where a left-behind thing hangs, by the place it is worn.
+ *
+ * `Prop` draws against *his* landmarks in a 96×96 box — a hat up by his head at
+ * y≈20, wellies down at his feet at y≈85 — so hanging one on a rail means moving
+ * it, and the offset has to be keyed to something that already exists and is
+ * already maintained. `WEARS` is that: six places, not thirty props. The
+ * alternative is the one PLAN.md already rejected once for shells — a per-prop
+ * table nobody keeps correct, whose first stale entry is a hat floating beside
+ * its hook.
+ */
+const HANGS: Record<Where, number> = {
+	head: 24,
+	face: 50,
+	neck: 62,
+	body: 58,
+	hand: 56,
+	feet: 82,
+}
+
+/**
+ * The rail, and whatever you have left on it.
+ *
+ * Always in the long bay, whichever bay he is in: these are not his, they are
+ * yours. Drawn at a tenth scale out of the real `Prop`, so anything added to the
+ * wardrobe hangs here on the same commit that draws it and can never go missing
+ * — a nested `<svg>` with its own viewBox is the whole of the trick, and it is
+ * why there is no second set of drawings to keep in step.
+ */
+const Rail = ({ left, x, y }: { left: string[]; x: number; y: number }) => (
+	<g transform={`translate(${x} ${y})`}>
+		<Box x={-2} y={-1.4} w={left.length * 12 + 4} h={1.4} r={0.7} tone="metal" />
+		{left.map((kind, index) => (
+			<g key={kind} transform={`translate(${index * 12 + 4} 0)`}>
+				<path className="hook" d="M0 0 L0 2.6" />
+				{/*
+				  * 40 of his units into 11 of the map's, which is the whole of it.
+				  *
+				  * The first version asked for an 11-unit viewBox in an 11-pixel box
+				  * — a scale of exactly 1 — and with `overflow: visible` on top of
+				  * that, a crown came out full size and lay across three bays. The
+				  * viewBox has to be *bigger* than the box it is drawn into or
+				  * nothing shrinks, and it has to clip or the ones that overhang
+				  * spill into the room.
+				  */}
+				<svg
+					x={-5.5}
+					y={2}
+					width={11}
+					height={11}
+					viewBox={`28 ${HANGS[WEARS[kind]] - 20} 40 40`}
+				>
+					<Prop kind={kind} />
+				</svg>
+			</g>
+		))}
+	</g>
+)
 
 /**
  * The burrow, sliced open.
@@ -373,6 +500,8 @@ export const BurrowMap = ({
 	faceColor,
 	screenColor,
 	ledColor,
+	familiarity,
+	left,
 	onPetClick,
 	innerRef,
 }: {
@@ -395,6 +524,10 @@ export const BurrowMap = ({
 	faceColor: string
 	screenColor: string
 	ledColor: string
+	/** How well he knows you — which is how furnished the burrow is. */
+	familiarity: Familiarity
+	/** What you have left down there, oldest first. */
+	left: string[]
 	/**
 	 * He is actually down there. You can lift the hatch while he is standing right
 	 * next to you — the first version drew him inside regardless, which made the
@@ -434,6 +567,11 @@ export const BurrowMap = ({
 					<pattern id="tico-burrow-grain" width="4" height="4" patternUnits="userSpaceOnUse">
 						<rect width="4" height="1" fill="#ffffff" opacity="0.02" />
 					</pattern>
+					{/* The dead monitor on the wall wears his scanlines, because it is
+					    the same object he has for a face. */}
+					<pattern id="tico-burrow-scan" width="2" height="2" patternUnits="userSpaceOnUse">
+						<rect width="2" height="0.6" fill="#ffffff" opacity="0.06" />
+					</pattern>
 				</defs>
 
 				{/* Earth. Everything below is a hole cut out of this. */}
@@ -464,11 +602,30 @@ export const BurrowMap = ({
 							{/* Panelling: a few lines, not a pattern. At this size a real
 							    texture turns into a grey wash and the wall stops reading as
 							    a surface at all. */}
+							{/* Circuit traces in the board behind the bay, instead of
+							    panelling. Right angles into a via, which is how a trace is
+							    actually routed and the only way three lines read as a board
+							    rather than as three scratches. */}
 							<g className="tico-burrow-panel">
-								{[0.25, 0.5, 0.75].map((at) => (
-									<path
+								{[0.22, 0.5, 0.78].map((at, step) => {
+									const x = room.x + room.w * at
+									const bend = room.y + ROOM.h * (0.3 + step * 0.18)
+									const to = x + (step % 2 === 0 ? 9 : -9)
+									return (
+										<path
+											key={at}
+											d={`M${x} ${room.y} L${x} ${bend} L${to} ${bend + 9} L${to} ${floorOf(kind)}`}
+										/>
+									)
+								})}
+							</g>
+							<g className="tico-burrow-via">
+								{[0.22, 0.5, 0.78].map((at, step) => (
+									<circle
 										key={at}
-										d={`M${room.x + room.w * at} ${room.y} L${room.x + room.w * at} ${floorOf(kind)}`}
+										cx={room.x + room.w * at}
+										cy={room.y + ROOM.h * (0.3 + step * 0.18)}
+										r="1.1"
 									/>
 								))}
 							</g>
@@ -491,7 +648,11 @@ export const BurrowMap = ({
 				</g>
 
 				{kinds.map((kind) =>
-					ROOMS[kind].items.map((item, index) => {
+					ROOMS[kind].items
+						// Only what he has been around long enough to have. On day one
+						// the chassis is mostly bare board, which is the point.
+						.filter((item) => reached(familiarity, item.since))
+						.map((item, index) => {
 						const Piece = PIECES[item.piece]
 						return (
 							<g
@@ -504,6 +665,11 @@ export const BurrowMap = ({
 							</g>
 						)
 					})
+				)}
+
+				{/* Yours, on the wall of the long bay, wherever he happens to be. */}
+				{left.length > 0 && (
+					<Rail left={left} x={ROOMS.rug.x + 10} y={floorOf('rug') - 30} />
 				)}
 
 			</svg>

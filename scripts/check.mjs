@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt } from '../src/house/house.ts'
+import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt, TIERS } from '../src/house/house.ts'
 import { prefsCopy } from '../src/prefs/copy.ts'
 import {
 	companionCopy,
@@ -314,6 +314,30 @@ check('the house is deterministic and reaches every room', () => {
 	assert(onFavourite > 45, `the favourite only won ${onFavourite}/90 — it is not bending anything`)
 	assert(onFavourite < 90, 'the favourite won every single time, which is a uniform')
 
+	/*
+	 * Why he went down decides where he is, and it has to do so *deterministically
+	 * and temporarily*. Frightened he gets as far from the hatch as the chassis
+	 * allows; twenty minutes later the reason has stopped explaining anything and
+	 * the hash takes back over. A reason that never expired would be a pet still
+	 * hiding behind the crates an hour after a fright that lasts thirty seconds
+	 * out on the strip.
+	 */
+	assert(
+		sceneAt(at, at + 60_000, null, 'scared').at === sceneAt(at, at + 60_000, null, 'scared').at,
+		'two looks at one frightened moment disagreed'
+	)
+	assert(sceneAt(at, at + 60_000, null, 'scared').at === 'rug', 'frightened, he is not in the long bay')
+	assert(sceneAt(at, at + 60_000, null, 'sleepy').at === 'chair', 'sleepy, he is not in the cradle')
+	assert(
+		sceneAt(at, at + 60_000, null, 'scared').at !== sceneAt(at, at + 60_000, null, 'sleepy').at,
+		'the reason he went down changes nothing'
+	)
+
+	const forgets = [...Array(120).keys()].some(
+		(m) => sceneAt(at, at + m * 60_000, null, 'scared').at !== 'rug'
+	)
+	assert(forgets, 'he is still hiding, and it has been two hours')
+
 	// Both languages, same shape. The shared copy check cannot see this file.
 	const [en, es] = [houseCopy('en'), houseCopy('es')]
 	assert(
@@ -440,6 +464,48 @@ check('every prop is drawn, written and on the sheet', () => {
 	assert(unworn.length === 0, `drawn but never worn: ${unworn.join(', ')}`)
 
 	return `${worn.length} props`
+})
+
+check('the burrow is furnished at every tier, and nothing hangs nowhere', () => {
+	const house = readFileSync(new URL('../src/house/House.tsx', import.meta.url), 'utf8')
+
+	// Day one has to have something in it. Every item carrying a `since` is a
+	// burrow that is an empty box until you have known him a week, which reads
+	// as the feature being broken rather than as a burrow he has not filled yet.
+	const rooms = house.slice(house.indexOf('const ROOMS: Record<'), house.indexOf('const HANGS'))
+	for (const kind of FURNITURE) {
+		// Between `items: [` and `stand:`, not up to the first `]` — every entry
+		// carries an `at: [x, y]`, so the first bracket that closes belongs to the
+		// first item's coordinates and the count came out as one every time.
+		const body = rooms.slice(rooms.indexOf(`\t${kind}: {`))
+		const list = body.slice(body.indexOf('items: ['), body.indexOf('stand:'))
+		const items = list.match(/\{ piece:/g) ?? []
+		const gated = list.match(/since:/g) ?? []
+		assert(items.length > gated.length, `the ${kind} bay is empty on day one`)
+	}
+
+	// And every tier a `since` names has to be one the day count can reach, or
+	// the thing behind it is drawn and never appears.
+	for (const [, tier] of rooms.matchAll(/since: '(\w+)'/g)) {
+		assert(TIERS.includes(tier), `nothing is ever '${tier}'`)
+	}
+
+	// The rail hangs a prop by the place it is worn, so every place needs an
+	// offset — a missing one is `undefined` in a viewBox and a prop that
+	// vanishes, silently, only for the props filed under that place.
+	const hangs = house.slice(house.indexOf('const HANGS'), house.indexOf('const Rail'))
+	for (const place of WORN_ORDER) {
+		assert(new RegExp(`\\b${place}: \\d`).test(hangs), `nothing hangs on the ${place} rail`)
+	}
+
+	// The nested viewBox has to be *bigger* than the box it draws into or nothing
+	// shrinks. It shipped at exactly 1:1 once and a crown lay across three bays.
+	const rail = house.slice(house.indexOf('const Rail'), house.indexOf('export const BurrowMap'))
+	const box = Number((rail.match(/width=\{(\d+)\}/) ?? [])[1])
+	const view = Number((rail.match(/ (\d+) \d+\`\}/) ?? [])[1])
+	assert(view > box * 2, `the rail draws ${view} units into ${box}px, which is barely a shrink`)
+
+	return `${TIERS.length} tiers, ${WORN_ORDER.length} places, ${view}→${box}`
 })
 
 check('what he brings up from the burrow is a thing that exists', () => {
