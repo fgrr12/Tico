@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>tico — burrow</title>
+<style>
+	/* The same dark backdrop as the sheet, for the same reason: the map is only
+	   ever seen over a desktop, and a wrong colour hides on white. */
+	html,
+	body,
+	#root {
+		margin: 0;
+		min-height: 100vh;
+		background: linear-gradient(180deg, #1e2230, #2a2f42) !important;
+		height: auto !important;
+		overflow: visible !important;
+	}
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 30px;
+		padding: 40px 34px 80px;
+	}
+	/* The map positions itself off the hatch it opens out of, which does not
+	   exist here. Undone so the cells can simply sit in a row. */
+	.cell {
+		position: relative;
+		width: 340px;
+		height: 300px;
+	}
+	.cell .tico-map {
+		position: static;
+		animation: none;
+	}
+	.lab {
+		margin: 0 0 10px;
+		font: 10px ui-monospace, Menlo, monospace;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #7b8399;
+	}
+</style>
+<div id="root"></div>
+<script type="module" src="./burrow.tsx"></script>

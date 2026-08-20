@@ -167,11 +167,28 @@ check('every feeling has lines, a palette and a behaviour set', () => {
 	return `${feelings.length} feelings`
 })
 
-check('every behaviour a feeling asks for exists', () => {
-	const named = [...byFeeling.matchAll(/'(\w+)'/g)].map((match) => match[1])
-	const unknown = [...new Set(named)].filter((key) => !behaviours.includes(key))
+check('every behaviour a feeling asks for exists, and every feeling wants one', () => {
+	const named = new Set([...byFeeling.matchAll(/'(\w+)'/g)].map((match) => match[1]))
+
+	const unknown = [...named].filter((key) => !behaviours.includes(key))
 	assert(unknown.length === 0, `no such behaviour: ${unknown.join(', ')}`)
-	return `${behaviours.length} behaviours`
+
+	/*
+	 * And the other direction, which is the one that was quietly wrong.
+	 *
+	 * `content` is `null`, meaning anything — so a behaviour no feeling names is
+	 * still reachable and nothing errors. It is reachable from *one* of thirteen
+	 * feelings, which for `house` meant a lonely pet could never go home and a
+	 * sleepy one could never go to bed: the two states the burrow exists for were
+	 * the two it was unreachable from. `errand` shipped with the same hole.
+	 *
+	 * Not a style rule. Naming a behaviour in a list is how a feeling becomes
+	 * visible, and one that appears in no list is one nobody decided about.
+	 */
+	const orphans = behaviours.filter((key) => !named.has(key))
+	assert(orphans.length === 0, `no feeling ever asks for: ${orphans.join(', ')}`)
+
+	return `${behaviours.length} behaviours, all spoken for`
 })
 
 check('he still has something to do from the corner of a call', () => {
@@ -344,13 +361,26 @@ check('the face is readable on its screen in every feeling', () => {
 })
 
 check('every custom property used is defined somewhere', () => {
-	const sources = [css, companion, readFileSync(new URL('../src/companion/CompanionFace.tsx', import.meta.url), 'utf8')]
+	// The burrow is in here too, now that its lamp, its candle and its painted
+	// sun are all `var(--amber)`. An undefined paint variable is not an error
+	// anywhere — SVG falls back to black without complaining, which is exactly
+	// how the crown once shipped black, and a black lamp in a lit room is the
+	// same bug wearing a different hat.
+	const sources = [
+		css,
+		companion,
+		readFileSync(new URL('../src/companion/CompanionFace.tsx', import.meta.url), 'utf8'),
+		readFileSync(new URL('../src/house/house.css', import.meta.url), 'utf8'),
+		readFileSync(new URL('../src/house/House.tsx', import.meta.url), 'utf8'),
+	]
 
 	// `var(--x, fallback)` is fine undefined — the fallback is the point.
 	const used = new Set(
 		sources.flatMap((source) => [...source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map((m) => m[1]))
 	)
-	const defined = new Set([...css.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]))
+	const defined = new Set(
+		sources.flatMap((source) => [...source.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]))
+	)
 
 	const missing = [...used].filter((name) => !defined.has(name))
 	// An undefined paint variable is not an error anywhere — SVG quietly falls

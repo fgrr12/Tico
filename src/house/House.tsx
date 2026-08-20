@@ -1,4 +1,7 @@
+import { CompanionFace } from '../companion/CompanionFace'
+import type { CompanionParts } from '../companion/parts'
 import type { Language } from '../data/companion.ts'
+import type { WornProp } from '../data/companion.ts'
 import { type Furniture, type Scene, houseCopy, lineFor } from './house.ts'
 
 /**
@@ -54,16 +57,23 @@ export const Hatch = ({
 	>
 		<svg viewBox="0 0 120 52" aria-hidden="true">
 			<defs>
-				<linearGradient id="tico-hatch-grain" x1="0" y1="0" x2="1" y2="1">
-					<stop offset="0%" stopColor="#ffffff" stopOpacity="0.08" />
-					<stop offset="100%" stopColor="#000000" stopOpacity="0.16" />
+				{/*
+				  * The same light as the burrow's, and the same as his shell's: down
+				  * one side and off the other. The lid used to carry a diagonal grain
+				  * gradient of its own, which is a texture nothing else in the app
+				  * has.
+				  */}
+				<linearGradient id="tico-hatch-vol" x1="0" y1="0" x2="0.9" y2="1">
+					<stop offset="0%" stopColor="#ffffff" stopOpacity="0.1" />
+					<stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
+					<stop offset="100%" stopColor="#000000" stopOpacity="0.26" />
 				</linearGradient>
 				{/* Boards that stop being boards at the edges, rather than ending. */}
 				<linearGradient id="tico-floor" x1="0" y1="0" x2="1" y2="0">
-					<stop offset="0%" stopColor="#54432c" stopOpacity="0" />
-					<stop offset="20%" stopColor="#54432c" stopOpacity="0.95" />
-					<stop offset="80%" stopColor="#54432c" stopOpacity="0.95" />
-					<stop offset="100%" stopColor="#54432c" stopOpacity="0" />
+					<stop offset="0%" stopColor="#6b563f" stopOpacity="0" />
+					<stop offset="20%" stopColor="#6b563f" stopOpacity="0.95" />
+					<stop offset="80%" stopColor="#6b563f" stopOpacity="0.95" />
+					<stop offset="100%" stopColor="#6b563f" stopOpacity="0" />
 				</linearGradient>
 			</defs>
 
@@ -76,28 +86,37 @@ export const Hatch = ({
 			  * it that the hole has an edge to belong to. It fades out at both ends
 			  * rather than stopping, because a rectangle of wood on the desktop is a
 			  * plank too.
+			  *
+			  * The two hairline grain lines that used to run across it are gone. He
+			  * has no hairlines anywhere on him; what he has is a rim light, so the
+			  * boards get one of those instead.
 			  */}
-			<path d="M2 22 L118 22 L110 50 L10 50 z" fill="url(#tico-floor)" />
-			<g stroke="#6f5a3e" strokeWidth="0.9" opacity="0.5" fill="none">
-				<path d="M6 32 L114 32" />
-				<path d="M4 41 L116 41" />
-			</g>
+			<path d="M2 22 Q2 21 3.5 21 L116.5 21 Q118 21 118 22 L110 49 Q109.6 50 108 50 L12 50 Q10.4 50 10 49 z" fill="url(#tico-floor)" />
+			<path d="M6 23.4 L114 23.4" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="1.2" strokeLinecap="round" fill="none" />
 
 			{/* The hole, cut into those boards. Always drawn, simply covered. */}
-			<path d="M26 26 L94 26 L86 44 L34 44 z" fill="#0a0c11" />
-			<path d="M26 26 L94 26 L91 32 L29 32 z" fill="#04050a" />
+			<path d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" fill="var(--earth)" />
+			<path d="M26 26 L94 26 L91 32 L29 32 z" fill="#000000" opacity="0.45" />
 
-			{/* The boards, at the same shallow angle as the floor. */}
+			{/*
+			  * The lid, with his corners on it.
+			  *
+			  * It was a hard-edged trapezoid with two grain lines and a bolt. He is
+			  * `rx="15"` on an 80-wide shell — proportionally, a 68-wide door is
+			  * about 4 — and every seam on him is a rim light rather than a scored
+			  * line. The pull is a rounded slot now, which is a thing you could put
+			  * a finger in; the circle read as a screw head.
+			  */}
 			<g className="tico-hatch-lid">
-				<path d="M26 26 L94 26 L86 44 L34 44 z" fill="#9c7f58" />
-				<path d="M26 26 L94 26 L86 44 L34 44 z" fill="url(#tico-hatch-grain)" />
-				<g stroke="#6d573b" strokeWidth="1.1" fill="none">
-					<path d="M48 26 L44 44" />
-					<path d="M72 26 L74 44" />
+				<path className="lid" d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" />
+				<path fill="url(#tico-hatch-vol)" d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" />
+				<g stroke="#ffffff" strokeOpacity="0.07" strokeWidth="1.2" strokeLinecap="round" fill="none">
+					<path d="M48 26.6 L44.6 43" />
+					<path d="M72 26.6 L74 43" />
 				</g>
 				{/* The lifting edge, which is what makes it a door and not a panel. */}
-				<path d="M34 44 L86 44 L85 47 L35 47 z" fill="#6d573b" />
-				<circle cx="60" cy="39" r="2.4" fill="#4a3b28" />
+				<path className="lid-edge" d="M34.6 43.4 L85.4 43.4 Q86.4 43.4 86.2 44.4 L85.8 46.6 Q85.6 47.4 84.6 47.4 L35.4 47.4 Q34.4 47.4 34.2 46.6 z" />
+				<rect className="lid-pull" x="55.5" y="37.4" width="9" height="2.6" rx="1.3" />
 			</g>
 		</svg>
 	</button>
@@ -125,37 +144,79 @@ export const Hatch = ({
 
 /* ── The things in it ───────────────────────────────────────────────────────
  *
- * Every object is its own component, drawn with its base at the origin and
- * rising into negative `y`, so placing one is `translate(x, floorLine)` and
- * nothing has to know how tall anything else is.
+ * **Redrawn to be made of the same stuff he is.** They were hard-cornered
+ * polygons in three flat browns — `.w-lit`, `.w-mid`, `.w-dark` — and next to a
+ * pet whose body is a rounded rectangle with a gradient and a rim light they
+ * read as a different illustration pasted underneath him. The concept was never
+ * the problem: a machine who has made himself a warm wooden hole with a painting
+ * of hills he has never seen is a good idea and it stays.
  *
- * They were one `<path>` per category before this — all the furniture in one
- * flat tone, all the ornaments in another. That is why they read as cut-outs:
- * a solid silhouette has no volume, and volume at this size is entirely a
- * matter of a lit face and a dark one. Every piece below is at least two tones,
- * and the classes carry the colour so the palette stays in one file.
+ * Two changes, and they are the two the eye actually sees:
+ *
+ * 1. **Corners.** He is `rx="15"` on an 80-wide body and `rx="9"` on his screen.
+ *    Nothing down here had a radius at all.
+ * 2. **Volume is light over a shape, not two shapes in two colours.** One fill
+ *    and one shared gradient, which is exactly what `tico-case` does to his
+ *    shell — and it is *less* drawing than the lit-face/dark-face pair it
+ *    replaces, not more, while being the thing that rounds correctly.
+ *
+ * Every object is still its own component with its base at the origin, rising
+ * into negative `y`, so placing one is `translate(x, floorLine)`.
  */
+
+/**
+ * A rounded box with the light already on it. Nearly everything down here is
+ * one of these, which is the point — the burrow is now built out of the same
+ * primitive he is.
+ */
+const Box = ({
+	x,
+	y,
+	w,
+	h,
+	r = 2,
+	tone = 'wood',
+}: {
+	x: number
+	y: number
+	w: number
+	h: number
+	r?: number
+	tone?: string
+}) => (
+	<>
+		<rect className={tone} x={x} y={y} width={w} height={h} rx={r} />
+		<rect className="vol" x={x} y={y} width={w} height={h} rx={r} />
+	</>
+)
 
 const Chair = () => (
 	<g>
-		<path className="w-dark" d="M2 0 L5 0 L5 -7 L2 -7 z M19 0 L22 0 L22 -7 L19 -7 z" />
-		<path className="w-mid" d="M0 -7 L24 -7 L24 -11 L0 -11 z" />
+		<Box x={2} y={-7} w={3} h={7} r={1.2} />
+		<Box x={19} y={-7} w={3} h={7} r={1.2} />
+		<Box x={0} y={-11} w={24} h={4} r={1.6} />
 		{/* The cushion is what stops it reading as a bench. */}
-		<path className="cloth" d="M2 -11 L22 -11 L22 -14 L2 -14 z" />
-		<path className="w-mid" d="M0 -11 L4 -11 L4 -30 L0 -30 z" />
-		<path className="w-lit" d="M0 -11 L24 -11 L24 -12 L0 -12 z M0 -30 L4 -30 L4 -29 L0 -29 z" />
+		<Box x={2} y={-14} w={20} h={3} r={1.4} tone="cloth" />
+		<Box x={0} y={-30} w={4} h={19} r={1.8} />
 	</g>
 )
 
 const Lamp = () => (
 	<g>
-		<path className="w-dark" d="M-9 0 L9 0 L9 -3 L-9 -3 z" />
-		<path className="metal" d="M-2 -3 L2 -3 L2 -30 L-2 -30 z" />
-		<path className="metal-lit" d="M-2 -3 L-1 -3 L-1 -30 L-2 -30 z" />
-		{/* The shade, lit inside and shadowed on its right face. */}
-		<path className="shade" d="M-14 -30 L14 -30 L8 -46 L-8 -46 z" />
-		<path className="shade-dark" d="M4 -30 L14 -30 L8 -46 L5 -46 z" />
-		<path className="glow" d="M-13 -30 L13 -30 L13 -28 L-13 -28 z" />
+		<Box x={-9} y={-3} w={18} h={3} r={1.4} tone="wood-dark" />
+		<Box x={-2} y={-30} w={4} h={27} r={1.6} tone="metal" />
+		{/*
+		  * The shade stays a trapezoid — a shade is one — but it is his amber now
+		  * rather than a yellow of its own. The same colour pulses on his antenna
+		  * two feet away, which is the whole argument for a palette: the thing
+		  * lighting his house is a colour he is already made of.
+		  */}
+		{/* A shade is a trapezoid and stays one. An attempt at rounding its top
+		    corners by hand put a spike through the ceiling, which is the second
+		    thing `burrow.html` caught in an afternoon. */}
+		<path className="lamp" d="M-14 -30 L14 -30 L8 -46 L-8 -46 z" />
+		<path className="vol" d="M-14 -30 L14 -30 L8 -46 L-8 -46 z" />
+		<rect className="glow" x={-13} y={-30.5} width={26} height={2.5} rx={1.2} />
 	</g>
 )
 
@@ -171,35 +232,35 @@ const Rug = () => (
 
 const Shelf = () => (
 	<g>
-		<path className="w-mid" d="M0 0 L26 0 L26 -2 L0 -2 z" />
-		<path className="w-dark" d="M0 0 L26 0 L26 1 L0 1 z" />
-		{/* A book, a jar and a mug — three silhouettes, not three boxes. */}
-		<path className="book" d="M3 -2 L7 -2 L7 -10 L3 -10 z" />
-		<path className="book-spine" d="M3 -2 L4 -2 L4 -10 L3 -10 z" />
-		<path className="glass" d="M11 -2 L16 -2 L16 -8 q-2.5 -2 -5 0 z" />
-		<path className="w-dark" d="M10 -8 L17 -8 L17 -9 L10 -9 z" />
-		<path className="cloth" d="M20 -2 L24 -2 L24 -7 L20 -7 z M24 -6 q2 1 0 3" />
+		<Box x={0} y={-2.5} w={26} h={2.5} r={1.1} />
+		{/* A book, a jar and a mug — three silhouettes, not three boxes. And the
+		    mug is the one he comes back up holding. */}
+		<Box x={3} y={-10} w={4} h={7.5} r={1} tone="book" />
+		<path className="glass" d="M11 -2.5 L16 -2.5 L16 -8 q-2.5 -2 -5 0 z" />
+		<Box x={10} y={-9} w={7} h={1.2} r={0.6} tone="wood-dark" />
+		<Box x={20} y={-7} w={4} h={4.5} r={1.2} tone="cloth" />
+		<path className="cloth" d="M24 -6 q2 1 0 3" />
 	</g>
 )
 
 const Crate = () => (
 	<g>
-		<path className="w-mid" d="M0 0 L18 0 L18 -18 L0 -18 z" />
-		<path className="w-lit" d="M0 -18 L18 -18 L18 -16.5 L0 -16.5 z" />
-		<path className="w-dark" d="M13 0 L18 0 L18 -18 L13 -18 z" />
-		{/* Bracing. Two diagonals, which is the whole difference between a crate
-		    and a brown square. */}
+		<Box x={0} y={-18} w={18} h={18} r={1.8} />
+		{/* Bracing, corner to corner. Two diagonals are the whole difference
+		    between a crate and a brown square — pulled in off the corners while
+		    the radius was being tuned, they stopped reading as bracing and the
+		    crate turned into a barrel with a cross on it. */}
 		<g className="brace">
-			<path d="M1 -1 L17 -17 M1 -17 L17 -1 M0 -9 L18 -9" />
+			<path d="M1.4 -1.4 L16.6 -16.6 M1.4 -16.6 L16.6 -1.4 M0.4 -9 L17.6 -9" />
 		</g>
 	</g>
 )
 
 const Barrel = () => (
 	<g>
-		<path className="w-mid" d="M-8 0 q-3 -9 0 -18 L8 -18 q3 9 0 18 z" />
-		<path className="w-dark" d="M4 0 q3 -9 0 -18 L8 -18 q3 9 0 18 z" />
-		<ellipse className="w-lit" cx="0" cy="-18" rx="8" ry="2.2" />
+		<path className="wood" d="M-8 0 q-3 -9 0 -18 L8 -18 q3 9 0 18 z" />
+		<path className="vol" d="M-8 0 q-3 -9 0 -18 L8 -18 q3 9 0 18 z" />
+		<ellipse className="wood-lit" cx="0" cy="-18" rx="8" ry="2.2" />
 		<g className="hoop">
 			<path d="M-9.2 -5 L9.2 -5 M-9.2 -13 L9.2 -13" />
 		</g>
@@ -208,10 +269,10 @@ const Barrel = () => (
 
 const Picture = () => (
 	<g>
-		<path className="w-dark" d="M0 0 L18 0 L18 -14 L0 -14 z" />
-		<path className="canvas" d="M2 -2 L16 -2 L16 -12 L2 -12 z" />
+		<Box x={0} y={-14} w={18} h={14} r={1.6} tone="wood-dark" />
+		<Box x={2} y={-12} w={14} h={10} r={1} tone="canvas" />
 		{/* Hills and a small sun. He has never been outside; this is aspirational. */}
-		<path className="canvas-ink" d="M2 -5 q4 -4 7 0 q3 -3 7 0 L16 -2 L2 -2 z" />
+		<path className="canvas-ink" d="M2 -5 q4 -4 7 0 q3 -3 7 0 L16 -2.6 L2 -2.6 z" />
 		<circle className="canvas-sun" cx="12" cy="-9" r="1.8" />
 	</g>
 )
@@ -219,8 +280,8 @@ const Picture = () => (
 const Plant = () => (
 	<g>
 		<path className="pot" d="M-5 0 L5 0 L4 -7 L-4 -7 z" />
-		<path className="pot-dark" d="M2 0 L5 0 L4 -7 L2 -7 z" />
-		<path className="pot-rim" d="M-5.5 -7 L5.5 -7 L5.5 -9 L-5.5 -9 z" />
+		<path className="vol" d="M-5 0 L5 0 L4 -7 L-4 -7 z" />
+		<Box x={-5.5} y={-9} w={11} h={2} r={0.9} tone="pot-rim" />
 		<g className="leaf">
 			<path d="M0 -9 q-6 -3 -5 -8 q5 1 5 8 z" />
 			<path d="M0 -9 q6 -4 6 -9 q-6 2 -6 9 z" />
@@ -232,8 +293,8 @@ const Plant = () => (
 /** A wall candle. The only thing down here that moves, and it does not. */
 const Candle = () => (
 	<g>
-		<path className="metal" d="M0 0 L6 0 L6 -1.5 L0 -1.5 z" />
-		<path className="wax" d="M1.5 -1.5 L4.5 -1.5 L4.5 -8 L1.5 -8 z" />
+		<Box x={0} y={-1.5} w={6} h={1.5} r={0.7} tone="metal" />
+		<Box x={1.5} y={-8} w={3} h={6.5} r={1.2} tone="wax" />
 		<path className="flame" d="M3 -8 q2.5 -2 0 -5.5 q-2.5 3.5 0 5.5 z" />
 		<circle className="flame-halo" cx="3" cy="-10" r="6" />
 	</g>
@@ -307,11 +368,33 @@ export const BurrowMap = ({
 	scene,
 	language,
 	present,
+	parts,
+	worn,
+	faceColor,
+	screenColor,
+	ledColor,
 	onPetClick,
 	innerRef,
 }: {
 	scene: Scene
 	language: Language
+	/**
+	 * The body he was given and whatever he has on, so the thing standing in the
+	 * burrow is *him*.
+	 *
+	 * It was a rounded rectangle with two dots — drawn here, in this file, in
+	 * hex. Which meant the twenty-six drawings in `parts.tsx`, the nine shells,
+	 * the thirty props and the entire preferences window stopped at the trapdoor:
+	 * you could give him a top hat and a different body, send him down the hatch,
+	 * and find a grey box. Of everything that made the burrow feel bolted on,
+	 * this was the whole of it — the one place in the app where he is not himself.
+	 */
+	parts: CompanionParts
+	worn: WornProp[]
+	/** His feeling's palette, the same three the strip draws him with. */
+	faceColor: string
+	screenColor: string
+	ledColor: string
 	/**
 	 * He is actually down there. You can lift the hatch while he is standing right
 	 * next to you — the first version drew him inside regardless, which made the
@@ -328,14 +411,47 @@ export const BurrowMap = ({
 
 	return (
 		<div className="tico-map" ref={innerRef}>
+			<div className="tico-map-stage">
 			<svg viewBox="0 0 200 132" aria-hidden="true">
+				<defs>
+					{/*
+					  * The one light in the burrow, as a gradient rather than as a
+					  * second polygon per object.
+					  *
+					  * This is `tico-case` doing the same job on his shell: lit down
+					  * one side, falling off across the shape, shadowed on the other.
+					  * Every piece of furniture wears it, which is why they now all
+					  * agree about where the light is — three hand-picked browns per
+					  * object never could, and did not.
+					  */}
+					<linearGradient id="tico-burrow-vol" x1="0" y1="0" x2="1" y2="0.35">
+						<stop offset="0%" stopColor="#ffffff" stopOpacity="0.11" />
+						<stop offset="52%" stopColor="#ffffff" stopOpacity="0" />
+						<stop offset="100%" stopColor="#000000" stopOpacity="0.3" />
+					</linearGradient>
+					{/* The same faint scanline his own screen wears, over the earth.
+					    It is the one texture in the app and it belongs to him. */}
+					<pattern id="tico-burrow-grain" width="4" height="4" patternUnits="userSpaceOnUse">
+						<rect width="4" height="1" fill="#ffffff" opacity="0.02" />
+					</pattern>
+				</defs>
+
 				{/* Earth. Everything below is a hole cut out of this. */}
 				<rect className="tico-burrow-earth" width="200" height="132" />
+				<rect width="200" height="132" fill="url(#tico-burrow-grain)" />
 
 				{kinds.map((kind) => {
 					const room = ROOMS[kind]
 					return (
 						<g key={kind}>
+							{/* Rounded, like everything he is made of. A room with square
+							    corners under a pet with `rx="15"` was the loudest half of
+							    why this looked like a different application.
+							
+							    `data-here` needs `present`, and that turns out to be worth
+							    more than it was written for: with nobody home, not one of
+							    the three rooms is lit. The burrow says he is out before
+							    the line underneath it does. */}
 							<rect
 								className="tico-burrow-wall"
 								data-here={present && kind === scene.at ? 'true' : undefined}
@@ -343,6 +459,7 @@ export const BurrowMap = ({
 								y={room.y}
 								width={room.w}
 								height={ROOM.h}
+								rx="5"
 							/>
 							{/* Panelling: a few lines, not a pattern. At this size a real
 							    texture turns into a grey wash and the wall stops reading as
@@ -361,13 +478,14 @@ export const BurrowMap = ({
 								y={floorOf(kind)}
 								width={room.w}
 								height={FLOOR}
+								rx="2.4"
 							/>
 						</g>
 					)
 				})}
 
 				{/* The shaft down from the hatch, with the ladder he uses. */}
-				<rect className="tico-burrow-wall" x="40" y="0" width="16" height="26" />
+				<rect className="tico-burrow-wall" x="40" y="-4" width="16" height="30" rx="4" />
 				<g className="tico-burrow-panel">
 					<path d="M44 2 L44 26 M52 2 L52 26 M44 8 L52 8 M44 15 L52 15 M44 22 L52 22" />
 				</g>
@@ -388,16 +506,47 @@ export const BurrowMap = ({
 					})
 				)}
 
-				{/* Him, standing on the floor of whichever room he is in — the same
-				    projection as everything else, which is the whole point. */}
-				{present && (
-					<g transform={`translate(${here.x + here.stand} ${floorOf(scene.at) - 15})`}>
-						<rect width="17" height="15" rx="4" fill="#2c313d" stroke="#414859" strokeWidth="1.4" />
-						<rect x="4" y="5" width="3" height="4" rx="1.5" fill="#c8d0e0" />
-						<rect x="10" y="5" width="3" height="4" rx="1.5" fill="#c8d0e0" />
-					</g>
-				)}
 			</svg>
+
+			{/*
+			  * Him, standing on the floor of whichever room he is in.
+			  *
+			  * Positioned over the drawing rather than inside it: `CompanionFace` is
+			  * its own `<svg viewBox="0 0 96 96">`, and percentages off the stage put
+			  * it on the room's floor line without either drawing having to know the
+			  * other's units. The numbers are the map's own viewBox, so moving a room
+			  * moves him with it.
+			  *
+			  * He has none of the wrapper classes the strip puts on him, so none of
+			  * the walking, hopping or dancing keyframes can reach him — he is a
+			  * still portrait, which is what the burrow having no clock means. The
+			  * one thing that does still run is the pulse on his LED, and that is
+			  * deliberate: it is the only sign that the thing down there is switched
+			  * on. Do not "fix" it.
+			  */}
+			{present && (
+				<div
+					className="tico-map-him"
+					style={{
+						left: `${((here.x + here.stand) / 200) * 100}%`,
+						bottom: `${((132 - floorOf(scene.at)) / 132) * 100}%`,
+					}}
+				>
+					<CompanionFace
+						mood={scene.settled ? 'idle' : 'watching'}
+						blink={false}
+						glyph={null}
+						singing={false}
+						worn={worn}
+						faceColor={faceColor}
+						screenColor={screenColor}
+						ledColor={ledColor}
+						parts={parts}
+					/>
+				</div>
+			)}
+
+			</div>
 
 			<div className="tico-map-foot">
 				<p className="tico-map-line">

@@ -74,7 +74,13 @@ way one fails is never that it looks bad alone, it is that the thirty props stop
 landing on it. The preferences window has the same problem and the same answer:
 `/scripts/prefs.html` renders it with the IPC faked, because the alternative is
 building the Rust side and clicking through a tray menu, and a layout that slow to
-look at is a layout nobody fixes. Three rounds of defects had already survived types,
+look at is a layout nobody fixes. `/scripts/burrow.html` is the third of these and
+was added the day he stopped being a grey rectangle down there: the cutaway is a
+200×132 stage and he is a 96×96 drawing positioned over it in percentages, and no
+assertion has an opinion about whether that lands him on the floor. It did not —
+he hovered, because the bottom nine units of his box are empty below his feet, and
+he was half again too big for the room. Both were obvious on sight and invisible
+to `pnpm check`, `tsc` and a careful read. Three rounds of defects had already survived types,
 lint and `pnpm check` and were obvious within a second of looking — a top hat
 filled with the colour of the desktop behind it, a headphone band drawn inside the
 head, a crown that came out black because `--amber` was undefined and SVG falls

@@ -24,6 +24,33 @@
 	z-index: 0;
 }
 
+/*
+ * The lid's own tones, out of the same family as the burrow's.
+ *
+ * On `.tico-hatch` as well as `.tico-map` because the two are separate elements
+ * on the strip and the hatch has to be able to reach `--earth` for the hole it
+ * is covering.
+ */
+.tico-hatch {
+	--earth: #1a1511;
+	--plank: #6b563f;
+	--wood: #8d6f4d;
+	--wood-dark: #5b4830;
+}
+
+/*
+ * The same wood as the floor it lies in, not a lighter panel set into it.
+ *
+ * The comment on the drawing says the shut hatch is "a seam in the boards", and
+ * with the lid a tone brighter than the planks around it that was simply not
+ * true — it was the brightest object on the strip's floor, pulling the eye to a
+ * trapdoor nobody had asked about yet. It is the seam and the pull that say
+ * there is a door here. The tone should say nothing at all.
+ */
+.tico-hatch svg .lid { fill: var(--plank); }
+.tico-hatch svg .lid-edge { fill: var(--wood-dark); }
+.tico-hatch svg .lid-pull { fill: #000000; opacity: 0.34; }
+
 .tico-hatch svg {
 	display: block;
 	width: 100%;
@@ -93,6 +120,10 @@
 	100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+.tico-map-stage {
+	position: relative;
+}
+
 .tico-map svg {
 	display: block;
 	width: 100%;
@@ -100,39 +131,132 @@
 }
 
 /*
- * A hole in the ground, seen from the side.
+ * Him, over the cutaway.
  *
- * The palette is earth and lamplight rather than parchment: this stopped being
- * a document when it stopped being a map. It is still the brightest thing on the
- * strip, because a lit room underground *is* the bright thing.
+ * The width is a share of the stage rather than a pixel count, so he stays in
+ * scale with the furniture at any map size — 12% of 200 viewBox units is 24,
+ * which is the chair he is standing next to. `translateX(-50%)` because the
+ * room's `stand` is where he stands, not where his left edge goes.
  */
+.tico-map-him {
+	position: absolute;
+	/*
+	 * 10% of a 200-unit stage is 20 units — a shade wider than the placeholder
+	 * rectangle he replaced, and about two thirds the height of the chair he
+	 * stands beside. At 12% he was the biggest thing in the burrow and covered
+	 * the shelf the nook exists to show.
+	 */
+	width: 10%;
+	/*
+	 * And down onto the floor. His drawing is a 96×96 box whose feet land at
+	 * y77–87, so the bottom 9 units of it are empty — sitting the *box* on the
+	 * floor line left him hovering a few pixels above the plank, which is the
+	 * kind of thing that looks like a bug in the room rather than in a number.
+	 * 9/96 of his own height, which is what a percentage on `translateY` means.
+	 */
+	transform: translateX(-50%) translateY(9.4%);
+	pointer-events: none;
+}
+
+.tico-map-him svg {
+	width: 100%;
+	height: auto;
+	/* The strip gives him a drop shadow through the wrapper he does not have in
+	   here, and underground it would be lying about where the light is anyway:
+	   the lamp and the candle are both drawn in the rooms. */
+	filter: none;
+}
+
+/*
+ * A hole in the ground, seen from the side — and made of his palette.
+ *
+ * **Every colour down here used to be invented on the spot.** Thirty-five
+ * literal browns and yellows that appeared nowhere else in the app, under a pet
+ * built entirely out of `--bg-pane`, `--line`, `--amber` and three traffic
+ * lights. It did not look wrong on its own. It looked like a different
+ * application, which is a harder thing to notice and a worse thing to have.
+ *
+ * The rule now: the burrow is *his neutrals rotated toward lamplight*, keeping
+ * the same value steps, and **every accent in it is one of his five colours**
+ * darkened for a room lit by one lamp. The shade and the candle are `--amber`,
+ * which is the colour already pulsing on his antenna; the leaves are `--green`,
+ * which is the terminal he came from; the cushion and the rug are `--pink`; the
+ * book is `--cyan`; the painted sun is `--amber` again.
+ *
+ * That is what makes it his house rather than a house. It is still the brightest
+ * thing on the strip, because a lit room underground *is* the bright thing.
+ */
+.tico-map {
+	/*
+	 * His neutrals, warmed — and then lifted back up.
+	 *
+	 * The first pass at this took the burrow all the way down to his values and
+	 * it lost the thing it is for: a room underground lit by one lamp is the
+	 * *bright* object on the strip, and at `--bg-pane` warmed it was a dark hole
+	 * with dark things in it. What matters for belonging is that the steps
+	 * between these are his steps and the accents are his colours, not that the
+	 * absolute values match a pet who is meant to be a dark object on a desktop.
+	 *
+	 * The gap between an unlit room and the lit one is deliberately wide. It is
+	 * the only thing telling you which room he is in.
+	 */
+	--earth: #191410;
+	/*
+	 * The wall is *background* and the wood is *foreground*, and the first pass
+	 * had them four values apart — the chair disappeared into the room behind it
+	 * and the whole burrow read as one brown mass. Separating them is worth more
+	 * than any amount of detail on the chair.
+	 */
+	--wall: #221a13;
+	/*
+	 * The room he is in, and it is lit *by the lamp* rather than merely paler:
+	 * this is `--amber` at the value of a wall, so the light in the room is the
+	 * same colour as the thing making it. It is also the only signal telling you
+	 * which of the three rooms he is in, so the gap to `--wall` is deliberately
+	 * enormous — and `--wall` sits almost down on the earth for the same reason.
+	 * A room with the light off has to read as *off*, and it is competing for
+	 * that reading against a lamp two rooms over that is the brightest object on
+	 * the sheet whether or not he is standing under it.
+	 */
+	--wall-lit: #5c4527;
+	--seam: #120e0a;
+	--plank: #6b563f;
+
+	/* Wood, which is the only thing down here that is not one of his colours —
+	   it is the *material*, and it sits between the earth and the lamp. */
+	--wood: #9a7a52;
+	--wood-lit: #c4a075;
+	--wood-dark: #5f4b31;
+}
+
 .tico-burrow-earth {
-	fill: #2b201a;
+	fill: var(--earth);
 }
 
 /* The back wall of a room — what you see through the missing fourth wall. */
 .tico-burrow-wall {
-	fill: #4a3728;
-	stroke: #21180f;
+	fill: var(--wall);
+	stroke: var(--seam);
 	stroke-width: 1.2;
 }
 
 /* The room he is in, lit. Everything else is a room with the light off, which
    is what makes one of them read as occupied. */
 .tico-burrow-wall[data-here="true"] {
-	fill: #6b4f36;
+	fill: var(--wall-lit);
 }
 
 .tico-burrow-panel {
 	fill: none;
-	stroke: #3b2b1e;
+	stroke: #ffffff;
+	stroke-opacity: 0.05;
 	stroke-width: 0.9;
-	opacity: 0.75;
+	stroke-linecap: round;
 }
 
 .tico-burrow-floor {
-	fill: #8a6a44;
-	stroke: #4d3820;
+	fill: var(--plank);
+	stroke: var(--seam);
 	stroke-width: 1;
 }
 
@@ -140,60 +264,59 @@
  * The palette for everything inside.
  *
  * Colour lives here rather than in the drawing, so a piece is a shape and only a
- * shape — which is what makes it cheap to add another one. Every object gets at
- * least a lit face and a dark face, because at this size volume is entirely a
- * matter of two tones next to each other; a single flat fill is a cut-out no
- * matter how good the outline is.
+ * shape. What changed is that a piece is now *one* shape in one tone with the
+ * shared gradient over it, instead of a lit polygon beside a dark one — the same
+ * way his shell gets its volume, and the only way a rounded corner can have a
+ * shaded face without a seam showing through it.
  */
-.tico-map svg .w-lit { fill: #d0a468; }
-.tico-map svg .w-mid { fill: #a87f4e; }
-.tico-map svg .w-dark { fill: #6b4f2f; }
+.tico-map svg .vol { fill: url(#tico-burrow-vol); }
 
-.tico-map svg .cloth { fill: #8c5a52; }
-.tico-map svg .cloth-lit { fill: #a86d63; }
+.tico-map svg .wood { fill: var(--wood); }
+.tico-map svg .wood-lit { fill: var(--wood-lit); }
+.tico-map svg .wood-dark { fill: var(--wood-dark); }
+
+/* His pink, at the brightness of a room lit by one lamp. */
+.tico-map svg .cloth { fill: #8f5a5f; }
+.tico-map svg .cloth-lit { fill: #a86d70; }
 .tico-map svg .fringe {
 	fill: none;
-	stroke: #6f463f;
+	stroke: #6d444a;
 	stroke-width: 1.1;
 	stroke-linecap: round;
 }
 
-.tico-map svg .metal { fill: #7d8496; }
-.tico-map svg .metal-lit { fill: #9aa1b3; }
+.tico-map svg .metal { fill: #6b7285; }
 
-/* The lampshade is the brightest thing down there, which is the point of the
-   room being called the warm one. */
-.tico-map svg .shade { fill: #e8b75a; }
-.tico-map svg .shade-dark { fill: #c2913c; }
-.tico-map svg .glow { fill: #ffe6a8; }
+/* The lamp and the candle are literally `--amber`. */
+.tico-map svg .lamp { fill: var(--amber); }
+.tico-map svg .glow { fill: #f6dfae; }
+.tico-map svg .flame { fill: var(--amber); }
+.tico-map svg .flame-halo { fill: var(--amber); opacity: 0.13; }
+.tico-map svg .wax { fill: #e2d8c2; }
 
-.tico-map svg .book { fill: #5c7a8c; }
-.tico-map svg .book-spine { fill: #3f5a6b; }
-.tico-map svg .glass { fill: #7fa8a0; opacity: 0.85; }
+/* His cyan, and his green. */
+.tico-map svg .book { fill: #4f7c93; }
+.tico-map svg .glass { fill: #74a099; opacity: 0.85; }
+.tico-map svg .canvas { fill: #3f6076; }
+.tico-map svg .canvas-ink { fill: #2f4c60; }
+.tico-map svg .canvas-sun { fill: var(--amber); }
+.tico-map svg .leaf {
+	fill: #6c9455;
+	stroke: #4c6b3b;
+	stroke-width: 1;
+	stroke-linejoin: round;
+}
+
+.tico-map svg .pot { fill: #9c5f43; }
+.tico-map svg .pot-rim { fill: #b06d4b; }
 
 .tico-map svg .brace,
 .tico-map svg .hoop {
 	fill: none;
-	stroke: #55401f;
-	stroke-width: 1.2;
+	stroke: var(--wood-dark);
+	stroke-width: 1.1;
+	stroke-linecap: round;
 }
-
-.tico-map svg .canvas { fill: #4a6a7d; }
-.tico-map svg .canvas-ink { fill: #38566a; }
-.tico-map svg .canvas-sun { fill: #f0d18a; }
-
-.tico-map svg .pot { fill: #a8613f; }
-.tico-map svg .pot-dark { fill: #7f462c; }
-.tico-map svg .pot-rim { fill: #bd7049; }
-.tico-map svg .leaf {
-	fill: #6f9455;
-	stroke: #4f6d3c;
-	stroke-width: 0.9;
-}
-
-.tico-map svg .wax { fill: #e8dcc0; }
-.tico-map svg .flame { fill: #f5b83c; }
-.tico-map svg .flame-halo { fill: #f5b83c; opacity: 0.14; }
 
 .tico-map-foot {
 	display: flex;
@@ -208,7 +331,7 @@
 	font-family: var(--mono);
 	font-size: 11.5px;
 	line-height: 1.45;
-	color: #d8c8ab;
+	color: var(--fg);
 }
 
 /* The chamber name above the remark, so the line reads as a label and a
@@ -218,24 +341,33 @@
 	font-size: 10px;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #a2865c;
+	color: var(--fg-muted);
 }
 
+/*
+ * The same button as the one on a reminder, down to the pill.
+ *
+ * It was a brown rectangle with a tan border — its own little design system,
+ * three shades that appear nowhere else in the app, sitting under a drawing that
+ * is *supposed* to look like earth and lamplight. The drawing keeping its own
+ * palette is the point of it; the controls around the drawing having one too is
+ * how a feature ends up looking bolted on. There is one button style in tico and
+ * this is it.
+ */
 .tico-map-call {
 	flex: none;
-	padding: 4px 11px;
+	padding: 0.2rem 0.55rem;
 	font-family: var(--mono);
 	font-size: 11px;
-	color: #e4d5b0;
-	background: #4a3728;
-	border: 1px solid #7a5f3e;
-	border-radius: 5px;
+	color: var(--bg-pane);
+	background: var(--purple);
+	border: 0;
+	border-radius: 999px;
 	cursor: pointer;
 }
 
 .tico-map-call:hover {
-	background: #5c4633;
-	border-color: #b58a55;
+	background: #c7aaf8;
 }
 
 /*

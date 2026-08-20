@@ -2037,18 +2037,18 @@ export const Companion = ({
 				 */
 				const BY_FEELING: Record<Feeling, string[] | null> = {
 					content: null,
-					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom', 'behind'],
-					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling', 'edge', 'settle', 'wave'],
+					bored: ['pace', 'stare', 'ceiling', 'scan', 'lean', 'sit', 'hiccup', 'edge', 'peekover', 'inspect', 'groom', 'behind', 'house', 'climb', 'sneeze'],
+					lonely: ['stare', 'watchyou', 'sit', 'slump', 'ceiling', 'edge', 'settle', 'wave', 'house'],
 					pleased: ['hop', 'bounce', 'dance', 'jig', 'showoff', 'spin', 'stretch', 'bow', 'skip', 'wave', 'rocket'],
 					worried: ['watchyou', 'stare', 'lean', 'sit', 'scan', 'settle', 'groom'],
-					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan', 'startle', 'doubletake', 'trip', 'skip'],
+					restless: ['pace', 'shake', 'hiccup', 'bounce', 'spin', 'scan', 'startle', 'doubletake', 'trip', 'skip', 'errand'],
 					rattled: ['shake', 'stare', 'sit', 'blinkfast', 'lean', 'settle', 'startle'],
 					smug: ['showoff', 'spin', 'stretch', 'dance', 'watchyou', 'bow', 'admire', 'adjust'],
-						curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake', 'behind'],
-					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare', 'dream', 'settle'],
+					curious: ['ceiling', 'scan', 'watchyou', 'lean', 'chase', 'peekover', 'inspect', 'doubletake', 'behind', 'climb', 'errand'],
+					sleepy: ['yawn', 'nod', 'slump', 'sit', 'stare', 'dream', 'settle', 'house'],
 					festive: ['dance', 'jig', 'bounce', 'hop', 'spin', 'skip', 'bow', 'wave', 'rocket'],
-					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean', 'settle', 'inspect'],
-					scared: ['flee', 'cower', 'startle', 'shake', 'stare', 'blinkfast'],
+					nostalgic: ['stare', 'ceiling', 'sit', 'scan', 'lean', 'settle', 'inspect', 'sneeze'],
+					scared: ['flee', 'cower', 'startle', 'shake', 'stare', 'blinkfast', 'house'],
 				}
 
 				const possible = Object.keys(moments).filter(
@@ -2353,6 +2353,13 @@ export const Companion = ({
 						scene={scene}
 						language={language}
 						present={home !== null}
+						// The same four the strip draws him with. He does not become a
+						// different pet by going through a hole in the floor.
+						parts={parts}
+						worn={wornFrom(pinnedProps, prop, propLeaving)}
+						faceColor={PALETTE[feeling].face}
+						screenColor={PALETTE[feeling].screen}
+						ledColor={PALETTE[feeling].led}
 						innerRef={roomRef}
 						onPetClick={() => {
 							setLooking(null)
