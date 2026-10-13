@@ -21,22 +21,27 @@ pub fn brain_config() -> BrainConfig {
     }
 }
 
-/// The main display as a JPEG no wider than 1280px, or nothing.
+/// The main display as a JPEG no wider than `width` (1280 by default), or nothing.
+///
+/// The 64px version is for noticing change, not for reading: two of those a
+/// minute apart are what decides whether anything is worth a call.
 ///
 /// Shells out to the two tools macOS already ships rather than linking
 /// ScreenCaptureKit: this is an experiment, and both fail closed. Needs Screen
 /// Recording; without it `screencapture` returns the wallpaper alone, which
 /// costs a few tokens of nothing rather than an error.
-#[tauri::command]
-pub fn glance() -> tauri::ipc::Response {
-    tauri::ipc::Response::new(capture().unwrap_or_default())
+// `async` moves it off the main thread: two subprocesses there would stall him.
+#[tauri::command(async)]
+pub fn glance(width: Option<u32>) -> tauri::ipc::Response {
+    tauri::ipc::Response::new(capture(width.unwrap_or(1280).clamp(16, 1920)).unwrap_or_default())
 }
 
 #[cfg(target_os = "macos")]
-fn capture() -> Option<Vec<u8>> {
+fn capture(width: u32) -> Option<Vec<u8>> {
     use std::process::Command;
 
-    let path = std::env::temp_dir().join("tico-glance.jpg");
+    // Per width, so the small watcher and a full look never share a file.
+    let path = std::env::temp_dir().join(format!("tico-glance-{width}.jpg"));
 
     // -x silent, -m main display only, -t jpg so it is small before resizing.
     let shot = Command::new("/usr/sbin/screencapture")
@@ -45,7 +50,7 @@ fn capture() -> Option<Vec<u8>> {
         .status()
         .ok()?;
     let resized = Command::new("/usr/bin/sips")
-        .args(["-Z", "1280", "-s", "formatOptions", "60"])
+        .args(["-Z", &width.to_string(), "-s", "formatOptions", "60"])
         .arg(&path)
         .stdout(std::process::Stdio::null())
         .status()
@@ -59,6 +64,6 @@ fn capture() -> Option<Vec<u8>> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn capture() -> Option<Vec<u8>> {
+fn capture(_width: u32) -> Option<Vec<u8>> {
     None
 }

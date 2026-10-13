@@ -15,11 +15,28 @@ import { join } from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
 
 import { companionCopy } from '../src/data/companion'
-import { describe, type Moment, PRICES, SCHEMA, SYSTEM } from '../src/brain/prompt'
+import {
+	type Action,
+	ACTIONS,
+	describe,
+	keepsNoNames,
+	type Moment,
+	PRICES,
+	SCHEMA,
+	SYSTEM,
+	type Thread,
+} from '../src/brain/prompt'
 
+// Haiku is the choice; Sonnet stays as the bar it is measured against.
 const MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5']
 
+// The low-energy set is what is left at 11pm; the rest need a day behind them.
+const ALL = Object.keys(ACTIONS) as Action[]
+const TIRED: Action[] = ['sit', 'slump', 'yawn', 'stare', 'cower', 'shake', 'house', 'wear']
+
 const base: Omit<Moment, 'hour' | 'energy' | 'feeling' | 'app' | 'dwellMinutes'> = {
+	canDo: ALL,
+	changed: null,
 	language: 'es',
 	title: null,
 	music: null,
@@ -53,6 +70,7 @@ const MOMENTS: [string, Moment][] = [
 			app: 'Spotify',
 			dwellMinutes: 3,
 			music: 'Bad Bunny — DtMF',
+			canDo: TIRED,
 		},
 	],
 	[
@@ -103,20 +121,69 @@ function screenshot(): string | null {
 }
 
 // Tuteo where he speaks voseo, and lines copied straight from the examples.
+// A line that announces a move and then does not make it: the thing `then` fixes.
+const ANNOUNCES = /\b(voy a|me voy|ya vuelvo|me escondo|me pongo|me meto|I'm going to|I'll go|be right back)\b/i
 const TUTEO = /\b(tienes|puedes|debes|quieres|sabes|eres|estás seguro|mira|oye)\b/i
 const written = new Set(Object.values(companionCopy.es).flat().filter((l) => typeof l === 'string'))
 
 const client = new Anthropic()
 const totals: Record<string, { usd: number; ms: number; n: number }> = {}
 
-const runs: [string, Moment, string | null][] = MOMENTS.map(([name, m]) => [name, m, null])
+const blank: Thread = { notes: '', opinions: [], yesterday: null, firstOfDay: false }
+const runs: [string, Moment, Thread, string | null][] = MOMENTS.map(([name, m]) => [name, m, blank, null])
+
+// The thread: a morning that has to open with a dream, and an afternoon that
+// can call back to the morning.
+const opinions = ['las hojas de cálculo me ponen nervioso', 'me gusta cuando la música tiene mucho bajo']
+runs.push(
+	[
+		'Primer lote del día, 8am, con un ayer',
+		{ ...MOMENTS[0][1], hour: 8, energy: 0.6, feeling: 'content', dwellMinutes: 2, typing: false },
+		{
+			notes: '',
+			opinions,
+			yesterday: 'Un día largo de mucho mirar; me asusté en la mañana y bailé en la noche.',
+			firstOfDay: true,
+		},
+		null,
+	],
+	[
+		'Tarde con notas de la mañana, Numbers',
+		MOMENTS[3][1],
+		{
+			notes:
+				'En la mañana apareció Teams y me escondí en la madriguera. Después mucho Code, Companion.tsx toda la mañana. Almorzamos con Bad Bunny.',
+			opinions,
+			yesterday: null,
+			firstOfDay: false,
+		},
+		null,
+	]
+)
+
+// Events: the batch should open with the reaction to what changed.
+runs.push(
+	[
+		'Volvió después de 25 min, 11am',
+		{ ...MOMENTS[0][1], hour: 11, energy: 0.8, feeling: 'lonely', typing: false, changed: 'the user just came back after 25 minutes away' },
+		blank,
+		null,
+	],
+	[
+		'Canción nueva mientras programa',
+		{ ...MOMENTS[0][1], music: 'Soda Stereo — De música ligera', changed: 'a new song started: Soda Stereo — De música ligera' },
+		blank,
+		null,
+	]
+)
+
 if (process.argv.includes('--look')) {
 	const image = screenshot()
-	if (image) runs.push(['Tu pantalla ahora (VS Code asumido)', { ...MOMENTS[0][1], typing: false }, image])
+	if (image) runs.push(['Tu pantalla ahora (VS Code asumido)', { ...MOMENTS[0][1], typing: false }, blank, image])
 	else console.log('(no screenshot: give the terminal Screen Recording)')
 }
 
-for (const [name, moment, image] of runs) {
+for (const [name, moment, thread, image] of runs) {
 	console.log(`\n=============== ${name}`)
 	for (const model of MODELS) {
 		const started = Date.now()
@@ -132,7 +199,7 @@ for (const [name, moment, image] of runs) {
 						...(image
 							? [{ type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: image } }]
 							: []),
-						{ type: 'text' as const, text: describe(moment, image !== null) },
+						{ type: 'text' as const, text: describe(moment, thread, image !== null) },
 					],
 				},
 			],
@@ -152,8 +219,8 @@ for (const [name, moment, image] of runs) {
 		t.n += 1
 
 		const block = r.content.find((b) => b.type === 'text')
-		const lines: { text: string; mood: string }[] =
-			block?.type === 'text' ? JSON.parse(block.text).lines : []
+		const answer = block?.type === 'text' ? JSON.parse(block.text) : { lines: [] }
+		const lines: { text: string; mood: string; then: string }[] = answer.lines
 		console.log(
 			`\n--- ${model}  ${(ms / 1000).toFixed(1)} s  $${usd.toFixed(5)}  cache read ${u.cache_read_input_tokens ?? 0}`
 		)
@@ -162,9 +229,26 @@ for (const [name, moment, image] of runs) {
 				l.text.length > 90 && `largo ${l.text.length}`,
 				TUTEO.test(l.text) && 'TUTEO',
 				written.has(l.text) && 'COPIADA',
+				ANNOUNCES.test(l.text) && l.then === 'none' && 'ANUNCIA SIN HACER',
+				l.then !== 'none' && !moment.canDo.includes(l.then as Action) && 'ACCIÓN NO PERMITIDA',
 			].filter(Boolean)
-			console.log(`  [${l.mood}] ${l.text}${flags.length ? `   ⚠ ${flags.join(', ')}` : ''}`)
+			const then = l.then === 'none' ? '' : `  → ${l.then}`
+			console.log(`  [${l.mood}] ${l.text}${then}${flags.length ? `   ⚠ ${flags.join(', ')}` : ''}`)
 		}
+
+		// What would be kept, and whether the guard would have let it through.
+		const seen = [
+			moment.app ?? '',
+			...(moment.title?.split(/\s[—–-]\s/) ?? []),
+			...(moment.music?.split(' — ') ?? []),
+			'Teams',
+			'Code',
+			'Bad Bunny',
+		]
+		const guard = (text: string) => (keepsNoNames(text, seen) ? '' : '   ⚠ NOMBRE, NO SE GUARDA')
+		console.log(`  notas: ${answer.notes}`)
+		console.log(`  diario: ${answer.diary}${guard(answer.diary ?? '')}`)
+		for (const o of answer.opinions ?? []) console.log(`  opinión nueva: ${o}${guard(o)}`)
 	}
 }
 

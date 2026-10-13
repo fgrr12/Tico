@@ -21,6 +21,7 @@ import {
 	TERRORS,
 	timeOfDay,
 } from '../src/data/companion.ts'
+import { ACTIONS, keepsNoNames, SCREEN_CHANGED, screenChange } from '../src/brain/prompt.ts'
 
 /**
  * The checks that were being run by hand and thrown away.
@@ -766,6 +767,43 @@ check('the apps he has lines for are ones matchApp can produce', () => {
 		}
 	}
 	return 'every app entry has an hour-agnostic line'
+})
+
+check('what the brain may promise, he can do', () => {
+	// `wear` is the one action that is not a moment: it is `wearSomething`.
+	const missing = Object.keys(ACTIONS).filter(
+		(key) => key !== 'wear' && !new RegExp(`\\n\\t{3}${key}: \\{`).test(companion)
+	)
+	assert(missing.length === 0, `offered to the model but not in moments: ${missing.join(', ')}`)
+	return `${Object.keys(ACTIONS).length} actions, each one a real behaviour`
+})
+
+check('what he keeps between days names nothing he saw', () => {
+	const seen = ['Numbers', 'Bad Bunny', 'DtMF', 'presupuesto-octubre.numbers']
+	const kept = [
+		['las hojas de cálculo me ponen nervioso', true],
+		['un día largo, de mucho mirar', true],
+		['Numbers me da miedo', false],
+		['bailé con bad bunny', false],
+		['a las 3 me asusté', false],
+		['ese presupuesto-octubre.numbers otra vez', false],
+	]
+	for (const [line, ok] of kept) {
+		assert(keepsNoNames(line, seen) === ok, `"${line}" should ${ok ? 'be kept' : 'be refused'}`)
+	}
+	return `${kept.length} cases, names and numbers refused`
+})
+
+check('a new screen is noticed and typing is not', () => {
+	const screen = Uint8Array.from({ length: 160 }, (_, i) => (i * 37) % 256)
+	const typed = screen.slice()
+	typed[42] = (typed[42] + 60) % 256 // a few characters in one cell
+	const other = screen.map((v) => 255 - v)
+	assert(screenChange(screen, screen) === 0, 'the same screen should not count as change')
+	assert(screenChange(screen, typed) < SCREEN_CHANGED, 'typing should stay under the threshold')
+	assert(screenChange(screen, other) > SCREEN_CHANGED, 'a different screen should cross it')
+	assert(screenChange(screen, new Uint8Array(0)) === 1, 'no baseline should read as change')
+	return `threshold ${SCREEN_CHANGED}`
 })
 
 console.log(failures === 0 ? '\nall good\n' : `\n${failures} failed\n`)

@@ -2,17 +2,20 @@ import Anthropic from '@anthropic-ai/sdk'
 import { invoke } from '@tauri-apps/api/core'
 
 import {
+	ACTIONS,
 	type BrainLine,
 	describe,
 	EFFECTS,
 	type Moment,
+	keepsNoNames,
 	MOODS,
 	PRICES,
 	SCHEMA,
 	SYSTEM,
+	type Thread,
 } from './prompt'
 
-export type { BrainLine, Moment } from './prompt'
+export type { Action, BrainLine, Moment } from './prompt'
 
 /**
  * Experiment: Claude writes his next few lines ahead of time.
@@ -50,7 +53,8 @@ export async function connect(): Promise<boolean> {
 }
 
 // Spend lives in localStorage: per-viewer, and losing it only resets the cap.
-const today = () => new Date().toISOString().slice(0, 10)
+// The local date: toISOString is UTC, which turns the day over at 6pm in Costa Rica.
+const today = () => new Date().toLocaleDateString('en-CA')
 function spentToday(): number {
 	try {
 		const saved = JSON.parse(localStorage.getItem('brain-spend') ?? 'null')
@@ -64,6 +68,65 @@ function spend(usd: number) {
 		localStorage.setItem('brain-spend', JSON.stringify({ day: today(), usd: spentToday() + usd }))
 	} catch {
 		// A blocked store only means the cap forgets; the call already happened.
+	}
+}
+
+/** What survives a restart. About him only — see `Thread` in prompt.ts. */
+interface Kept {
+	day: string
+	diary: string
+	yesterday: string | null
+	opinions: string[]
+	/** The day he last told you a dream, so a restart does not tell another. */
+	dreamt: string
+}
+const MAX_OPINIONS = 8
+
+/** Today in detail. Never written anywhere: it dies with the process. */
+let notes = ''
+
+function recall(): Kept {
+	try {
+		const kept = JSON.parse(localStorage.getItem('brain-memory') ?? 'null') as Kept | null
+		if (kept && Array.isArray(kept.opinions)) {
+			// A new date: the last diary becomes yesterday, and today starts blank.
+			return kept.day === today()
+				? kept
+				: { ...kept, day: today(), diary: '', yesterday: kept.diary || kept.yesterday }
+		}
+	} catch {
+		// Unreadable is the same as never having met: he starts over.
+	}
+	return { day: today(), diary: '', yesterday: null, opinions: [], dreamt: '' }
+}
+
+function keep(kept: Kept) {
+	try {
+		localStorage.setItem('brain-memory', JSON.stringify(kept))
+	} catch {
+		// Only costs him tomorrow's memory of today.
+	}
+}
+
+/**
+ * The screen as 160 grey values, for `screenChange`. Taken at 64px by Rust and
+ * shrunk again here, so a minute of watching costs one tiny JPEG.
+ */
+export async function fingerprint(): Promise<Uint8Array | null> {
+	try {
+		const bytes = await invoke<ArrayBuffer>('glance', { width: 64 })
+		if (bytes.byteLength === 0) return null
+		const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }))
+		const canvas = new OffscreenCanvas(16, 10)
+		const context = canvas.getContext('2d')
+		if (!context) return null
+		context.drawImage(bitmap, 0, 0, 16, 10)
+		const { data } = context.getImageData(0, 0, 16, 10)
+		const grey = new Uint8Array(160)
+		for (let i = 0; i < 160; i++) grey[i] = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3
+		return grey
+	} catch {
+		return null
 	}
 }
 
@@ -83,12 +146,20 @@ const valid = (l: unknown): l is BrainLine => {
 		// The prompt asks for 90; past 110 the bubble wraps into a paragraph.
 		line.text.length <= 110 &&
 		(MOODS as readonly string[]).includes(line.mood) &&
-		(EFFECTS as readonly string[]).includes(line.effect)
+		(EFFECTS as readonly string[]).includes(line.effect) &&
+		(line.then === 'none' || line.then in ACTIONS)
 	)
 }
 
-/** A fresh batch of lines for this moment, or null and he stays hand-written. */
-export async function think(moment: Moment, look: boolean): Promise<BrainLine[] | null> {
+/**
+ * A fresh batch of lines for this moment, or null and he stays hand-written.
+ * `seen` is every app name this session has met: none of them may be kept.
+ */
+export async function think(
+	moment: Moment,
+	look: boolean,
+	seen: readonly string[]
+): Promise<BrainLine[] | null> {
 	if (!(await connect()) || !client) return null
 	if (spentToday() >= DAILY_BUDGET_USD) {
 		console.log(`[brain] budget for ${today()} used up`)
@@ -96,9 +167,16 @@ export async function think(moment: Moment, look: boolean): Promise<BrainLine[] 
 	}
 
 	try {
-		const shot = look ? new Uint8Array(await invoke<ArrayBuffer>('glance')) : null
+		const shot = look ? new Uint8Array(await invoke<ArrayBuffer>('glance', { width: 1280 })) : null
 		const image = shot && shot.length > 0 ? base64(shot) : null
 		const started = performance.now()
+		const kept = recall()
+		const thread: Thread = {
+			notes,
+			opinions: kept.opinions,
+			yesterday: kept.yesterday,
+			firstOfDay: kept.dreamt !== today(),
+		}
 
 		const response = await client.messages.create({
 			model,
@@ -118,7 +196,7 @@ export async function think(moment: Moment, look: boolean): Promise<BrainLine[] 
 									},
 								]
 							: []),
-						{ type: 'text' as const, text: describe(moment, image !== null) },
+						{ type: 'text' as const, text: describe(moment, thread, image !== null) },
 					],
 				},
 			],
@@ -136,11 +214,39 @@ export async function think(moment: Moment, look: boolean): Promise<BrainLine[] 
 
 		const text = response.content.find((b) => b.type === 'text')
 		if (response.stop_reason !== 'end_turn' || !text || text.type !== 'text') return null
-		const lines = (JSON.parse(text.text).lines as unknown[]).filter(valid)
+		const answer = JSON.parse(text.text)
+		const lines = (answer.lines as unknown[]).filter(valid)
+
+		// What may be kept is checked against everything he could have named.
+		const forbidden = [
+			...seen,
+			moment.app ?? '',
+			...(moment.title?.split(/\s[—–-]\s/) ?? []),
+			...(moment.music?.split(' — ') ?? []),
+		]
+		if (typeof answer.notes === 'string') notes = answer.notes.slice(0, 600)
+		const diary =
+			typeof answer.diary === 'string' && keepsNoNames(answer.diary, forbidden)
+				? answer.diary.slice(0, 200)
+				: kept.diary
+		const fresh = (Array.isArray(answer.opinions) ? answer.opinions : []).filter(
+			(o: unknown): o is string =>
+				typeof o === 'string' &&
+				o.length <= 120 &&
+				keepsNoNames(o, forbidden) &&
+				!kept.opinions.includes(o)
+		)
+		keep({
+			...kept,
+			diary,
+			opinions: [...kept.opinions, ...fresh].slice(-MAX_OPINIONS),
+			dreamt: lines.length > 0 ? today() : kept.dreamt,
+		})
 
 		console.log(
 			`[brain] ${lines.length} lines · ${Math.round(performance.now() - started)} ms · $${usd.toFixed(5)} · today $${spentToday().toFixed(4)}${image ? ' · looked' : ''}`,
-			lines.map((l) => l.text)
+			lines.map((l) => l.text),
+			{ notes, diary, newOpinions: fresh }
 		)
 		return lines.length > 0 ? lines : null
 	} catch (error) {

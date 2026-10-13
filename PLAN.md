@@ -791,6 +791,77 @@ lives with the drawings, and a second copy in Rust would go stale the first time
 one is renamed. `bodyFrom` falls back per slot, so a config naming a part that no
 longer exists costs you that part's default, not a pet who fails to appear.
 
+## Experiment: Claude writes ahead · branch `experiment/claude-brain`
+
+Not for `main`, and the reasons are at the end. Recorded because it overturns the
+finding the previous two sections rest on.
+
+**The Spanish problem was the model, not the task.** The same kind of moments
+that broke four local families — VS Code at 3pm, Spotify at 11pm, Teams at 10am,
+two hours in Numbers, plus a real screenshot — went through Claude Haiku 5.5 and
+Sonnet 5.5 with his hand-written lines in the prompt as a register. Both held
+voseo throughout ("Tecleás parejo", "Avisame cuando termine", "Llevás dos
+horas"), never slipped into English, never copied a written line. Sonnet's best
+were as good as the copy file: *"Me voy a quedar muy quieto. Los que no se
+mueven no los invitan."* With a screenshot it saw Warp, its own name in a
+command, and a tab called Farm Management: *"Me imagino gallinas. Muchas."*
+
+| | per batch of 5 | ~a month | failures |
+| --- | --- | --- | --- |
+| Haiku 5.5 | $0.00045 · 3.5 s | ~$1 | invented what it cannot sense ("tenés los hombros en las orejas"), four `scared` faces in one batch, told the user to move the mouse |
+| Sonnet 5.5 | $0.0076 · 3.4 s | ~$18 | one line over length |
+
+**Haiku is the choice.** All three of its failures are prompt rules now — he
+knows only the moment and the screenshot, never instructs, at most two lines
+per face — and the price gap is not a prompt problem. Those rules have **not**
+been re-measured yet; `scripts/brain.ts` is the apparatus, and `TICO_MODEL`
+swaps the model without a rebuild.
+
+**Lateness was the architecture, and this is the architecture.** Nothing asks a
+model for anything at the moment he speaks. A batch of five lines is written in
+the background (`src/brain/`) and the existing chatter draws from it on its own
+turn, three in four times when a line fits the app in front. A slow or failed
+call costs a hand-written line, never a frozen pet; no key, no budget or any
+error and he is the tico on `main`. AD-2 holds.
+
+Built on top, in this order:
+
+1. **He does what he says.** Each line carries `then`, one of 26 behaviours that
+   already exist in `moments`, offered only if its energy floor and `needs` pass
+   right now — he cannot promise a dance at 2am because it is never offered.
+   Said first, done 2.6 s later through the same `perform`, so chains and losing
+   interest still apply. `pnpm check` verifies every offered action is real.
+2. **A thread through the day.** Each batch rewrites today's notes, which live in
+   memory and die with the process. What survives a restart is *about him*: one
+   diary sentence and up to eight opinions ("las hojas de cálculo me ponen
+   nervioso"). The first batch of a day opens with a dream made from them. The
+   tracker line from *Memory between sessions* is enforced, not requested:
+   `keepsNoNames` refuses anything naming an app, title, song or artist the
+   session met, or holding a digit, and `pnpm check` covers it.
+3. **Events, not a clock.** A batch is asked for when you switch app, come back
+   after ten minutes, start a song, or the screen changes — a 64px look a minute,
+   compared as 160 grey values against what the last batch saw, so typing does
+   not count and a new window does. Such a batch opens with the reaction and says
+   it on arrival. Nothing new and an empty pool waits twenty minutes on
+   hand-written lines. With a still screen that is ~2 calls an hour instead of 10.
+   `SCREEN_CHANGED = 0.06` is a starting knob, measured on nothing yet.
+
+Cost guards: Haiku, the persona and examples behind a prompt cache, `effort:
+low`, no calls while asleep or in a call, and a **$0.25 hard stop per day**.
+
+What keeps it off `main`:
+
+- **Screenshots and titles leave the machine.** *After M4* says titles never
+  leave 127.0.0.1 and that this was a property of the setup, not the design —
+  this is the setup changing. It also needs Screen Recording, which brings back
+  the recurring macOS reminder `window_title.rs` was written to avoid.
+- **The key reaches the webview**, which calls the API directly. A shipped
+  version would make the call from Rust.
+- **His opinions live in the webview's `localStorage`**, not `memory.json`, so
+  deleting that file no longer makes him meet you again.
+- **Never watched for a day.** Everything above was measured line by line in
+  `scripts/brain.ts` or not at all; the live strip with a key has not been run.
+
 ## Cut from v1 — on purpose
 
 | Cut                          | Why, and when it comes back                                       |

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
-import { type BrainLine, connect, think } from '../brain/brain'
+import { type Action, type BrainLine, connect, fingerprint, think } from '../brain/brain'
+import { ACTIONS, SCREEN_CHANGED, screenChange } from '../brain/prompt'
 import type { CompanionParts } from './parts'
 import { BurrowMap, Hatch } from '../house/House.tsx'
 import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
@@ -187,15 +188,24 @@ const SWITCH_COOLDOWN = 900_000
 const DWELL_AT = [45, 120]
 
 /**
- * Experiment: how often the background batch is rewritten. Chatter spends a
- * batch of five in about six minutes, so an empty pool waits less than a full
- * one, and a pool written for another app is replaced after a short beat.
+ * Experiment: a batch is asked for when something happens, not on a clock.
+ * Chatter spends five lines in about six minutes; after that, if nothing has
+ * changed, he goes back to hand-written lines for a while rather than paying
+ * for five more about the same screen.
  */
-const BRAIN_EVERY = 720_000
-const BRAIN_EMPTY = 300_000
 const BRAIN_NEW_APP = 90_000
+/** Between two batches an event asked for. Video would otherwise ask every minute. */
+const BRAIN_FLOOR = 150_000
+/** An empty pool with nothing new to say about. */
+const BRAIN_IDLE = 1_200_000
+/** Gone this long and coming back is an event; anything shorter is a glance away. */
+const BRAIN_BACK_AFTER = 600_000
+/** One 64px look a minute, to notice the screen changing. */
+const GLANCE_EVERY = 60_000
 /** Share of chatter turns that go to a written-ahead line when one fits. */
 const BRAIN_SHARE = 0.75
+/** Said first, done after: long enough for the face the line was written with. */
+const BRAIN_ACT_AFTER = 2_600
 /** Never looked at, whatever else is allowed. */
 const NO_LOOK = /1password|bitwarden|lastpass|keychain|passwords/i
 
@@ -454,6 +464,12 @@ export const Companion = ({
 	const typingNow = useRef(typing)
 	const musicNow = useRef(nowPlaying)
 	const propNow = useRef<string | null>(null)
+	/** What happened since the last batch, waiting for the floor to let it through. */
+	const brainWhy = useRef<string | null>(null)
+	const glanceAt = useRef(0)
+	const screenNow = useRef<Uint8Array | null>(null)
+	/** The screen the last batch was written about; change is measured from here. */
+	const screenAtBatch = useRef<Uint8Array | null>(null)
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -1081,6 +1097,9 @@ export const Companion = ({
 
 		if (asleep.current) {
 			asleep.current = false
+			if (away > BRAIN_BACK_AFTER) {
+				brainWhy.current = `the user just came back after ${Math.round(away / 60_000)} minutes away`
+			}
 			react('happy', 'stretch', 1_800)
 			say(pick(away > AWAY_AFTER ? copy.back : copy.wake), 3_000)
 		}
@@ -1207,15 +1226,15 @@ export const Companion = ({
 		[]
 	)
 
-	/** One written-ahead line, with the face it was written with. False if none fits. */
-	const speakBrain = useCallback(() => {
+	/** One written-ahead line, with the face it was written with. Null if none fits. */
+	const speakBrain = useCallback((): BrainLine | null => {
 		const pool = brainPool.current
-		if (pool.app !== (appNow.current?.name ?? null)) return false
+		if (pool.app !== (appNow.current?.name ?? null)) return null
 		const line = pool.lines.shift()
-		if (!line) return false
+		if (!line) return null
 		react(line.mood, line.effect === 'none' ? undefined : line.effect, 2_400)
 		say(line.text, 7_000)
-		return true
+		return line
 	}, [react, say])
 
 	/**
@@ -1223,14 +1242,18 @@ export const Companion = ({
 	 * the chatter takes whatever is there when its turn comes, and a call that
 	 * fails or lands late only means the next line is a hand-written one.
 	 */
-	const refill = useCallback(() => {
-		if (!brainOn.current || brainBusy.current || silent.current.presenting) return
+	const refill = useCallback((canDo: Action[], changed: string | null): Promise<boolean> => {
+		if (!brainOn.current || brainBusy.current || silent.current.presenting) {
+			return Promise.resolve(false)
+		}
 		brainBusy.current = true
 		brainAt.current = Date.now()
+		brainWhy.current = null
+		screenAtBatch.current = screenNow.current
 
 		const app = appNow.current
 		const music = musicNow.current
-		think(
+		return think(
 			{
 				language,
 				hour: new Date().getHours(),
@@ -1244,13 +1267,17 @@ export const Companion = ({
 				daysKnown: opening.days,
 				wearing: [...Object.values(pinnedProps), ...(propNow.current ? [propNow.current] : [])],
 				recent: recentSaid.current,
+				canDo,
+				changed,
 			},
-			!NO_LOOK.test(app?.name ?? '')
+			!NO_LOOK.test(app?.name ?? ''),
+			[...seenApps.current]
 		)
 			.then((lines) => {
 				// Written about an app that is no longer in front: the wrong minute.
-				if (!lines || (appNow.current?.name ?? null) !== (app?.name ?? null)) return
+				if (!lines || (appNow.current?.name ?? null) !== (app?.name ?? null)) return false
 				brainPool.current = { app: app?.name ?? null, lines }
+				return true
 			})
 			.finally(() => {
 				brainBusy.current = false
@@ -1420,6 +1447,7 @@ export const Companion = ({
 	// biome-ignore lint: reacts to the track changing, not to the copy changing.
 	useEffect(() => {
 		if (!nowPlaying) return
+		brainWhy.current ??= `a new song started: ${nowPlaying.artist} — ${nowPlaying.song}`
 		if (Math.random() > 0.4) return
 
 		const timer = window.setTimeout(() => {
@@ -1920,6 +1948,32 @@ export const Companion = ({
 			!dragged.current &&
 			home === null
 
+		/**
+		 * The actions a line may promise right now, by the same rules the idle
+		 * draw uses. Asked again when the line is said, since a minute can pass.
+		 */
+		const doable = (): Action[] => [
+			...(Object.keys(ACTIONS) as Action[]).filter((key) => {
+				const moment = moments[key]
+				return (
+					moment !== undefined &&
+					moment.min <= energyAt() &&
+					(moment.needs?.() ?? true) &&
+					!(peekingNow.current && moment.travels)
+				)
+			}),
+			...(propNow.current === null ? (['wear'] as const) : []),
+		]
+
+		/** What the line said he would do, once its face has had its moment. */
+		const act = (key: Action) =>
+			window.setTimeout(() => {
+				if (!free() || !doable().includes(key)) return
+				momentAt.current = Date.now()
+				if (key === 'wear') wearSomething()
+				else perform(key)
+			}, BRAIN_ACT_AFTER)
+
 		const perform = (key: string) => {
 			const moment = moments[key]
 			if (!moment) return
@@ -2068,22 +2122,64 @@ export const Companion = ({
 				}
 			}
 
-			// Experiment: keep the written-ahead pool about this minute. Started
-			// here and never waited for, so it costs the poll nothing.
+			// Experiment: the written-ahead pool, asked for when something happens.
+			// Started here and never waited for, so it costs the poll nothing.
 			if (brainOn.current) {
 				const pool = brainPool.current
-				const stale =
-					pool.app !== (appNow.current?.name ?? null)
-						? BRAIN_NEW_APP
-						: pool.lines.length === 0
-							? BRAIN_EMPTY
-							: BRAIN_EVERY
-				if (now - brainAt.current > stale * rate.current) refill()
+				const since = now - brainAt.current
+				const front = appNow.current?.name ?? null
+
+				const why =
+					brainAt.current > 0 && pool.app !== front && since > BRAIN_NEW_APP * rate.current
+						? `the user switched to ${front ?? 'another app'}`
+						: since > BRAIN_FLOOR * rate.current
+							? brainWhy.current
+							: null
+
+				if (brainAt.current === 0) {
+					refill(doable(), null)
+				} else if (why) {
+					// An event's batch opens with the reaction to it, said on arrival.
+					// Retried briefly: coming back already got a hand-written hello, and
+					// the reaction should follow it rather than be lost behind it.
+					const respond = (tries: number) => {
+						if (!free() || !canSpeak()) {
+							if (tries > 0) window.setTimeout(() => respond(tries - 1), 2_500)
+							return
+						}
+						chatterAt.current = Date.now()
+						const line = speakBrain()
+						if (line && line.then !== 'none') act(line.then)
+					}
+					refill(doable(), why).then((fresh) => fresh && respond(2))
+				} else if (pool.lines.length === 0 && since > BRAIN_IDLE * rate.current) {
+					refill(doable(), null)
+				}
+
+				// Noticing change: a tiny look a minute, against what the last batch saw.
+				if (now - glanceAt.current > GLANCE_EVERY && !NO_LOOK.test(front ?? '')) {
+					glanceAt.current = now
+					fingerprint().then((print) => {
+						if (!print) return
+						screenNow.current = print
+						const before = screenAtBatch.current
+						if (!before) screenAtBatch.current = print
+						else if (screenChange(print, before) > SCREEN_CHANGED) {
+							brainWhy.current ??= 'the screen changed a lot since his last look'
+						}
+					})
+				}
 			}
 
 			if (!busy.current && now - chatterAt.current > CHATTER_EVERY * rate.current) {
 				chatterAt.current = now
-				if (Math.random() < BRAIN_SHARE && speakBrain()) return
+				if (Math.random() < BRAIN_SHARE) {
+					const line = speakBrain()
+					if (line) {
+						if (line.then !== 'none') act(line.then)
+						return
+					}
+				}
 
 				// The hour is its own subject, and at 2am it is the more interesting
 				// one — so it joins the pool rather than replacing it.
