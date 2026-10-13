@@ -854,6 +854,15 @@ Built on top, in this order:
    claimed by the model; four and it is done, and a later batch can be proud of
    it. Kept across a restart, so the same no-names guard applies. No brain, no
    goal: the draw is the one on `main`.
+5. **Dread before a meeting.** `calendar.rs` reads EventKit once a minute and
+   emits three numbers — minutes to start, minutes to end, head count — for the
+   meeting under way or the next one within half an hour. The title, notes,
+   location and attendee names are never read past that file. Two or more people
+   is a meeting; one is an appointment and is ignored. Ten minutes out `worried`
+   takes over the ladder just under `scared`, above being ignored — posture and
+   behaviour, no model needed. Five minutes out, and again when it ends, the
+   brain gets an event: nerves before, relief after. The relief waits for the
+   call to end on its own, since nothing is asked for while the mic is live.
 
 Cost guards: Haiku, the persona and examples behind a prompt cache, `effort:
 low`, no calls while asleep or in a call, and a **$0.25 hard stop per day**.
@@ -868,6 +877,8 @@ What keeps it off `main`:
   version would make the call from Rust.
 - **His opinions live in the webview's `localStorage`**, not `memory.json`, so
   deleting that file no longer makes him meet you again.
+- **The calendar permission is asked for at launch**, before he has given any
+  reason to want it — the opposite of *asked for late and never speculatively*.
 - **Never watched for a day.** Everything above was measured line by line in
   `scripts/brain.ts` or not at all; the live strip with a key has not been run.
 

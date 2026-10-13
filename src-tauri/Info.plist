@@ -13,6 +13,13 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>tico reads the track you are playing from Spotify and Music, so he can sing along.</string>
 
+	<!-- Experiment: the calendar, read as start, end and head count only. macOS
+	     14 asks for the FullAccess key; older systems read the plain one. -->
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>tico looks at when your next meeting starts, so he can get nervous about it with you. He never reads its title.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>tico looks at when your next meeting starts, so he can get nervous about it with you. He never reads its title.</string>
+
 	<key>LSUIElement</key>
 	<true/>
 </dict>

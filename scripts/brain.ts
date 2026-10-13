@@ -182,6 +182,18 @@ runs.push(
 		null,
 	],
 	[
+		'Reunión en 5 min, 9:55',
+		{ ...MOMENTS[0][1], hour: 9, energy: 0.8, feeling: 'worried', changed: 'a meeting with 6 people starts in 5 minutes' },
+		blank,
+		null,
+	],
+	[
+		'Terminó la reunión, 11h',
+		{ ...MOMENTS[0][1], hour: 11, energy: 0.75, feeling: 'content', typing: false, changed: 'the meeting just ended' },
+		blank,
+		null,
+	],
+	[
 		'Canción nueva mientras programa',
 		{ ...MOMENTS[0][1], music: 'Soda Stereo — De música ligera', changed: 'a new song started: Soda Stereo — De música ligera' },
 		blank,

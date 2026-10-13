@@ -81,6 +81,8 @@ export interface Sensed {
 	newApp: boolean
 	/** Something he is frightened of just came to the front. */
 	feared: boolean
+	/** A meeting with other people starts within ten minutes. */
+	meetingSoon?: boolean
 	music: boolean
 	/** The id `matchApp` resolved, so a feeling can be about a kind of app. */
 	appKey: string | null
@@ -134,6 +136,9 @@ export const feelingFrom = (seen: Sensed): Feeling => {
 	// Above almost everything: fear is the most interesting thing about any
 	// moment it happens in, and it passes on its own in half a minute.
 	if (seen.feared) return 'scared'
+	// Dread is fear that has not happened yet, and it outranks being ignored:
+	// that he is worried *before* Teams opens is the whole point of knowing.
+	if (seen.meetingSoon) return 'worried'
 	if (seen.neglect > 8) return 'lonely'
 	if (seen.attention > 0.85) return 'smug'
 	if (seen.attention > 0.5) return 'pleased'

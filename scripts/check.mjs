@@ -145,6 +145,8 @@ check('the ladder reaches every feeling it should', () => {
 		['festive', { music: true }],
 		['bored', { neglect: 5 }],
 		['worried', { dwell: 3 }],
+		// Dread outranks being ignored: worried before the meeting, even alone.
+		['worried', { meetingSoon: true, neglect: 12 }],
 		['nostalgic', { appKey: 'terminal' }],
 		['restless', { switches: 8 }],
 		['content', {}],

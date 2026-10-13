@@ -1,5 +1,6 @@
 mod active_app;
 mod brain;
+mod calendar;
 mod call;
 mod cursor;
 mod ledges;
@@ -293,6 +294,7 @@ pub fn run() {
             call::watch(handle.clone());
             typing::watch(handle.clone());
             music::watch(handle.clone());
+            calendar::watch(handle.clone());
 
             Ok(())
         })

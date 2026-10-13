@@ -58,6 +58,16 @@ export interface Ledge {
 	lift: number
 }
 
+/**
+ * Experiment: the meeting in progress or the next one, as `calendar.rs` emits
+ * it. Shape only — there is no title to leak, because none crosses.
+ */
+export interface Agenda {
+	starts_in: number
+	ends_in: number
+	people: number
+}
+
 export interface NowPlaying {
 	artist: string
 	song: string

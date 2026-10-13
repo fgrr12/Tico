@@ -7,7 +7,7 @@ import { Companion } from './companion/Companion'
 
 import { type Language, detectLanguage } from './data/companion'
 import { bodyFrom } from './companion/parts'
-import type { Ledge, NowPlaying, Opening, PetRect, Stored } from './types'
+import type { Agenda, Ledge, NowPlaying, Opening, PetRect, Stored } from './types'
 
 /**
  * The strip is one pet and nothing else. Everything the frontend cannot see for
@@ -27,6 +27,7 @@ export default function App() {
 	const [inCall, setInCall] = useState(false)
 	const [typing, setTyping] = useState(false)
 	const [opening, setOpening] = useState<Opening | null>(null)
+	const [agenda, setAgenda] = useState<Agenda | null>(null)
 
 	useEffect(() => {
 		invoke<Stored>('boot').then(setBoot)
@@ -70,6 +71,7 @@ export default function App() {
 		const music = listen<NowPlaying | null>('now-playing', (event) =>
 			setNowPlaying(event.payload)
 		)
+		const calendar = listen<Agenda | null>('agenda', (event) => setAgenda(event.payload))
 
 		return () => {
 			cursorMoved.then((off) => off())
@@ -78,6 +80,7 @@ export default function App() {
 			call.then((off) => off())
 			keys.then((off) => off())
 			music.then((off) => off())
+			calendar.then((off) => off())
 			clearInterval(remindersTimer)
 		}
 	}, [])
@@ -122,6 +125,7 @@ export default function App() {
 			cursor={cursor}
 			activeApp={activeApp}
 			nowPlaying={nowPlaying}
+			agenda={agenda}
 			reminders={reminders}
 			onReminderDone={handleReminderDone}
 			quietUntil={boot.quiet_until}

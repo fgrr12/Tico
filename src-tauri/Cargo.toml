@@ -42,3 +42,8 @@ objc2-app-kit = "0.3"
 # The Objective-C runtime itself, for the one thing that needs it: repointing the
 # window at NSPanel so that clicking him does not activate the application.
 objc2 = "0.6"
+# Experiment: what is on the calendar, so he can dread a meeting before it starts.
+# Only the store, events and their attendees; no reminders, maps or locations.
+objc2-event-kit = { version = "0.3", default-features = false, features = ["std", "block2", "EKEventStore", "EKEvent", "EKCalendar", "EKCalendarItem", "EKParticipant", "EKTypes", "EKObject"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSDate", "NSArray", "NSError", "NSPredicate"] }
+block2 = "0.6"

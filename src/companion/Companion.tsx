@@ -36,7 +36,7 @@ import {
 	timeOfDay,
 	danceStyle,
 } from '../data/companion'
-import type { CompanionMood, Ledge, NowPlaying, Opening, PetRect, Settings } from '../types'
+import type { Agenda, CompanionMood, Ledge, NowPlaying, Opening, PetRect, Settings } from '../types'
 
 /**
  * `tico`, on a real desktop.
@@ -210,6 +210,11 @@ const BRAIN_IDLE = 1_200_000
 const BRAIN_BACK_AFTER = 600_000
 /** One 64px look a minute, to notice the screen changing. */
 const GLANCE_EVERY = 60_000
+/** Close enough to a meeting that he starts to dread it, and that it is worth a word. */
+const DREAD_WITHIN = 10
+const WARN_WITHIN = 5
+/** How long after a meeting relief is still the news. */
+const RELIEF_FOR = 5 * 60_000
 /** Share of chatter turns that go to a written-ahead line when one fits. */
 const BRAIN_SHARE = 0.75
 /** Said first, done after: long enough for the face the line was written with. */
@@ -261,6 +266,8 @@ interface CompanionProps {
 	activeApp: { name: string; title: string | null; since: number } | null
 	/** Whatever a music player is showing in its window title, if anything. */
 	nowPlaying: NowPlaying | null
+	/** Experiment: the meeting coming up or under way, from `calendar.rs`. */
+	agenda: Agenda | null
 	/** Unix seconds until which he keeps unprompted remarks to himself. */
 	quietUntil: number
 	/** The microphone is live somewhere — treated as "you are in a call". */
@@ -301,6 +308,7 @@ export const Companion = ({
 	reminders,
 	onReminderDone,
 	nowPlaying,
+	agenda,
 	quietUntil,
 	inCall,
 	inCallMode,
@@ -480,6 +488,8 @@ export const Companion = ({
 	const screenNow = useRef<Uint8Array | null>(null)
 	/** The screen the last batch was written about; change is measured from here. */
 	const screenAtBatch = useRef<Uint8Array | null>(null)
+	/** The meeting being tracked, in absolute time, and whether it was announced. */
+	const meeting = useRef<{ startsAt: number; endsAt: number; warned: boolean } | null>(null)
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -516,6 +526,34 @@ export const Companion = ({
 			brainOn.current = on
 		})
 	}, [])
+
+	/**
+	 * A meeting as two events: five minutes before, and when it is over. The
+	 * dread itself is a feeling and needs no model — see `meetingSoon` below.
+	 * One alone in the calendar is an appointment, not a meeting.
+	 */
+	useEffect(() => {
+		const now = Date.now()
+		const before = meeting.current
+		const next = agenda && agenda.people >= 2 ? agenda : null
+		const startsAt = next ? now + next.starts_in * 60_000 : 0
+		// Minute rounding moves the start by up to a minute; two is the same meeting.
+		const same = before !== null && next !== null && Math.abs(before.startsAt - startsAt) < 120_000
+
+		if (before && !same && now >= before.startsAt && now < before.endsAt + RELIEF_FOR) {
+			brainWhy.current = 'the meeting just ended'
+		}
+		if (!next) {
+			meeting.current = null
+			return
+		}
+
+		meeting.current = { startsAt, endsAt: now + next.ends_in * 60_000, warned: same && before.warned }
+		if (!meeting.current.warned && next.starts_in > 0 && next.starts_in <= WARN_WITHIN) {
+			meeting.current.warned = true
+			brainWhy.current = `a meeting with ${next.people} people starts in ${next.starts_in} minutes`
+		}
+	}, [agenda])
 
 	/**
 	 * Attention decays about a tenth a minute, so being petted colours the next
@@ -2244,6 +2282,11 @@ export const Companion = ({
 				// Only the two that hold it. Everything in copy.fears still gets a
 				// fright on sight; this is what decides whether it lingers.
 				feared: Boolean(appKey && TERRORS.includes(appKey) && now - inFront!.since < 30_000),
+				meetingSoon: Boolean(
+					meeting.current &&
+						now < meeting.current.startsAt &&
+						meeting.current.startsAt - now <= DREAD_WITHIN * 60_000
+				),
 				music: nowPlaying !== null,
 				appKey,
 				energy,
