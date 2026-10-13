@@ -21,5 +21,7 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "scripts"],
+  // Run by tsx under Node, not part of the app; it has no Node types here.
+  "exclude": ["scripts/brain.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

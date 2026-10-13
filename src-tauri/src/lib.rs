@@ -1,4 +1,5 @@
 mod active_app;
+mod brain;
 mod call;
 mod cursor;
 mod ledges;
@@ -174,6 +175,8 @@ pub fn run() {
             state::set_pinned_prop,
             autostart,
             set_autostart,
+            brain::brain_config,
+            brain::glance,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

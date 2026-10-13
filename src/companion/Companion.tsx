@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
+import { type BrainLine, connect, think } from '../brain/brain'
 import type { CompanionParts } from './parts'
 import { BurrowMap, Hatch } from '../house/House.tsx'
 import { BROUGHT_UP, FURNITURE, houseCopy, sceneAt } from '../house/house.ts'
@@ -184,6 +185,19 @@ const SWITCH_LIMIT = 6
 const SWITCH_COOLDOWN = 900_000
 /** Minutes in one app before he mentions it. Each fires once per stay. */
 const DWELL_AT = [45, 120]
+
+/**
+ * Experiment: how often the background batch is rewritten. Chatter spends a
+ * batch of five in about six minutes, so an empty pool waits less than a full
+ * one, and a pool written for another app is replaced after a short beat.
+ */
+const BRAIN_EVERY = 720_000
+const BRAIN_EMPTY = 300_000
+const BRAIN_NEW_APP = 90_000
+/** Share of chatter turns that go to a written-ahead line when one fits. */
+const BRAIN_SHARE = 0.75
+/** Never looked at, whatever else is allowed. */
+const NO_LOOK = /1password|bitwarden|lastpass|keychain|passwords/i
 
 const CHATTINESS: Record<Settings['chattiness'], number> = {
 	quiet: 3,
@@ -430,6 +444,17 @@ export const Companion = ({
 	const errand = useRef<number | null>(null)
 	const errandAt = useRef(0)
 
+	// ── Experiment: Claude writes ahead ──────────────────────────────────────
+	/** Lines written for the app in front. Empty means he is hand-written. */
+	const brainPool = useRef<{ app: string | null; lines: BrainLine[] }>({ app: null, lines: [] })
+	const brainAt = useRef(0)
+	const brainBusy = useRef(false)
+	const brainOn = useRef(false)
+	const recentSaid = useRef<string[]>([])
+	const typingNow = useRef(typing)
+	const musicNow = useRef(nowPlaying)
+	const propNow = useRef<string | null>(null)
+
 	useEffect(() => {
 		moodNow.current = mood
 	}, [mood])
@@ -453,6 +478,18 @@ export const Companion = ({
 	useEffect(() => {
 		feelingNow.current = feeling
 	}, [feeling])
+
+	useEffect(() => {
+		typingNow.current = typing
+		musicNow.current = nowPlaying
+		propNow.current = prop
+	}, [typing, nowPlaying, prop])
+
+	useEffect(() => {
+		connect().then((on) => {
+			brainOn.current = on
+		})
+	}, [])
 
 	/**
 	 * Attention decays about a tenth a minute, so being petted colours the next
@@ -504,6 +541,7 @@ export const Companion = ({
 			// going to lose the race with it. It did.
 			setPending(pendingId)
 			setBubble(text)
+			recentSaid.current = [...recentSaid.current.slice(-11), text]
 			clearTimeout(bubbleTimer.current)
 			bubbleTimer.current = window.setTimeout(
 				() => setBubble(null),
@@ -1168,6 +1206,56 @@ export const Companion = ({
 			moodNow.current === 'idle',
 		[]
 	)
+
+	/** One written-ahead line, with the face it was written with. False if none fits. */
+	const speakBrain = useCallback(() => {
+		const pool = brainPool.current
+		if (pool.app !== (appNow.current?.name ?? null)) return false
+		const line = pool.lines.shift()
+		if (!line) return false
+		react(line.mood, line.effect === 'none' ? undefined : line.effect, 2_400)
+		say(line.text, 7_000)
+		return true
+	}, [react, say])
+
+	/**
+	 * Rewrites the pool in the background. Nothing that speaks ever waits on it:
+	 * the chatter takes whatever is there when its turn comes, and a call that
+	 * fails or lands late only means the next line is a hand-written one.
+	 */
+	const refill = useCallback(() => {
+		if (!brainOn.current || brainBusy.current || silent.current.presenting) return
+		brainBusy.current = true
+		brainAt.current = Date.now()
+
+		const app = appNow.current
+		const music = musicNow.current
+		think(
+			{
+				language,
+				hour: new Date().getHours(),
+				energy: energyAt(),
+				feeling: feelingNow.current,
+				app: app?.name ?? null,
+				title: app?.title ?? null,
+				dwellMinutes: app ? Math.floor((Date.now() - app.since) / 60_000) : 0,
+				music: music ? `${music.artist} — ${music.song}` : null,
+				typing: typingNow.current,
+				daysKnown: opening.days,
+				wearing: [...Object.values(pinnedProps), ...(propNow.current ? [propNow.current] : [])],
+				recent: recentSaid.current,
+			},
+			!NO_LOOK.test(app?.name ?? '')
+		)
+			.then((lines) => {
+				// Written about an app that is no longer in front: the wrong minute.
+				if (!lines || (appNow.current?.name ?? null) !== (app?.name ?? null)) return
+				brainPool.current = { app: app?.name ?? null, lines }
+			})
+			.finally(() => {
+				brainBusy.current = false
+			})
+	}, [language, opening.days, pinnedProps])
 
 	/**
 	 * Noticing which app you are in.
@@ -1980,8 +2068,22 @@ export const Companion = ({
 				}
 			}
 
+			// Experiment: keep the written-ahead pool about this minute. Started
+			// here and never waited for, so it costs the poll nothing.
+			if (brainOn.current) {
+				const pool = brainPool.current
+				const stale =
+					pool.app !== (appNow.current?.name ?? null)
+						? BRAIN_NEW_APP
+						: pool.lines.length === 0
+							? BRAIN_EMPTY
+							: BRAIN_EVERY
+				if (now - brainAt.current > stale * rate.current) refill()
+			}
+
 			if (!busy.current && now - chatterAt.current > CHATTER_EVERY * rate.current) {
 				chatterAt.current = now
+				if (Math.random() < BRAIN_SHARE && speakBrain()) return
 
 				// The hour is its own subject, and at 2am it is the more interesting
 				// one — so it joins the pool rather than replacing it.
