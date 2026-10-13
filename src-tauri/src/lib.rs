@@ -22,6 +22,7 @@ use tauri::{
     Manager, Position, Size, Wry,
 };
 use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use state::Store;
 
@@ -153,6 +154,12 @@ fn set_autostart(app: tauri::AppHandle, on: bool) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Experiment. Ctrl+Shift+T, as it was before the AI went. Deliberately not
+    // Cmd+Shift+T: a global shortcut swallows it everywhere, and that one already
+    // means "reopen the tab you just closed" in every browser.
+    let ask_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT);
+    let listening_for = ask_shortcut;
+
     tauri::Builder::default()
         // Must be registered first, per the plugin's own contract. Without it,
         // launching tico twice gives you two pets and two tray icons — and since
@@ -162,6 +169,15 @@ pub fn run() {
             anchor_strip(app);
         }))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(move |app, shortcut, event| {
+                    if event.state == ShortcutState::Pressed && shortcut == &listening_for {
+                        brain::open_ask(app);
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             state::boot,
             state::set_pet_x,
@@ -178,8 +194,9 @@ pub fn run() {
             set_autostart,
             brain::brain_config,
             brain::glance,
+            brain::asked,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
             let saved = state::load(&handle);
             app.manage(Store(Mutex::new(saved.clone())));
@@ -295,6 +312,10 @@ pub fn run() {
             typing::watch(handle.clone());
             music::watch(handle.clone());
             calendar::watch(handle.clone());
+            // No key, no box: without a brain there is nobody to answer.
+            if brain::has_key() {
+                let _ = handle.global_shortcut().register(ask_shortcut);
+            }
 
             Ok(())
         })

@@ -18,7 +18,10 @@ import { companionCopy } from '../src/data/companion'
 import {
 	type Action,
 	ACTIONS,
+	ANSWER_SCHEMA,
+	ANSWER_SYSTEM,
 	describe,
+	describeQuestion,
 	keepsNoNames,
 	type Moment,
 	PRICES,
@@ -129,7 +132,14 @@ const written = new Set(Object.values(companionCopy.es).flat().filter((l) => typ
 const client = new Anthropic()
 const totals: Record<string, { usd: number; ms: number; n: number }> = {}
 
-const blank: Thread = { notes: '', opinions: [], yesterday: null, firstOfDay: false, goal: null }
+const blank: Thread = {
+	notes: '',
+	opinions: [],
+	yesterday: null,
+	firstOfDay: false,
+	goal: null,
+	told: [],
+}
 const runs: [string, Moment, Thread, string | null][] = MOMENTS.map(([name, m]) => [name, m, blank, null])
 
 // The thread: a morning that has to open with a dream, and an afternoon that
@@ -145,6 +155,7 @@ runs.push(
 			yesterday: 'Un día largo de mucho mirar; me asusté en la mañana y bailé en la noche.',
 			firstOfDay: true,
 			goal: null,
+			told: [],
 		},
 		null,
 	],
@@ -158,6 +169,7 @@ runs.push(
 			yesterday: null,
 			firstOfDay: false,
 			goal: { kind: 'explore', text: 'Hoy quiero ver qué hay pasando el borde.', progress: 2 },
+			told: [],
 		},
 		null,
 	],
@@ -277,6 +289,43 @@ for (const [name, moment, thread, image] of runs) {
 			const late = thread.goal ? '   ⚠ YA TENÍA UNO, SE IGNORA' : ''
 			console.log(`  objetivo: [${answer.goal.kind}] ${answer.goal.text}${guard(answer.goal.text)}${late}`)
 		}
+	}
+}
+
+// Questions: one about the screen, one asking him to do something, one to
+// remember and one to forget. What he said and what he would keep.
+const told = ['Mi perro se llama Toby.']
+const QUESTIONS: [string, Thread][] = [
+	['¿Qué estoy haciendo?', blank],
+	['Bailá un poquito', blank],
+	['Mañana tengo una entrevista de trabajo y estoy nervioso', blank],
+	['¿Cómo se llama mi perro?', { ...blank, told }],
+	['Olvidá todo lo que te conté', { ...blank, told }],
+]
+for (const [question, thread] of QUESTIONS) {
+	console.log(`\n=============== Pregunta: ${question}`)
+	const moment = MOMENTS[0][1]
+	for (const model of MODELS) {
+		const started = Date.now()
+		const r = await client.messages.create({
+			model,
+			max_tokens: 2048,
+			system: [{ type: 'text', text: ANSWER_SYSTEM('es'), cache_control: { type: 'ephemeral' } }],
+			output_config: { effort: 'low', format: { type: 'json_schema', schema: ANSWER_SCHEMA } },
+			messages: [{ role: 'user', content: describeQuestion(moment, thread, question, false) }],
+		})
+		const block = r.content.find((b) => b.type === 'text')
+		const a = block?.type === 'text' ? JSON.parse(block.text) : {}
+		const flags = [
+			a.text?.length > 160 && `largo ${a.text.length}`,
+			TUTEO.test(a.text ?? '') && 'TUTEO',
+			a.then !== 'none' && !moment.canDo.includes(a.then) && 'ACCIÓN NO PERMITIDA',
+		].filter(Boolean)
+		console.log(
+			`\n--- ${model}  ${((Date.now() - started) / 1000).toFixed(1)} s\n  [${a.mood}] ${a.text}${a.then !== 'none' ? `  → ${a.then}` : ''}${flags.length ? `   ⚠ ${flags.join(', ')}` : ''}`
+		)
+		if (a.remember?.length) console.log(`  recuerda: ${a.remember.join(' · ')}`)
+		if (a.forget) console.log('  olvida todo')
 	}
 }
 

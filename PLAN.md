@@ -863,6 +863,20 @@ Built on top, in this order:
    behaviour, no model needed. Five minutes out, and again when it ends, the
    brain gets an event: nerves before, relief after. The relief waits for the
    call to end on its own, since nothing is asked for while the mic is live.
+6. **You can talk to him.** Ctrl+Shift+T, as before the AI went, opens a small
+   window of its own — not a box in the strip, which stays the non-activating
+   panel of *A click on him costs one click*, so `focusable: false` still holds:
+   the strip never reads a keystroke. Enter sends, Escape or clicking away
+   cancels, and either way Rust destroys the window and re-activates the app you
+   were in, so asking costs you no caret. He looks up when it opens, thinks
+   while the answer comes, then says it and does what you asked if it is in
+   "Can do now". The answer is waited for — you asked, so a second is expected —
+   but only by the bubble, never by his body. What you tell him about yourself
+   is kept (twelve facts, in your words) and fed to every batch as well; it is
+   the one memory allowed to hold names, because you said them and he did not
+   see them, and "olvidá todo" empties it. The idea ranked last in *the model as
+   a chooser* — a model that distils what you told him — is this, untried until
+   now. No key and the shortcut is never registered.
 
 Cost guards: Haiku, the persona and examples behind a prompt cache, `effort:
 low`, no calls while asleep or in a call, and a **$0.25 hard stop per day**.

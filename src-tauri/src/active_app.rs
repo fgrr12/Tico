@@ -28,7 +28,7 @@ pub fn set_titles(on: bool) {
 /// `window_title` can ask Accessibility for the focused window's title — a much
 /// more revealing string, behind a grant, off by default.
 #[cfg(target_os = "macos")]
-fn frontmost() -> Option<(String, i32)> {
+pub(crate) fn frontmost() -> Option<(String, i32)> {
     use objc2_app_kit::NSWorkspace;
 
     // No unsafe block: objc2 marks these three as safe, because none of them has
@@ -49,7 +49,7 @@ fn frontmost() -> Option<(String, i32)> {
 /// and FFI that has never been compiled is worse than an empty function: it looks
 /// finished. They land when there is a machine to build them on.
 #[cfg(not(target_os = "macos"))]
-fn frontmost() -> Option<(String, i32)> {
+pub(crate) fn frontmost() -> Option<(String, i32)> {
     None
 }
 

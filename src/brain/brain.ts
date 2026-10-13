@@ -4,8 +4,11 @@ import { invoke } from '@tauri-apps/api/core'
 import {
 	type Action,
 	ACTIONS,
+	ANSWER_SCHEMA,
+	ANSWER_SYSTEM,
 	type BrainLine,
 	describe,
+	describeQuestion,
 	EFFECTS,
 	type Goal,
 	GOAL_STEPS,
@@ -86,8 +89,11 @@ interface Kept {
 	dreamt: string
 	/** Today's, and only today's: a new date clears it. */
 	goal: Goal | null
+	/** What you told him. Yours, so no names guard — and `forget` empties it. */
+	told: string[]
 }
 const MAX_OPINIONS = 8
+const MAX_TOLD = 12
 
 /** Today in detail. Never written anywhere: it dies with the process. */
 let notes = ''
@@ -104,7 +110,7 @@ function recall(): Kept {
 	} catch {
 		// Unreadable is the same as never having met: he starts over.
 	}
-	return { day: today(), diary: '', yesterday: null, opinions: [], dreamt: '', goal: null }
+	return { day: today(), diary: '', yesterday: null, opinions: [], dreamt: '', goal: null, told: [] }
 }
 
 function keep(kept: Kept) {
@@ -162,17 +168,68 @@ function base64(bytes: Uint8Array): string {
 	return btoa(out)
 }
 
-const valid = (l: unknown): l is BrainLine => {
+const fits = (l: unknown, max: number): l is BrainLine => {
 	const line = l as BrainLine
 	return (
 		typeof line?.text === 'string' &&
 		line.text.trim().length > 0 &&
-		// The prompt asks for 90; past 110 the bubble wraps into a paragraph.
-		line.text.length <= 110 &&
+		line.text.length <= max &&
 		(MOODS as readonly string[]).includes(line.mood) &&
 		(EFFECTS as readonly string[]).includes(line.effect) &&
 		(line.then === 'none' || line.then in ACTIONS)
 	)
+}
+// The prompt asks for 90; past 110 the bubble wraps into a paragraph. A reply
+// asks for 160 and gets the same slack: it was asked for, so it may run longer.
+const valid = (l: unknown): l is BrainLine => fits(l, 110)
+const validReply = (l: unknown): l is BrainLine => fits(l, 200)
+
+/** One structured call, billed against the day. Null on a refusal or a cut-off answer. */
+async function call(
+	system: string,
+	schema: Record<string, unknown>,
+	text: string,
+	image: string | null
+): Promise<{ answer: Record<string, unknown>; usd: number; ms: number } | null> {
+	if (!client) return null
+	const started = performance.now()
+	const response = await client.messages.create({
+		model,
+		max_tokens: 2048,
+		// The persona and the examples are the same every call: read from cache.
+		system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+		output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+		messages: [
+			{
+				role: 'user',
+				content: [
+					...(image
+						? [
+								{
+									type: 'image' as const,
+									source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: image },
+								},
+							]
+						: []),
+					{ type: 'text' as const, text },
+				],
+			},
+		],
+	})
+
+	const [inPrice, outPrice] = PRICES[model] ?? [2, 10]
+	const u = response.usage
+	const usd =
+		(u.input_tokens * inPrice +
+			(u.cache_creation_input_tokens ?? 0) * inPrice * 1.25 +
+			(u.cache_read_input_tokens ?? 0) * inPrice * 0.1 +
+			u.output_tokens * outPrice) /
+		1_000_000
+	spend(usd)
+
+	const block = response.content.find((b) => b.type === 'text')
+	if (response.stop_reason !== 'end_turn' || !block || block.type !== 'text') return null
+	return { answer: JSON.parse(block.text), usd, ms: Math.round(performance.now() - started) }
 }
 
 /**
@@ -193,7 +250,6 @@ export async function think(
 	try {
 		const shot = look ? new Uint8Array(await invoke<ArrayBuffer>('glance', { width: 1280 })) : null
 		const image = shot && shot.length > 0 ? base64(shot) : null
-		const started = performance.now()
 		const kept = recall()
 		const thread: Thread = {
 			notes,
@@ -201,45 +257,12 @@ export async function think(
 			yesterday: kept.yesterday,
 			firstOfDay: kept.dreamt !== today(),
 			goal: kept.goal ?? null,
+			told: kept.told ?? [],
 		}
 
-		const response = await client.messages.create({
-			model,
-			max_tokens: 2048,
-			// The persona and the examples are the same every call: read from cache.
-			system: [{ type: 'text', text: SYSTEM(moment.language), cache_control: { type: 'ephemeral' } }],
-			output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-			messages: [
-				{
-					role: 'user',
-					content: [
-						...(image
-							? [
-									{
-										type: 'image' as const,
-										source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: image },
-									},
-								]
-							: []),
-						{ type: 'text' as const, text: describe(moment, thread, image !== null) },
-					],
-				},
-			],
-		})
-
-		const [inPrice, outPrice] = PRICES[model] ?? [2, 10]
-		const u = response.usage
-		const usd =
-			(u.input_tokens * inPrice +
-				(u.cache_creation_input_tokens ?? 0) * inPrice * 1.25 +
-				(u.cache_read_input_tokens ?? 0) * inPrice * 0.1 +
-				u.output_tokens * outPrice) /
-			1_000_000
-		spend(usd)
-
-		const text = response.content.find((b) => b.type === 'text')
-		if (response.stop_reason !== 'end_turn' || !text || text.type !== 'text') return null
-		const answer = JSON.parse(text.text)
+		const result = await call(SYSTEM(moment.language), SCHEMA, describe(moment, thread, image !== null), image)
+		if (!result) return null
+		const { answer, usd } = result
 		const lines = (answer.lines as unknown[]).filter(valid)
 
 		// What may be kept is checked against everything he could have named.
@@ -283,13 +306,72 @@ export async function think(
 		})
 
 		console.log(
-			`[brain] ${lines.length} lines · ${Math.round(performance.now() - started)} ms · $${usd.toFixed(5)} · today $${spentToday().toFixed(4)}${image ? ' · looked' : ''}`,
+			`[brain] ${lines.length} lines · ${result.ms} ms · $${usd.toFixed(5)} · today $${spentToday().toFixed(4)}${image ? ' · looked' : ''}`,
 			lines.map((l) => l.text),
 			{ notes, diary, newOpinions: fresh, goal }
 		)
 		return lines.length > 0 ? lines : null
 	} catch (error) {
 		console.warn('[brain] failed, staying hand-written', error)
+		return null
+	}
+}
+
+export interface Answer {
+	text: string
+	mood: BrainLine['mood']
+	effect: BrainLine['effect']
+	then: BrainLine['then']
+}
+
+/**
+ * Experiment: what he says back when you type to him, or null.
+ *
+ * Unlike a batch this one is waited for — you asked, so a second or two is
+ * expected — but only by the bubble that says it, never by his body.
+ */
+export async function answer(question: string, moment: Moment, look: boolean): Promise<Answer | null> {
+	if (!(await connect()) || spentToday() >= DAILY_BUDGET_USD) return null
+	try {
+		const shot = look ? new Uint8Array(await invoke<ArrayBuffer>('glance', { width: 1280 })) : null
+		const image = shot && shot.length > 0 ? base64(shot) : null
+		const kept = recall()
+		const thread: Thread = {
+			notes,
+			opinions: kept.opinions,
+			yesterday: kept.yesterday,
+			firstOfDay: false,
+			goal: kept.goal ?? null,
+			told: kept.told ?? [],
+		}
+
+		const result = await call(
+			ANSWER_SYSTEM(moment.language),
+			ANSWER_SCHEMA,
+			describeQuestion(moment, thread, question, image !== null),
+			image
+		)
+		if (!result) return null
+		const reply = result.answer as unknown as Answer & { remember: unknown; forget: unknown }
+		const line = { ...reply, text: typeof reply.text === 'string' ? reply.text.trim() : '' }
+		if (!validReply(line)) return null
+
+		const remembered = (Array.isArray(reply.remember) ? reply.remember : []).filter(
+			(r: unknown): r is string => typeof r === 'string' && r.length > 0 && r.length <= 160
+		)
+		const told = reply.forget === true ? [] : [...(kept.told ?? []), ...remembered].slice(-MAX_TOLD)
+		keep({ ...kept, told })
+		// Today's notes carry the exchange, so later batches can follow it up.
+		notes = `${notes} Me preguntó: "${question.slice(0, 80)}". Le dije: "${line.text.slice(0, 80)}".`.slice(-600)
+
+		console.log(
+			`[brain] answer · ${result.ms} ms · $${result.usd.toFixed(5)} · today $${spentToday().toFixed(4)}${image ? ' · looked' : ''}`,
+			line.text,
+			{ remembered, forgot: reply.forget === true }
+		)
+		return { text: line.text, mood: line.mood, effect: line.effect, then: line.then }
+	} catch (error) {
+		console.warn('[brain] could not answer', error)
 		return null
 	}
 }

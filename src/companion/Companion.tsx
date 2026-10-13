@@ -4,10 +4,12 @@ import { CompanionFace } from './CompanionFace'
 import {
 	type Action,
 	advanceGoal,
+	answer,
 	type BrainLine,
 	connect,
 	fingerprint,
 	goalActions,
+	type Moment,
 	think,
 } from '../brain/brain'
 import { ACTIONS, SCREEN_CHANGED, screenChange } from '../brain/prompt'
@@ -268,6 +270,10 @@ interface CompanionProps {
 	nowPlaying: NowPlaying | null
 	/** Experiment: the meeting coming up or under way, from `calendar.rs`. */
 	agenda: Agenda | null
+	/** Experiment: bumped each time the ask box opens. */
+	listening: number
+	/** Experiment: what you typed, or null for a cancel; `n` makes repeats distinct. */
+	question: { text: string | null; n: number } | null
 	/** Unix seconds until which he keeps unprompted remarks to himself. */
 	quietUntil: number
 	/** The microphone is live somewhere — treated as "you are in a call". */
@@ -309,6 +315,8 @@ export const Companion = ({
 	onReminderDone,
 	nowPlaying,
 	agenda,
+	listening,
+	question,
 	quietUntil,
 	inCall,
 	inCallMode,
@@ -490,6 +498,8 @@ export const Companion = ({
 	const screenAtBatch = useRef<Uint8Array | null>(null)
 	/** The meeting being tracked, in absolute time, and whether it was announced. */
 	const meeting = useRef<{ startsAt: number; endsAt: number; warned: boolean } | null>(null)
+	/** The poll's own `act` and `doable`, for the one caller outside it: an answer. */
+	const body = useRef<{ act: (key: Action) => void; doable: () => Action[] } | null>(null)
 
 	useEffect(() => {
 		moodNow.current = mood
@@ -1292,19 +1302,12 @@ export const Companion = ({
 	 * the chatter takes whatever is there when its turn comes, and a call that
 	 * fails or lands late only means the next line is a hand-written one.
 	 */
-	const refill = useCallback((canDo: Action[], changed: string | null): Promise<boolean> => {
-		if (!brainOn.current || brainBusy.current || silent.current.presenting) {
-			return Promise.resolve(false)
-		}
-		brainBusy.current = true
-		brainAt.current = Date.now()
-		brainWhy.current = null
-		screenAtBatch.current = screenNow.current
-
-		const app = appNow.current
-		const music = musicNow.current
-		return think(
-			{
+	/** Everything the brain is told about this minute, for a batch or an answer. */
+	const momentNow = useCallback(
+		(canDo: Action[], changed: string | null): Moment => {
+			const app = appNow.current
+			const music = musicNow.current
+			return {
 				language,
 				hour: new Date().getHours(),
 				energy: energyAt(),
@@ -1319,10 +1322,22 @@ export const Companion = ({
 				recent: recentSaid.current,
 				canDo,
 				changed,
-			},
-			!NO_LOOK.test(app?.name ?? ''),
-			[...seenApps.current]
-		)
+			}
+		},
+		[language, opening.days, pinnedProps]
+	)
+
+	const refill = useCallback((canDo: Action[], changed: string | null): Promise<boolean> => {
+		if (!brainOn.current || brainBusy.current || silent.current.presenting) {
+			return Promise.resolve(false)
+		}
+		brainBusy.current = true
+		brainAt.current = Date.now()
+		brainWhy.current = null
+		screenAtBatch.current = screenNow.current
+
+		const app = appNow.current
+		return think(momentNow(canDo, changed), !NO_LOOK.test(app?.name ?? ''), [...seenApps.current])
 			.then((lines) => {
 				// Written about an app that is no longer in front: the wrong minute.
 				if (!lines || (appNow.current?.name ?? null) !== (app?.name ?? null)) return false
@@ -1332,7 +1347,44 @@ export const Companion = ({
 			.finally(() => {
 				brainBusy.current = false
 			})
-	}, [language, opening.days, pinnedProps])
+	}, [momentNow])
+
+	/**
+	 * Experiment: you typed to him. He looks up when the box opens, thinks while
+	 * the answer comes, then says it and does whatever you asked of him. `forced`
+	 * on purpose: you started this, so quiet does not hold.
+	 */
+	useEffect(() => {
+		if (listening === 0) return
+		activityAt.current = Date.now()
+		asleep.current = false
+		react('watching', undefined, 0)
+		lookAt(0, -1, 2_000)
+	}, [listening])
+
+	useEffect(() => {
+		if (!question) return
+		if (question.text === null) {
+			react('idle')
+			return
+		}
+		react('thinking', undefined, 0)
+		say('…', 30_000, true)
+		const app = appNow.current
+		answer(question.text, momentNow(body.current?.doable() ?? [], null), !NO_LOOK.test(app?.name ?? '')).then(
+			(reply) => {
+				if (!reply) {
+					// No answer is a shrug, not an error message.
+					react('error', 'shake', 1_800)
+					setBubble(null)
+					return
+				}
+				react(reply.mood, reply.effect === 'none' ? undefined : reply.effect, 2_400)
+				say(reply.text, 9_000, true)
+				if (reply.then !== 'none') body.current?.act(reply.then)
+			}
+		)
+	}, [question])
 
 	/**
 	 * Noticing which app you are in.
@@ -2024,6 +2076,7 @@ export const Companion = ({
 				if (key === 'wear') wearSomething()
 				else perform(key)
 			}, BRAIN_ACT_AFTER)
+		body.current = { act, doable }
 
 		const perform = (key: string) => {
 			const moment = moments[key]

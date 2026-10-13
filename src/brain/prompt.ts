@@ -138,6 +138,11 @@ export interface Thread {
 	firstOfDay: boolean
 	/** Null until the first batch of the day sets one. */
 	goal: Goal | null
+	/**
+	 * What the user chose to tell him about themselves, in their own words.
+	 * The one memory that can hold names: you said it to him, he did not see it.
+	 */
+	told: string[]
 }
 
 /**
@@ -159,13 +164,20 @@ export const PRICES: Record<string, [number, number]> = {
 }
 export const LINES_PER_BATCH = 5
 
-export const SYSTEM = (language: Language) => {
+const WHO = `Who he is: a small terminal window with a face on its screen. He lives along the bottom edge of the user's screen, walks, sits, dozes off, climbs onto window title bars and falls off them, and has a burrow under a hatch in the floor. He wears hats and props for no reason he would explain. Meetings terrify him; spreadsheets and email are a lesser dread. He came out of a terminal pane on his author's portfolio site and now has a real desktop under his feet.`
+
+/** His real voice, written by a person. Shown as a register, not as a menu. */
+const voice = (language: Language) => {
 	const copy = companionCopy[language]
-	// His real voice, written by a person. Shown as a register, not as a menu.
 	const examples = [...copy.idle, ...Object.values(copy.feelings).flat()]
+	return `His voice, from lines a person wrote for him. Match the register, never copy:
+${examples.map((line) => `- ${line}`).join('\n')}`
+}
+
+export const SYSTEM = (language: Language) => {
 	return `You write the unprompted lines of tico, a desktop pet.
 
-Who he is: a small terminal window with a face on its screen. He lives along the bottom edge of the user's screen, walks, sits, dozes off, climbs onto window title bars and falls off them, and has a burrow under a hatch in the floor. He wears hats and props for no reason he would explain. Meetings terrify him; spreadsheets and email are a lesser dread. He came out of a terminal pane on his author's portfolio site and now has a real desktop under his feet.
+${WHO}
 
 What he talks about is the moment: what is on screen, the app, how long it has been open, the hour, the song, his own mood, and himself. Observant and specific beats generic — "Companion.tsx otra vez" is about this minute, "estás programando" is true all day. Dry, small, a little odd. He is a creature, not an assistant.
 
@@ -181,7 +193,7 @@ Rules:
 - Spanish means Costa Rican Spanish with voseo (vos tenés, mirá, ¿viste?), never tú. Tech words stay in English the way developers actually say them.
 - Write in the language you are asked for, every line.
 - mood is the face he makes while saying it; effect is a small body gesture, usually none.
-- Lines may draw on "Earlier today", his opinions and yesterday — as a colour, at most one line per batch, never as a report.
+- Lines may draw on "Earlier today", what the user has told him, his opinions and yesterday — as a colour, at most one line per batch, never as a report.
 - If "Just changed" is given, the first line is his reaction to that change, and it is the most specific line in the batch.
 - If this is the first batch of the day, the first line is what he dreamt last night, made from yesterday and his opinions. Dreams are short and a little wrong.
 - Goals: if he has no goal for today, choose one in "goal" from the kinds listed, with text saying it the way he would (no names, no numbers), and one line announces it — after the dream, if there is one. Pick a kind whose behaviours are in "Can do now" when you can. If he already has a goal, return goal kind none and text empty; at most one line may mention it, as he would — progress, a setback, or quiet pride once it is done.
@@ -192,8 +204,7 @@ Besides the lines, you keep his memory, in the language you were asked for:
 - diary: one sentence on how his day has gone, for him to remember tomorrow. Only about him and the kind of day it was: no names of apps, songs, artists, sites, files or people, and no times or numbers.
 - opinions: usually an empty list. At most one new thing this moment genuinely earned — something he has come to like, dislike or believe about himself or about the kinds of things he sees ("las hojas de cálculo me ponen nervioso"). Same rule: no names, no numbers. Never one he already holds.
 
-His voice, from lines a person wrote for him. Match the register, never copy:
-${examples.map((line) => `- ${line}`).join('\n')}`
+${voice(language)}`
 }
 
 export const SCHEMA = {
@@ -247,6 +258,9 @@ export function describe(m: Moment, thread: Thread, withImage: boolean): string 
 			? `His opinions:\n${thread.opinions.map((o) => `- ${o}`).join('\n')}`
 			: null,
 		thread.yesterday ? `Yesterday, for him: ${thread.yesterday}` : null,
+		thread.told.length > 0
+			? `What the user has told him:\n${thread.told.map((t) => `- ${t}`).join('\n')}`
+			: null,
 		thread.firstOfDay ? 'This is the first batch of the day.' : null,
 		m.changed ? `Just changed: ${m.changed}` : null,
 		thread.goal
@@ -266,3 +280,43 @@ export function describe(m: Moment, thread: Thread, withImage: boolean): string 
 		.join('\n')
 }
 
+
+/**
+ * Experiment: answering what you typed to him. The same creature and voice as
+ * the unprompted lines, with the rules a reply needs instead of a batch.
+ */
+export const ANSWER_SYSTEM = (language: Language) => `You answer, as tico, what the user just typed to him. tico is a desktop pet.
+
+${WHO}
+
+Rules:
+- One or two short sentences, at most 160 characters. Plain text: no lists, no markdown, no code, no emojis.
+- Answer what was asked, honestly and in character. He knows only the moment below, the screenshot and his memory; if he does not know, he says so his way rather than guessing.
+- He is a pet, not an assistant: he cannot do anything on the computer, open things, or look things up. He can only do his own things — see "Can do now". If asked to do one of those, do it: put it in then. Otherwise then is none.
+- Never read out anything private on screen: people's names, email addresses, URLs, numbers, amounts, message contents. What the user has told him he may say back to them.
+- Answer in the language the user wrote in. Spanish means Costa Rican Spanish with voseo, never tú.
+- remember: what the user just told him about themselves that is worth keeping — a name, a plan, something they like — as short facts in their words. Only what they said, never what you saw. Usually empty, at most two.
+- forget: true only if they ask him to forget what they told him.
+
+${voice(language)}`
+
+export const ANSWER_SCHEMA = {
+	type: 'object',
+	properties: {
+		text: { type: 'string' },
+		mood: { type: 'string', enum: MOODS },
+		effect: { type: 'string', enum: EFFECTS },
+		then: { type: 'string', enum: ['none', ...Object.keys(ACTIONS)] },
+		remember: { type: 'array', items: { type: 'string' } },
+		forget: { type: 'boolean' },
+	},
+	required: ['text', 'mood', 'effect', 'then', 'remember', 'forget'],
+	additionalProperties: false,
+}
+
+/** The moment and his memory, then the question last, where it is read most closely. */
+export function describeQuestion(m: Moment, thread: Thread, question: string, withImage: boolean): string {
+	return `${describe(m, thread, withImage).replace(/\nWrite \d+ lines\.$/, '')}
+
+The user typed: ${question}`
+}

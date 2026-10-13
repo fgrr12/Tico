@@ -29,6 +29,8 @@ features = ["macos-private-api", "tray-icon", "image-png"] }
 
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
+# Experiment: Ctrl+Shift+T to talk to him. Registered only when there is a key.
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Month arithmetic for recurring reminders. Rolling a date forward by hand is

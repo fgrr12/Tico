@@ -28,6 +28,8 @@ export default function App() {
 	const [typing, setTyping] = useState(false)
 	const [opening, setOpening] = useState<Opening | null>(null)
 	const [agenda, setAgenda] = useState<Agenda | null>(null)
+	const [listening, setListening] = useState(0)
+	const [question, setQuestion] = useState<{ text: string | null; n: number } | null>(null)
 
 	useEffect(() => {
 		invoke<Stored>('boot').then(setBoot)
@@ -72,6 +74,11 @@ export default function App() {
 			setNowPlaying(event.payload)
 		)
 		const calendar = listen<Agenda | null>('agenda', (event) => setAgenda(event.payload))
+		// Experiment: the ask box opened, and what was typed in it.
+		const opened = listen('listening', () => setListening((n) => n + 1))
+		const asked = listen<{ text: string | null }>('asked', (event) =>
+			setQuestion((last) => ({ text: event.payload.text, n: (last?.n ?? 0) + 1 }))
+		)
 
 		return () => {
 			cursorMoved.then((off) => off())
@@ -81,6 +88,8 @@ export default function App() {
 			keys.then((off) => off())
 			music.then((off) => off())
 			calendar.then((off) => off())
+			opened.then((off) => off())
+			asked.then((off) => off())
 			clearInterval(remindersTimer)
 		}
 	}, [])
@@ -126,6 +135,8 @@ export default function App() {
 			activeApp={activeApp}
 			nowPlaying={nowPlaying}
 			agenda={agenda}
+			listening={listening}
+			question={question}
 			reminders={reminders}
 			onReminderDone={handleReminderDone}
 			quietUntil={boot.quiet_until}
