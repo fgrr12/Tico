@@ -129,7 +129,7 @@ const written = new Set(Object.values(companionCopy.es).flat().filter((l) => typ
 const client = new Anthropic()
 const totals: Record<string, { usd: number; ms: number; n: number }> = {}
 
-const blank: Thread = { notes: '', opinions: [], yesterday: null, firstOfDay: false }
+const blank: Thread = { notes: '', opinions: [], yesterday: null, firstOfDay: false, goal: null }
 const runs: [string, Moment, Thread, string | null][] = MOMENTS.map(([name, m]) => [name, m, blank, null])
 
 // The thread: a morning that has to open with a dream, and an afternoon that
@@ -144,6 +144,7 @@ runs.push(
 			opinions,
 			yesterday: 'Un día largo de mucho mirar; me asusté en la mañana y bailé en la noche.',
 			firstOfDay: true,
+			goal: null,
 		},
 		null,
 	],
@@ -156,6 +157,17 @@ runs.push(
 			opinions,
 			yesterday: null,
 			firstOfDay: false,
+			goal: { kind: 'explore', text: 'Hoy quiero ver qué hay pasando el borde.', progress: 2 },
+		},
+		null,
+	],
+	[
+		'Objetivo cumplido, 17h',
+		{ ...MOMENTS[0][1], hour: 17, energy: 0.45, feeling: 'pleased', typing: false },
+		{
+			...blank,
+			notes: 'Hoy me puse cuatro sombreros distintos. El de pirata fue el mejor.',
+			goal: { kind: 'wardrobe', text: 'Hoy encuentro un sombrero nuevo. Lo siento en las antenas.', progress: 4 },
 		},
 		null,
 	]
@@ -249,6 +261,10 @@ for (const [name, moment, thread, image] of runs) {
 		console.log(`  notas: ${answer.notes}`)
 		console.log(`  diario: ${answer.diary}${guard(answer.diary ?? '')}`)
 		for (const o of answer.opinions ?? []) console.log(`  opinión nueva: ${o}${guard(o)}`)
+		if (answer.goal?.kind && answer.goal.kind !== 'none') {
+			const late = thread.goal ? '   ⚠ YA TENÍA UNO, SE IGNORA' : ''
+			console.log(`  objetivo: [${answer.goal.kind}] ${answer.goal.text}${guard(answer.goal.text)}${late}`)
+		}
 	}
 }
 

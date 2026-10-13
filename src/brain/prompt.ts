@@ -51,6 +51,31 @@ export const ACTIONS = {
 
 export type Action = keyof typeof ACTIONS
 
+/**
+ * What he can set out to do with a day, and the behaviours that count towards
+ * it. The model picks the kind and says it; the state machine pursues it and
+ * counts it. A goal he only talks about is a line, not a purpose.
+ */
+export const GOALS = {
+	wardrobe: { about: 'find something new to wear', actions: ['wear'] },
+	explore: { about: 'find out what is past the edges', actions: ['behind', 'edge', 'climb', 'peekover'] },
+	burrow: { about: 'fix up his burrow', actions: ['house', 'inspect'] },
+	fitness: { about: 'get in shape', actions: ['stretch', 'hop', 'bounce', 'spin'] },
+	dance: { about: 'get a dance right', actions: ['dance', 'showoff', 'bow'] },
+	calm: { about: 'do as little as possible, properly', actions: ['sit', 'stare', 'slump'] },
+} as const satisfies Record<string, { about: string; actions: readonly Action[] }>
+
+export type GoalKind = keyof typeof GOALS
+/** Done after this many of its behaviours. Counted by code, never by the model. */
+export const GOAL_STEPS = 4
+
+export interface Goal {
+	kind: GoalKind
+	/** How he put it, in his voice. Kept across a restart, so no names. */
+	text: string
+	progress: number
+}
+
 export interface BrainLine {
 	text: string
 	mood: (typeof MOODS)[number]
@@ -111,6 +136,8 @@ export interface Thread {
 	yesterday: string | null
 	/** The first batch since the date changed: the one that opens with a dream. */
 	firstOfDay: boolean
+	/** Null until the first batch of the day sets one. */
+	goal: Goal | null
 }
 
 /**
@@ -157,6 +184,7 @@ Rules:
 - Lines may draw on "Earlier today", his opinions and yesterday — as a colour, at most one line per batch, never as a report.
 - If "Just changed" is given, the first line is his reaction to that change, and it is the most specific line in the batch.
 - If this is the first batch of the day, the first line is what he dreamt last night, made from yesterday and his opinions. Dreams are short and a little wrong.
+- Goals: if he has no goal for today, choose one in "goal" from the kinds listed, with text saying it the way he would (no names, no numbers), and one line announces it — after the dream, if there is one. Pick a kind whose behaviours are in "Can do now" when you can. If he already has a goal, return goal kind none and text empty; at most one line may mention it, as he would — progress, a setback, or quiet pride once it is done.
 - then is what he does right after saying it, chosen only from "Can do now". A line that says or implies he is about to do something must have that action as then — never announce what he will not do. A line that announces nothing usually has then none. Between one and three lines per batch should act.
 
 Besides the lines, you keep his memory, in the language you were asked for:
@@ -188,8 +216,17 @@ export const SCHEMA = {
 		notes: { type: 'string' },
 		diary: { type: 'string' },
 		opinions: { type: 'array', items: { type: 'string' } },
+		goal: {
+			type: 'object',
+			properties: {
+				kind: { type: 'string', enum: ['none', ...Object.keys(GOALS)] },
+				text: { type: 'string' },
+			},
+			required: ['kind', 'text'],
+			additionalProperties: false,
+		},
 	},
-	required: ['lines', 'notes', 'diary', 'opinions'],
+	required: ['lines', 'notes', 'diary', 'opinions', 'goal'],
 	additionalProperties: false,
 }
 
@@ -212,6 +249,15 @@ export function describe(m: Moment, thread: Thread, withImage: boolean): string 
 		thread.yesterday ? `Yesterday, for him: ${thread.yesterday}` : null,
 		thread.firstOfDay ? 'This is the first batch of the day.' : null,
 		m.changed ? `Just changed: ${m.changed}` : null,
+		thread.goal
+			? `Today's goal (${GOALS[thread.goal.kind].about}): ${thread.goal.text} — ${
+					thread.goal.progress >= GOAL_STEPS
+						? 'done'
+						: `${thread.goal.progress} of ${GOAL_STEPS} done`
+				}`
+			: `No goal yet today. Kinds:\n${Object.entries(GOALS)
+					.map(([kind, g]) => `- ${kind}: ${g.about} (by ${g.actions.join(', ')})`)
+					.join('\n')}`,
 		`Can do now:\n${m.canDo.map((a) => `- ${a}: ${ACTIONS[a]}`).join('\n')}`,
 		withImage ? 'Screenshot of the main display attached.' : null,
 		`Write ${LINES_PER_BATCH} lines.`,

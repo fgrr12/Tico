@@ -845,6 +845,15 @@ Built on top, in this order:
    it on arrival. Nothing new and an empty pool waits twenty minutes on
    hand-written lines. With a still screen that is ~2 calls an hour instead of 10.
    `SCREEN_CHANGED = 0.06` is a starting knob, measured on nothing yet.
+4. **A purpose for the day.** The first batch picks one of six goals — something
+   new to wear, what is past the edges, the burrow, getting in shape, a dance,
+   doing nothing properly — and says it in his voice. Each kind names the
+   behaviours that count, and *those* are what makes it visible: a third of idle
+   draws lean towards them, and finding something to wear nearly triples the
+   wardrobe odds. Progress is counted by the code that ran the behaviour, never
+   claimed by the model; four and it is done, and a later batch can be proud of
+   it. Kept across a restart, so the same no-names guard applies. No brain, no
+   goal: the draw is the one on `main`.
 
 Cost guards: Haiku, the persona and examples behind a prompt cache, `effort:
 low`, no calls while asleep or in a call, and a **$0.25 hard stop per day**.

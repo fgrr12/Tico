@@ -21,7 +21,7 @@ import {
 	TERRORS,
 	timeOfDay,
 } from '../src/data/companion.ts'
-import { ACTIONS, keepsNoNames, SCREEN_CHANGED, screenChange } from '../src/brain/prompt.ts'
+import { ACTIONS, GOALS, keepsNoNames, SCREEN_CHANGED, screenChange } from '../src/brain/prompt.ts'
 
 /**
  * The checks that were being run by hand and thrown away.
@@ -804,6 +804,15 @@ check('a new screen is noticed and typing is not', () => {
 	assert(screenChange(screen, other) > SCREEN_CHANGED, 'a different screen should cross it')
 	assert(screenChange(screen, new Uint8Array(0)) === 1, 'no baseline should read as change')
 	return `threshold ${SCREEN_CHANGED}`
+})
+
+check('every goal can be worked towards', () => {
+	for (const [kind, goal] of Object.entries(GOALS)) {
+		assert(goal.actions.length > 0, `${kind} has nothing that counts towards it`)
+		const unknown = goal.actions.filter((a) => !(a in ACTIONS))
+		assert(unknown.length === 0, `${kind} counts actions he cannot take: ${unknown.join(', ')}`)
+	}
+	return `${Object.keys(GOALS).length} goals, each one by real behaviours`
 })
 
 console.log(failures === 0 ? '\nall good\n' : `\n${failures} failed\n`)

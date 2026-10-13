@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CompanionFace } from './CompanionFace'
-import { type Action, type BrainLine, connect, fingerprint, think } from '../brain/brain'
+import {
+	type Action,
+	advanceGoal,
+	type BrainLine,
+	connect,
+	fingerprint,
+	goalActions,
+	think,
+} from '../brain/brain'
 import { ACTIONS, SCREEN_CHANGED, screenChange } from '../brain/prompt'
 import type { CompanionParts } from './parts'
 import { BurrowMap, Hatch } from '../house/House.tsx'
@@ -206,6 +214,8 @@ const GLANCE_EVERY = 60_000
 const BRAIN_SHARE = 0.75
 /** Said first, done after: long enough for the face the line was written with. */
 const BRAIN_ACT_AFTER = 2_600
+/** How often the idle draw leans towards today's goal. A lean, not a script. */
+const GOAL_LEAN = 0.35
 /** Never looked at, whatever else is allowed. */
 const NO_LOOK = /1password|bitwarden|lastpass|keychain|passwords/i
 
@@ -957,6 +967,8 @@ export const Companion = ({
 	const goHome = useCallback(() => {
 		if (home !== null || climbing.current) return
 		homeAt.current = Date.now()
+		// Counted here, not in `perform`: `house` often decides not to go.
+		advanceGoal('house')
 		moveTo(HOUSE_X + 30, 0, WALK_SPEED * 1.1, settleIn)
 	}, [home, moveTo, settleIn])
 
@@ -1808,6 +1820,7 @@ export const Companion = ({
 		}
 
 		const wearSomething = () => {
+			advanceGoal('wear')
 			// Headphones only while something is playing — the one prop with a
 			// reason, which is what makes the rest read as having none.
 			// The favourite is whatever he has worn most across every session, and
@@ -1978,6 +1991,7 @@ export const Companion = ({
 			const moment = moments[key]
 			if (!moment) return
 			moment.run()
+			if (key in ACTIONS && key !== 'house') advanceGoal(key as Action)
 
 			const next = moment.then
 			if (!next) return
@@ -2243,8 +2257,10 @@ export const Companion = ({
 			) {
 				momentAt.current = now
 
-				// One in nine, so it is a surprise rather than a wardrobe.
-				if (!prop && Math.random() < 0.11) {
+				// One in nine, so it is a surprise rather than a wardrobe — unless
+				// finding something to wear is what today is for.
+				const wear = goalActions()?.includes('wear') ? 0.3 : 0.11
+				if (!prop && Math.random() < wear) {
 					wearSomething()
 					return
 				}
@@ -2281,7 +2297,11 @@ export const Companion = ({
 				// everything, rather than to standing still.
 				const pool = willing.length > 0 ? willing : possible
 
-				perform(pick(pool))
+				// Today's goal pulls on the draw, from everything possible rather than
+				// the feeling's set: a bored pet still goes after what he set out to do.
+				const wanted: readonly string[] = goalActions() ?? []
+				const towards = possible.filter((key) => wanted.includes(key))
+				perform(pick(towards.length > 0 && Math.random() < GOAL_LEAN ? towards : pool))
 			}
 		}, 3_500)
 

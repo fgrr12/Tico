@@ -2,10 +2,15 @@ import Anthropic from '@anthropic-ai/sdk'
 import { invoke } from '@tauri-apps/api/core'
 
 import {
+	type Action,
 	ACTIONS,
 	type BrainLine,
 	describe,
 	EFFECTS,
+	type Goal,
+	GOAL_STEPS,
+	GOALS,
+	type GoalKind,
 	type Moment,
 	keepsNoNames,
 	MOODS,
@@ -79,6 +84,8 @@ interface Kept {
 	opinions: string[]
 	/** The day he last told you a dream, so a restart does not tell another. */
 	dreamt: string
+	/** Today's, and only today's: a new date clears it. */
+	goal: Goal | null
 }
 const MAX_OPINIONS = 8
 
@@ -92,12 +99,12 @@ function recall(): Kept {
 			// A new date: the last diary becomes yesterday, and today starts blank.
 			return kept.day === today()
 				? kept
-				: { ...kept, day: today(), diary: '', yesterday: kept.diary || kept.yesterday }
+				: { ...kept, day: today(), diary: '', yesterday: kept.diary || kept.yesterday, goal: null }
 		}
 	} catch {
 		// Unreadable is the same as never having met: he starts over.
 	}
-	return { day: today(), diary: '', yesterday: null, opinions: [], dreamt: '' }
+	return { day: today(), diary: '', yesterday: null, opinions: [], dreamt: '', goal: null }
 }
 
 function keep(kept: Kept) {
@@ -128,6 +135,23 @@ export async function fingerprint(): Promise<Uint8Array | null> {
 	} catch {
 		return null
 	}
+}
+
+/** The behaviours that would move today's goal on, or null when there is nothing to pursue. */
+export function goalActions(): readonly Action[] | null {
+	const goal = recall().goal
+	return goal && goal.progress < GOAL_STEPS ? GOALS[goal.kind].actions : null
+}
+
+/** Counted by the code that ran the behaviour, so the model cannot claim progress. */
+export function advanceGoal(action: Action) {
+	const kept = recall()
+	const goal = kept.goal
+	if (!goal || goal.progress >= GOAL_STEPS) return
+	if (!(GOALS[goal.kind].actions as readonly Action[]).includes(action)) return
+	const progress = goal.progress + 1
+	keep({ ...kept, goal: { ...goal, progress } })
+	console.log(`[brain] goal ${goal.kind}: ${progress} of ${GOAL_STEPS}${progress >= GOAL_STEPS ? ' · done' : ''}`)
 }
 
 function base64(bytes: Uint8Array): string {
@@ -176,6 +200,7 @@ export async function think(
 			opinions: kept.opinions,
 			yesterday: kept.yesterday,
 			firstOfDay: kept.dreamt !== today(),
+			goal: kept.goal ?? null,
 		}
 
 		const response = await client.messages.create({
@@ -236,8 +261,22 @@ export async function think(
 				keepsNoNames(o, forbidden) &&
 				!kept.opinions.includes(o)
 		)
+		// Only the first goal of the day sticks; later batches cannot swap it.
+		const proposed = answer.goal as { kind: string; text: string } | undefined
+		const goal =
+			kept.goal ??
+			(proposed &&
+			proposed.kind in GOALS &&
+			typeof proposed.text === 'string' &&
+			proposed.text.length > 0 &&
+			proposed.text.length <= 120 &&
+			keepsNoNames(proposed.text, forbidden)
+				? { kind: proposed.kind as GoalKind, text: proposed.text, progress: 0 }
+				: null)
+
 		keep({
 			...kept,
+			goal,
 			diary,
 			opinions: [...kept.opinions, ...fresh].slice(-MAX_OPINIONS),
 			dreamt: lines.length > 0 ? today() : kept.dreamt,
@@ -246,7 +285,7 @@ export async function think(
 		console.log(
 			`[brain] ${lines.length} lines · ${Math.round(performance.now() - started)} ms · $${usd.toFixed(5)} · today $${spentToday().toFixed(4)}${image ? ' · looked' : ''}`,
 			lines.map((l) => l.text),
-			{ notes, diary, newOpinions: fresh }
+			{ notes, diary, newOpinions: fresh, goal }
 		)
 		return lines.length > 0 ? lines : null
 	} catch (error) {
