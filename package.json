@@ -8,6 +8,7 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"check": "node scripts/check.mjs",
+		"art": "node scripts/export-art.mjs",
 		"preview": "vite preview",
 		"t": "tauri",
 		"t:d": "tauri dev",

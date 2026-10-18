@@ -16,3 +16,10 @@ src-tauri/binaries/
 
 # The A/B answers from scripts/pick.mjs. One afternoon of one person.
 pick-results.json
+
+# Native builds: the core's target dir and everything generated for Xcode.
+/target/
+apps/macos/build/
+apps/macos/Tico.xcodeproj/
+apps/macos/Tico/Bridge/
+apps/macos/Signing.xcconfig

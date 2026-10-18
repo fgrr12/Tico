@@ -1,0 +1,68 @@
+name: Tico
+options:
+  bundleIdPrefix: com.fgrr6
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: NO
+    DEAD_CODE_STRIPPING: YES
+targets:
+  Tico:
+    type: application
+    platform: macOS
+    # Signing identity lives in a local, gitignored file (scripts/setup-signing.sh).
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    sources:
+      - Tico
+      # Generated from the React drawing by `make art`; committed, so a native
+      # build never needs Node.
+      - path: ../../art/tico.json
+        buildPhase: resources
+    dependencies:
+      - framework: build/TicoCore.xcframework
+        embed: false
+    settings:
+      base:
+        # Not the Tauri app's `com.fgrr6.tico` yet: with the same id, `open`
+        # brings the running Tauri pet forward instead of launching this one.
+        # Takes that id the day it replaces it, as Lyra's native build did.
+        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.native
+        PRODUCT_NAME: tico
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_CFBundleDisplayName: tico
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+  TicoTests:
+    type: bundle.unit-test
+    platform: macOS
+    configFiles:
+      Debug: Signing.xcconfig
+      Release: Signing.xcconfig
+    sources:
+      - TicoTests
+    dependencies:
+      - target: Tico
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.native.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/tico.app/Contents/MacOS/tico"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  Tico:
+    build:
+      targets:
+        Tico: all
+        TicoTests: [test]
+    test:
+      targets:
+        - TicoTests

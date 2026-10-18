@@ -1,0 +1,21 @@
+# The native builds' Rust: `core` (all of tico's logic, no UI, no OS calls) and
+# `ffi` (links it into the library the native shells load). The Tauri app in
+# src-tauri is its own crate and stays out of this workspace until it, too,
+# runs on the core.
+[workspace]
+resolver = "3"
+members = ["core", "ffi"]
+exclude = ["src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+tico-core = { path = "core" }
+uniffi = "0.32.2"
+
+[profile.release]
+lto = true
+codegen-units = 1

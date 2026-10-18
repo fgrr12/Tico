@@ -1,0 +1,17 @@
+[package]
+name = "tico-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "tico_ffi"
+crate-type = ["staticlib", "cdylib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+tico-core.workspace = true
+uniffi = { workspace = true, features = ["cli"] }

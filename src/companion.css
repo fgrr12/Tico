@@ -218,8 +218,15 @@ body,
 	animation-delay: 0.18s;
 }
 
+/*
+ * Stepped on purpose. The LED is a `<circle>` inside the SVG, and WebKit cannot
+ * give an SVG child its own compositing layer, so a smooth opacity pulse
+ * repainted the whole drawing every frame: measured on a 120Hz panel, awake and
+ * silent, 16% of a core with it against 5% without. Twelve steps over 2.4s is
+ * five repaints a second, still reads as a soft pulse, and measured 8%.
+ */
 .companion-led {
-	animation: companion-pulse 2.4s ease-in-out infinite;
+	animation: companion-pulse 2.4s steps(12) infinite;
 }
 
 .companion-think circle {

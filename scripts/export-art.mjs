@@ -1,0 +1,211 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createElement, Fragment } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { createServer } from 'vite'
+
+/**
+ * Writes his drawing out as data, for the native shells: `art/tico.json`.
+ *
+ * The art stays where it is drawn — `parts.tsx` and `CompanionFace.tsx` — and
+ * this walks what those components return instead of re-describing it. A copy
+ * would be a second drawing that someone forgets to update, and the native
+ * shells would quietly draw last month's pet. So there is no copy: every node
+ * in the file is an element React would have put in the DOM, with its SVG
+ * attribute names, the `var(--…)` colours resolved, and the three colours that
+ * change at runtime left as `{screen}`, `{led}` and `{face}`.
+ *
+ * What is in the file:
+ * - `defs`: the gradients, pattern and clip every variant shares.
+ * - `slots`: each variant of shell, hands, feet and antenna.
+ * - `props`: everything he can wear, souvenirs included.
+ * - `faces`: per mood, the whole drawing back to front with each slot left as a
+ *   `{ "tag": "slot", "name": … }` node, so the layer order and every
+ *   mood-specific shape (cheeks, the thinking dots, the z's) come from the one
+ *   place that already decides them. `blink` only exists where it differs, and
+ *   `singing` is the same mood with the mouth swapped and the notes added.
+ * - `classStyles`: the fill and stroke `companion.css` gives limbs by class,
+ *   which the SVG alone does not carry.
+ *
+ * Every run also proves the file: it rebuilds each mood from the JSON, as a
+ * native shell would, and compares that with what React renders for the same
+ * pet. A mismatch is a bug in this script, and it fails before writing.
+ *
+ *   node scripts/export-art.mjs
+ */
+
+const root = new URL('..', import.meta.url).pathname
+const server = await createServer({
+	root,
+	configFile: false,
+	logLevel: 'error',
+	server: { middlewareMode: true, hmr: false },
+	appType: 'custom',
+	// Nothing here is served, so there is nothing to pre-bundle — and the scan
+	// otherwise wanders into src-tauri/target and complains about every HTML file.
+	optimizeDeps: { noDiscovery: true, include: [] },
+	esbuild: { jsx: 'automatic' },
+})
+
+let failed = false
+try {
+	const { PARTS } = await server.ssrLoadModule('/src/companion/parts.tsx')
+	const { CompanionFace, Prop } = await server.ssrLoadModule('/src/companion/CompanionFace.tsx')
+	const { WEARS } = await server.ssrLoadModule('/src/data/companion.ts')
+
+	const css = readFileSync(`${root}src/companion.css`, 'utf8')
+	const palette = Object.fromEntries([...css.matchAll(/^\s*--([a-z-]+):\s*(#[0-9a-f]{3,8});/gim)].map((m) => [m[1], m[2]]))
+	const TOKENS = { screen: '{screen}', led: '{led}', face: '{face}' }
+	const MOODS = ['idle', 'happy', 'thinking', 'error', 'wow', 'love', 'dizzy', 'sleep', 'held', 'watching', 'muted', 'yawn', 'scared']
+
+	// ── React element → node ──────────────────────────────────────────────────
+
+	// React's own list of SVG attributes it does *not* hyphenate.
+	const CAMEL = new Set(['viewBox', 'patternUnits', 'patternTransform', 'gradientUnits', 'gradientTransform', 'clipPathUnits', 'preserveAspectRatio'])
+	const attrName = (k) => (k === 'className' ? 'class' : CAMEL.has(k) ? k : k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`))
+	const colour = (v) =>
+		String(v).replace(/var\(--([a-z-]+)\)/g, (whole, name) => {
+			if (!(name in palette)) throw new Error(`unknown colour ${whole}`)
+			return palette[name]
+		})
+
+	const SLOT = 'tico-slot'
+	const walk = (el) => {
+		if (el === null || el === undefined || el === false || el === true) return []
+		if (Array.isArray(el)) return el.flatMap(walk)
+		if (typeof el === 'string' || typeof el === 'number') return [{ text: String(el) }]
+		if (el.type === Fragment) return walk(el.props.children)
+		if (typeof el.type === 'function') return walk(el.type(el.props))
+		if (el.type === SLOT) return [{ tag: 'slot', name: el.props.name }]
+		if (typeof el.type !== 'string') throw new Error(`cannot export element ${String(el.type)}`)
+
+		const node = { tag: el.type }
+		const attrs = {}
+		for (const [k, v] of Object.entries(el.props)) {
+			if (k === 'children' || k === 'key' || v === undefined || v === null || v === false) continue
+			if (k.startsWith('aria-')) continue
+			if (k === 'style') {
+				attrs.style = Object.fromEntries(Object.entries(v).map(([sk, sv]) => [attrName(sk), colour(sv)]))
+				continue
+			}
+			attrs[attrName(k)] = colour(v)
+		}
+		if (Object.keys(attrs).length) node.attrs = attrs
+		const children = walk(el.props.children)
+		if (children.length) node.children = children
+		return [node]
+	}
+	const one = (el) => {
+		const nodes = walk(el)
+		return nodes.length === 1 ? nodes[0] : { tag: 'g', children: nodes }
+	}
+
+	// ── The file ──────────────────────────────────────────────────────────────
+
+	const colours = { screenColor: TOKENS.screen, ledColor: TOKENS.led }
+	const slots = Object.fromEntries(
+		Object.entries(PARTS).map(([slot, variants]) => [slot, Object.fromEntries(Object.entries(variants).map(([name, Part]) => [name, one(Part(colours))]))])
+	)
+
+	// Each registry gets a variant that draws a placeholder, so the face is
+	// exported once with the slots left open instead of once per body. Removed
+	// again straight after, though nothing outlives this process anyway.
+	for (const slot of Object.keys(PARTS)) PARTS[slot].__slot = () => createElement(SLOT, { name: slot })
+	const open = { shell: '__slot', hands: '__slot', feet: '__slot', antenna: '__slot' }
+	const face = (mood, extra) =>
+		one(CompanionFace({ mood, blink: false, singing: false, worn: [], faceColor: TOKENS.face, screenColor: TOKENS.screen, ledColor: TOKENS.led, parts: open, ...extra }))
+
+	const faces = {}
+	let defs
+	for (const mood of MOODS) {
+		const svg = face(mood)
+		defs ??= svg.children.find((n) => n.tag === 'defs').children
+		const strip = (n) => ({ ...n, children: n.children.filter((c) => c.tag !== 'defs') })
+		const entry = { normal: strip(svg).children }
+		const blink = strip(face(mood, { blink: true })).children
+		if (JSON.stringify(blink) !== JSON.stringify(entry.normal)) entry.blink = blink
+		entry.singing = strip(face(mood, { singing: true })).children
+		faces[mood] = entry
+	}
+	for (const slot of Object.keys(PARTS)) delete PARTS[slot].__slot
+
+	const props = Object.fromEntries(Object.keys(WEARS).map((kind) => [kind, one(createElement(Prop, { kind }))]))
+	const empty = Object.entries(props).filter(([, n]) => !n.children?.length && n.tag === 'g')
+	if (empty.length) throw new Error(`props that draw nothing: ${empty.map(([k]) => k).join(', ')}`)
+
+	const limb = css.match(/\.companion-svg \.companion-hand,\s*\.companion-svg \.companion-foot \{([^}]*)\}/)
+	if (!limb) throw new Error('the limb rule in companion.css moved; update classStyles here')
+	const declarations = Object.fromEntries([...limb[1].matchAll(/([a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], colour(m[2].trim())]))
+	const classStyles = { 'companion-hand': declarations, 'companion-foot': declarations }
+
+	const art = { version: 1, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces }
+
+	// ── The proof ─────────────────────────────────────────────────────────────
+
+	// Rebuilds a pet from the file, the way a native shell will: the face for the
+	// mood, each slot node swapped for its variant, the defs on top. Then React
+	// renders the same pet and the two have to agree to the character.
+	const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+	const attr = (s) => esc(s).replace(/"/g, '&quot;')
+	const markup = (n) => {
+		if ('text' in n) return esc(n.text)
+		const a = Object.entries(n.attrs ?? {})
+			.map(([k, v]) => ` ${k}="${attr(typeof v === 'object' ? Object.entries(v).map(([sk, sv]) => `${sk}:${sv}`).join(';') : v)}"`)
+			.join('')
+		return `<${n.tag}${a}>${(n.children ?? []).map(markup).join('')}</${n.tag}>`
+	}
+	const SAMPLE = { screen: '#101010', led: '#00ff00', face: '#ffffff' }
+	const fill = (s) => s.replaceAll('{screen}', SAMPLE.screen).replaceAll('{led}', SAMPLE.led).replaceAll('{face}', SAMPLE.face)
+	// React writes `stroke-width="2"`, `stop-color`, `class` — the same names the
+	// file uses — but hex colours keep the case they were typed in, and it closes
+	// empty elements as `<rect/>`. Normalise only those.
+	const norm = (s) => s.replace(/<(\w+)([^>]*)\/>/g, '<$1$2></$1>').replace(/#[0-9A-F]{3,8}\b/g, (h) => h.toLowerCase())
+
+	const body = { shell: 'terminal', hands: 'mitts', feet: 'pills', antenna: 'led' }
+	const bodies = [body, ...Object.keys(PARTS.shell).map((shell) => ({ ...body, shell }))]
+	let compared = 0
+	for (const parts of bodies) {
+		for (const mood of MOODS) {
+			for (const variant of ['normal', 'singing']) {
+				const layers = art.faces[mood][variant].map((n) => (n.tag === 'slot' ? art.slots[n.name][parts[n.name]] : n))
+				const ours = norm(fill(markup({ tag: 'svg', attrs: { viewBox: '0 0 96 96', class: 'companion-svg' }, children: [{ tag: 'defs', children: art.defs }, ...layers] })))
+				const theirs = norm(
+					renderToStaticMarkup(
+						createElement(CompanionFace, { mood, blink: false, singing: variant === 'singing', worn: [], faceColor: SAMPLE.face, screenColor: SAMPLE.screen, ledColor: SAMPLE.led, parts })
+					)
+						.replace(/ aria-hidden="true"/g, '')
+						.replace(/var\(--([a-z-]+)\)/g, (_, name) => palette[name])
+				)
+				// A slot that exports as several top-level shapes comes back wrapped in
+				// one `<g>`; React draws them loose. Same picture, so unwrap to compare.
+				if (ours.replace(/<g>|<\/g>/g, '') !== theirs.replace(/<g>|<\/g>/g, '')) {
+					const at = [...ours].findIndex((c, i) => c !== theirs[i])
+					console.error(`✗ ${parts.shell}/${mood}/${variant} differs at ${at}:\n  ours:   …${ours.slice(at - 60, at + 80)}\n  react:  …${theirs.slice(at - 60, at + 80)}`)
+					failed = true
+				}
+				compared++
+			}
+		}
+	}
+
+	for (const [kind, node] of Object.entries(art.props)) {
+		const ours = norm(markup(node)).replace(/<g>|<\/g>/g, '')
+		const theirs = norm(renderToStaticMarkup(createElement(Prop, { kind })).replace(/var\(--([a-z-]+)\)/g, (_, name) => palette[name])).replace(/<g>|<\/g>/g, '')
+		if (ours !== theirs) {
+			console.error(`✗ prop ${kind} differs:\n  ours:  ${ours.slice(0, 200)}\n  react: ${theirs.slice(0, 200)}`)
+			failed = true
+		}
+		compared++
+	}
+
+	if (!failed) {
+		mkdirSync(`${root}art`, { recursive: true })
+		writeFileSync(`${root}art/tico.json`, `${JSON.stringify(art)}\n`)
+		const count = (o) => Object.values(o).reduce((n, v) => n + Object.keys(v).length, 0)
+		console.log(
+			`✓ art/tico.json: ${count(slots)} slot variants, ${Object.keys(props).length} props, ${MOODS.length} moods; ${compared} drawings match React`
+		)
+	}
+} finally {
+	await server.close()
+}
+process.exit(failed ? 1 : 0)

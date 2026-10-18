@@ -44,7 +44,12 @@ surface at 60fps — so cost is per frame, not per element, and halving the numb
 of animated things buys exactly nothing. Measured: 3.1% of a core awake, 0.6%
 with everything stopped, and leaving *two* `z` text nodes running while he slept
 cost the full 3.1%. Anything that runs while nobody is looking has to stop
-completely or not bother. Also why a rule that overrides the body's animation
+completely or not bother. What is animated matters as much as whether: a `transform` on an HTML element
+(`.companion-body`) is composited and costs ~4–5% awake, but anything animated
+*inside* the SVG — the LED's opacity, the singing hands, feet, mouth and notes —
+repaints the whole drawing per frame. Measured on a 120Hz panel: silent with a
+smooth LED pulse 16%, LED stepped 8%, LED still 5%, singing ~19%. Step or avoid
+animations on SVG children. Also why a rule that overrides the body's animation
 uses `animation-name` and `animation-duration`: the `animation` shorthand resets
 `animation-play-state` and quietly wakes him up.
 
@@ -100,3 +105,32 @@ permission prompt without it being in the plan.
   and failed. Both sibling repos are written this way and it is why they are still
   editable.
 - `pnpm t:d` / `pnpm t:b` for Tauri dev and build, matching Lyra's scripts.
+
+## Native builds (in progress)
+
+The Tauri app is being replaced platform by platform with native shells over a
+shared Rust core, Flint's layout: `core/` (`tico-core`, all logic, no UI, no OS
+calls, UniFFI proc-macros), `ffi/` (links it, no logic), `apps/macos/` (Swift,
+AppKit, Core Animation). The reason is measured: the WebView costs ~240 MB and
+8–19% of a core awake, where a native shell's layers are composited for free.
+`src-tauri` stays out of the Cargo workspace and keeps shipping until each
+native shell replaces it.
+
+```bash
+make            # core + xcodegen + Debug build, installed to ~/Applications and launched
+make test       # cargo test --workspace + XCTest
+make art        # or `pnpm art`: re-export art/tico.json
+```
+
+Prerequisites: Rust, Xcode, `brew install xcodegen`. Generated and gitignored:
+`target/`, `apps/macos/build/`, `Tico.xcodeproj`, `Tico/Bridge/`,
+`Signing.xcconfig`. The native app is `com.fgrr6.tico.native` until it replaces
+the Tauri one, so both can run side by side.
+
+**The art is data, exported, never redrawn.** `scripts/export-art.mjs` walks what
+`parts.tsx` and `CompanionFace.tsx` return and writes `art/tico.json`: shared
+`defs`, every slot variant, every prop, and per mood the whole drawing in layer
+order with the body slots left open. Each run rebuilds every mood on every shell
+from the JSON and compares it with React's own render, and refuses to write on
+any difference. **Run `pnpm art` in the same edit that changes a drawing**, and
+commit the JSON: the native shells bundle it and never run Node.
