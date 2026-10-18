@@ -134,3 +134,15 @@ order with the body slots left open. Each run rebuilds every mood on every shell
 from the JSON and compares it with React's own render, and refuses to write on
 any difference. **Run `pnpm art` in the same edit that changes a drawing**, and
 commit the JSON: the native shells bundle it and never run Node.
+
+**Drawing on macOS** is `Tico/Drawing/`: `Painter` turns art nodes into Core
+Animation layers, one per element and named after its `class`, so a hand or the
+LED can be animated by the render server without repainting anything — the
+whole point of going native. `SVGPath` parses path data (M L H V C Q A Z;
+`DrawingTests` fails if the art ever uses another command). Static transforms
+and the y-flip are baked into the paths; layer transforms are left free for
+animation. Verify a drawing by looking at it: `TICO_SHEET=1
+~/Applications/tico.app/Contents/MacOS/tico` opens the native sheet (every
+mood, body part and prop) next to the pet — compare it with `scripts/sheet.html`.
+It is a window rather than a PNG because `CALayer.render(in:)` skips masks.
+Measured standing still (Debug): 13 MB, 0% CPU.

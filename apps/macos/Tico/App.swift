@@ -10,14 +10,25 @@ enum Main {
 	}
 }
 
-/// The skeleton: a menu bar item that proves the core links and the art loads.
-/// The pet himself — the panel, the layers, the behaviours — comes next.
+/// For now: the pet, standing still in his idle pose, and a menu bar item that
+/// says which core and which art he was built from. Behaviour comes next.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 	private let core = TicoCore()
 	private var statusItem: NSStatusItem?
+	private var panel: PetPanel?
+	private var sheet: NSWindow?
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
+		if let art = try? Art.load(), let screen = NSScreen.main {
+			let panel = PetPanel()
+			panel.show(Pet.layers(art: art))
+			panel.stand(atX: 240, on: screen)
+			panel.orderFrontRegardless()
+			self.panel = panel
+			if ProcessInfo.processInfo.environment["TICO_SHEET"] != nil { sheet = Sheet.open(art: art) }
+		}
+
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 		item.button?.title = "tico"
 
