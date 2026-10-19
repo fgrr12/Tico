@@ -246,8 +246,8 @@ stepped out (it closes 1.8s behind him) — so it costs nothing and cannot be
 clicked otherwise. A drop goes through it only while it is open. The menu has
 "Go home" / "Come out" (`Brain::go_home`, `come_up`), which ignores
 `HOME_EVERY`. `Pet/Portal.swift` draws it as layers, no frame, all light:
-dashed strands whose `lineDashPhase` runs round (a swirl without turning the
-oval), a misty middle, sparks, a haze and a pool on the floor, at
+a burning rim (each band's path flickers between jagged versions of the
+oval) with tongues of flame licking and swaying outward, a misty middle, sparks, a haze and a pool on the floor, at
 `Motion.idleRate`; he spins down into it and spins up out of it while it
 pulses. Clicking it raises `Pet/Burrow.swift`, the cutaway, its own panel,
 shut by any click outside (a global mouse monitor, no permission) or when the
