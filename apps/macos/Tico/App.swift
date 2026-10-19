@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
 			let panel = PetPanel()
-			panel.show(Pet.layers(art: art))
+			panel.show(art: art)
 			panel.stand(atX: 240, on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel

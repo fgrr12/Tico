@@ -14,7 +14,11 @@ final class PetPanel: NSPanel {
 	/// so the window leaves room around the drawing.
 	private static let margin = NSEdgeInsets(top: 40, left: 24, bottom: 4, right: 24)
 
+	/// Bobs. Unscaled, so the 5px of `companion-bob` are screen points, as in CSS.
+	private let body = CALayer()
+	/// The 96-unit drawing, scaled to `petWidth`.
 	private let host = CALayer()
+	private var blinker: Blinker?
 
 	init() {
 		let scale = Self.petWidth / Painter.size
@@ -43,20 +47,34 @@ final class PetPanel: NSPanel {
 		let view = NSView(frame: NSRect(origin: .zero, size: size))
 		view.wantsLayer = true
 		contentView = view
+		body.frame = CGRect(origin: .zero, size: size)
 		host.anchorPoint = .zero
 		host.bounds = CGRect(x: 0, y: 0, width: Painter.size, height: Painter.size)
 		host.position = CGPoint(x: Self.margin.left, y: Self.margin.bottom)
 		host.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
-		view.layer?.addSublayer(host)
+		body.addSublayer(host)
+		view.layer?.addSublayer(body)
+		Motion.bob(body)
 	}
 
 	override var canBecomeKey: Bool { false }
 	override var canBecomeMain: Bool { false }
 
-	/// Replaces the drawing. Layers are built once per change of mood, body or
-	/// colour — never per frame.
-	func show(_ layers: [CALayer]) {
-		host.sublayers = layers
+	/// Replaces the drawing and starts its animations. Layers are built once per
+	/// change of mood, body or colour — never per frame.
+	func show(art: Art, mood: String = "idle", parts: [String: String] = Pet.defaultParts, colours: [String: String] = Pet.content) {
+		blinker?.stop()
+		blinker = nil
+		host.sublayers = Pet.layers(art: art, mood: mood, parts: parts, colours: colours)
+		Motion.pulse(host)
+		// Only moods whose eyes are open have a blink drawing.
+		if art.faces[mood]?.blink != nil,
+			let open = Motion.find("companion-eyes", in: host).first,
+			let closed = Pet.layers(art: art, mood: mood, parts: parts, colours: colours, blink: true)
+				.lazy.compactMap({ Motion.find("companion-eyes", in: $0).first }).first
+		{
+			blinker = Blinker(open: open, closed: closed)
+		}
 	}
 
 	/// Stands him on the bottom edge of the screen, the way the Tauri build does:

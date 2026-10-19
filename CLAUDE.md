@@ -146,3 +146,13 @@ animation. Verify a drawing by looking at it: `TICO_SHEET=1
 mood, body part and prop) next to the pet — compare it with `scripts/sheet.html`.
 It is a window rather than a PNG because `CALayer.render(in:)` skips masks.
 Measured standing still (Debug): 13 MB, 0% CPU.
+
+**Animations are Core Animation, capped at a frame rate** (`Pet/Motion.swift`):
+the bob, the LED pulse and the blink run in the render server, so tico itself
+spends 0%. The cost moves to WindowServer, and it is set by frame rate, not by
+how much moves: uncapped, any animation drives the ProMotion panel at 120Hz and
+cost WindowServer +20% of a core — exactly what the WebView build paid. At
+15fps (`Motion.idleRate`) it measured the same as no tico; 30fps was +5–10%.
+Every new animation sets `preferredFrameRateRange`, as low as it still looks
+smooth. Measure WindowServer with `top -pid`, alternating with and without tico,
+because your own use of the Mac is the noise.
