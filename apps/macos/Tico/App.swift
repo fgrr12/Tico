@@ -36,6 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var title: String?
 	private var ledges: [Ledge] = []
 	private var micCheckedAt: UInt64 = 0
+	/// Hidden from the menu (or Flint), as opposed to stepping aside for
+	/// something full screen: only Show brings him back from the first.
+	private var hiddenByYou = false
+	private var fullScreen = false
 	private var screen: NSScreen?
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
 	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
@@ -86,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			brain.updateSettings(settings: settings)
 		case "dance", "wave": brain.perform(key: action)
 		case "preferences": openPrefs()
+		case "quit": NSApp.terminate(nil)
 		default: return
 		}
 		if let art, let panel { think(art: art, panel: panel) }
@@ -356,6 +361,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			title = brain.settings().readTitles ? WindowTitle.front() : nil
 			// Your windows' tops, for catching him; fresh before any fall he takes.
 			ledges = Ledges.around(panel: panel)
+			// A video or a game full screen: out of the way until it is not.
+			let covered = Ledges.fullScreen()
+			if covered != fullScreen {
+				fullScreen = covered
+				if covered {
+					panel.orderOut(nil)
+				} else if !hiddenByYou {
+					panel.orderFrontRegardless()
+				}
+			}
 		}
 		return Sensing.now(music: music, inCall: inCall, title: title, ledges: ledges, lyra: lyra.sense(panel: panel), panel: panel, screen: screen ?? NSScreen.main!)
 	}
@@ -380,10 +395,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	@objc private func show() {
+		hiddenByYou = false
 		reanchor()
 		panel?.orderFrontRegardless()
 	}
-	@objc private func hide() { panel?.orderOut(nil) }
+	@objc private func hide() {
+		hiddenByYou = true
+		panel?.orderOut(nil)
+	}
 
 	/// Minutes of silence; -1 is until said otherwise, 0 lifts it.
 	@objc private func beQuiet(_ sender: NSMenuItem) {

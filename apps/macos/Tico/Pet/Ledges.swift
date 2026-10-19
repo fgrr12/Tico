@@ -32,4 +32,26 @@ enum Ledges {
 		}
 		return found.sorted { $0.lift > $1.lift }
 	}
+
+	/// Something is full screen on the main display: a window of another app
+	/// covering all of it, menu bar included (a maximised one stops below the
+	/// menu bar). A video, a game, a presentation — he steps aside for it.
+	static func fullScreen() -> Bool {
+		guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
+			let main = NSScreen.screens.first
+		else { return false }
+		let me = Int(ProcessInfo.processInfo.processIdentifier)
+		// The main display in window coordinates: top-left at the origin.
+		let whole = CGRect(origin: .zero, size: main.frame.size)
+		return list.contains { w in
+			guard (w[kCGWindowLayer as String] as? Int) == 0,
+				(w[kCGWindowOwnerPID as String] as? Int) != me,
+				(w[kCGWindowAlpha as String] as? Double ?? 1) > 0.01,
+				let dict = w[kCGWindowBounds as String] as! CFDictionary?,
+				let rect = CGRect(dictionaryRepresentation: dict)
+			else { return false }
+			return abs(rect.minX - whole.minX) < 1 && abs(rect.minY - whole.minY) < 1
+				&& abs(rect.width - whole.width) < 1 && abs(rect.height - whole.height) < 1
+		}
+	}
 }

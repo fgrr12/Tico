@@ -65,9 +65,13 @@ final class LyraLink {
 		active = true
 		switch kind {
 		case "track":
-			let playing = yes("playing")
-			let next = playing ? Track(artist: info["artist"] ?? "", song: info["title"] ?? "", genre: "", bpm: 0) : nil
-			lyrics = playing ? info["lyrics"] ?? "" : ""
+			lyrics = yes("playing") ? info["lyrics"] ?? "" : ""
+			// A YouTube video is a song only if Lyra found its lyrics: the rest is
+			// talk, trailers and tutorials, and he should not dance to those.
+			// Spotify and Music are music either way, instrumentals included.
+			let player = ["com.spotify.client", "com.apple.Music"].contains(info["source"] ?? "")
+			let song = player || lyrics == "synced" || lyrics == "plain"
+			let next = yes("playing") && song ? Track(artist: info["artist"] ?? "", song: info["title"] ?? "", genre: "", bpm: 0) : nil
 			if next != track || !wasActive {
 				track = next
 				onChange?()

@@ -365,10 +365,18 @@ a line counter, "no lyrics anywhere", and the overlay's middle on the strip.
 The core sings only in sung lines, now and then bounces as one starts or looks
 up at the overlay (one beat every `LYRIC_BEAT`), and sometimes says
 `lyricsNone`. Nothing from Lyra is kept. Lyra quitting is seen through
-`NSWorkspace`, and tico goes back to asking the players itself.
+`NSWorkspace`, and tico goes back to asking the players itself. A song from a
+browser (YouTube, by Lyra's `source`) is music only once Lyra has its lyrics —
+the rest is talk and trailers; Spotify and Music always are.
+
+**Full screen**: once a second (with the ledges) `Ledges.fullScreen` looks for
+another app's window covering the whole main display, menu bar included — a
+video, a game, a presentation; a maximised window stops below the menu bar —
+and the strip steps aside (`orderOut`) until it is gone. Hidden from the menu
+stays hidden (`hiddenByYou`).
 
 **Flint** (by the same author) lists tico's commands while he runs and sends
 them as `dev.fgrr.tico.do` (`action`: show, hide, goHome, comeOut, quiet,
 talk, dance, wave, preferences — small and harmless, since any local process
-could post it). With Flint installed the preferences offer hiding the menu bar
+could post it; also quit). With Flint installed the preferences offer hiding the menu bar
 icon (`settings.menu_bar_icon`); opening tico again opens the preferences.
