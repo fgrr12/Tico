@@ -6,7 +6,7 @@ import SwiftUI
 /// tab where a body part or a thing to wear is chosen by pressing the place on
 /// him and picking from drawings — a drawing needs no name and survives
 /// translation — and a settings tab. Only what the native build already does is
-/// offered: size, the burrow and window titles come with their features.
+/// offered: the burrow and window titles come with their features.
 ///
 /// The words come from `src/prefs/copy.ts`, exported under `prefs` in
 /// `art/copy.json`. Every change goes to the core, which saves `tico.json` and
@@ -199,6 +199,12 @@ private struct SettingsTab: View {
 				.pickerStyle(.segmented)
 			} footer: {
 				Text(copy["chattiness", "hint"])
+			}
+			Section {
+				Picker(copy["size", "label"], selection: $model.settings.size) {
+					ForEach(["small", "normal", "large"], id: \.self) { Text(copy["size", $0]).tag($0) }
+				}
+				.pickerStyle(.segmented)
 			}
 			Section {
 				Picker(copy["inCall", "label"], selection: $model.settings.inCall) {

@@ -228,7 +228,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92
 		)
 		if step != shown {
 			shown = step

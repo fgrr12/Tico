@@ -14,8 +14,10 @@ import QuartzCore
 /// holds postures (`.companion-anim`, turning about 50% 90%), `svg` bounces
 /// while he sings (`.companion-svg`), and `host` scales the 96-unit drawing.
 final class PetPanel: NSPanel {
-	/// `--pet-width` in companion.css: the 96-unit drawing shown 92 points wide.
-	static let petWidth: CGFloat = 92
+	/// `--pet-width` in companion.css: the 96-unit drawing shown 92 points wide,
+	/// or 66 or 124 by the size setting (`Frame.width`).
+	private(set) var petWidth: CGFloat = 92
+	private var home: NSScreen?
 	/// Below his floor the strip hangs 90pt off the bottom of the screen, for
 	/// `spin`, which turns him about a point by his feet. Above, it reaches the
 	/// menu bar: you can pick him up and carry him anywhere, as in Tauri.
@@ -90,18 +92,11 @@ final class PetPanel: NSPanel {
 		view.wantsLayer = true
 		contentView = view
 
-		let box = CGRect(x: 0, y: Self.below, width: Self.petWidth, height: Self.petWidth)
-		walker.frame = box
-		body.frame = CGRect(origin: .zero, size: box.size)
-		anim.frame = CGRect(origin: .zero, size: box.size)
-		// `transform-origin: 50% 90%`, measured from the top.
-		anim.anchorPoint = CGPoint(x: 0.5, y: 0.1)
-		anim.position = CGPoint(x: box.width / 2, y: box.height * 0.1)
-		svg.frame = anim.bounds
+		walker.frame = CGRect(x: 0, y: Self.below, width: petWidth, height: petWidth)
 		host.anchorPoint = .zero
 		host.bounds = CGRect(x: 0, y: 0, width: Painter.size, height: Painter.size)
 		host.position = .zero
-		host.setAffineTransform(CGAffineTransform(scaleX: Self.petWidth / Painter.size, y: Self.petWidth / Painter.size))
+		lay(width: petWidth)
 		svg.addSublayer(host)
 		anim.addSublayer(svg)
 		body.addSublayer(anim)
@@ -113,10 +108,28 @@ final class PetPanel: NSPanel {
 	override var canBecomeKey: Bool { false }
 	override var canBecomeMain: Bool { false }
 
+	/// Sizes everything inside him for a pet `width` points wide.
+	private func lay(width: CGFloat) {
+		CATransaction.begin()
+		CATransaction.setDisableActions(true)
+		let p = walker.position
+		walker.bounds = CGRect(x: 0, y: 0, width: width, height: width)
+		walker.position = p
+		body.frame = walker.bounds
+		anim.bounds = walker.bounds
+		// `transform-origin: 50% 90%`, measured from the top.
+		anim.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+		anim.position = CGPoint(x: width / 2, y: width * 0.1)
+		svg.frame = anim.bounds
+		host.setAffineTransform(CGAffineTransform(scaleX: width / Painter.size, y: width / Painter.size))
+		CATransaction.commit()
+	}
+
 	/// Lays the strip along the bottom edge of the screen, the way the Tauri
 	/// build does: he stands over the Dock rather than above it.
 	func place(on screen: NSScreen) {
-		let shadowBelowFeet = (Painter.size - 90 - 4.5) * Self.petWidth / Painter.size
+		home = screen
+		let shadowBelowFeet = (Painter.size - 90 - 4.5) * petWidth / Painter.size
 		let bottom = screen.frame.minY - Self.below + shadowBelowFeet
 		// Up to the menu bar and no further: over it, he would swallow its clicks.
 		let top = screen.visibleFrame.maxY
@@ -134,7 +147,7 @@ final class PetPanel: NSPanel {
 	/// Where he visibly is right now, mid-walk included: (x, lift).
 	var standing: CGPoint {
 		let p = walker.presentation()?.position ?? walker.position
-		return CGPoint(x: p.x - Self.petWidth / 2, y: p.y - Self.below - Self.petWidth / 2)
+		return CGPoint(x: p.x - petWidth / 2, y: p.y - Self.below - petWidth / 2)
 	}
 
 	/// The strip takes the mouse only where he is, so the desktop under the
@@ -176,12 +189,20 @@ final class PetPanel: NSPanel {
 		let c = frame.colours
 		let colours = ["{face}": c.face, "{screen}": c.screen, "{led}": c.led]
 
+		// A new size: everything inside him, and the floor under his feet.
+		if CGFloat(frame.width) != petWidth, frame.width > 0 {
+			petWidth = CGFloat(frame.width)
+			lay(width: petWidth)
+			if let home { place(on: home) }
+			moveSerial = nil
+		}
+
 		// Travel: a new serial is a new move, eased over the walk's duration;
 		// 0ms is a jump (the far side of a crossing).
 		if frame.moveSerial != moveSerial {
 			let first = moveSerial == nil
 			moveSerial = frame.moveSerial
-			let to = CGPoint(x: frame.x + Self.petWidth / 2, y: Self.below + frame.lift + Self.petWidth / 2)
+			let to = CGPoint(x: frame.x + petWidth / 2, y: Self.below + frame.lift + petWidth / 2)
 			let from = walker.presentation()?.position ?? walker.position
 			CATransaction.begin()
 			CATransaction.setDisableActions(true)
@@ -202,7 +223,7 @@ final class PetPanel: NSPanel {
 		if walker.isHidden != frame.hidden { walker.isHidden = frame.hidden }
 
 		// What he is saying, on whichever side of him keeps it on screen.
-		bubble.show(frame.speech, width: Self.petWidth, onLeft: frame.x + Self.petWidth / 2 < self.frame.width / 2)
+		bubble.show(frame.speech, width: petWidth, onLeft: frame.x + petWidth / 2 < self.frame.width / 2)
 
 		// The drawing: rebuilt when the face, the colours or the singing change.
 		// Landing, or stopping a walk while singing, redraws to restore what

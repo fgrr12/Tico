@@ -50,6 +50,15 @@ const WANDER_EVERY: u64 = 30_000;
 const ERRAND_EVERY: u64 = 190_000;
 /// `--pet-width`: how much of the strip he takes up.
 pub const PET_WIDTH: f64 = 92.0;
+
+/// `--pet-width` for each size the preferences offer.
+fn pet_width(size: &str) -> f64 {
+    match size {
+        "small" => 66.0,
+        "large" => 124.0,
+        _ => PET_WIDTH,
+    }
+}
 /// Cursor this close to his middle and he watches it.
 const NOTICE_WITHIN: f64 = 220.0;
 /// Hover on him this long and it counts as petting.
@@ -191,6 +200,8 @@ pub struct Frame {
     pub parts: Parts,
     /// Out of the way for a call, when the settings say "hide".
     pub hidden: bool,
+    /// How wide he is drawn, in points (`--pet-width`).
+    pub width: f64,
 }
 
 /// What happens when he gets where he was going.
@@ -693,6 +704,7 @@ impl Brain {
             worn: worn_from(s.settings.pinned_props.clone(), s.prop.clone(), s.prop_leaving),
             parts: s.settings.parts.clone(),
             hidden: s.in_call && s.settings.in_call == "hide",
+            width: s.pet(),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -1191,12 +1203,12 @@ impl State {
     }
 
     fn max_lift(&self) -> f64 {
-        (self.height - PET_WIDTH).max(0.0)
+        (self.height - self.pet()).max(0.0)
     }
 
     /// His middle, in strip points (y up from the floor).
     fn middle(&self) -> (f64, f64) {
-        (self.here() + PET_WIDTH / 2.0, self.lift + PET_WIDTH / 2.0)
+        (self.here() + self.pet() / 2.0, self.lift + self.pet() / 2.0)
     }
 
     /// Eyes on the cursor, when nothing else is holding his gaze.
@@ -1217,7 +1229,7 @@ impl State {
         };
         let here = self.here();
         let inside =
-            x >= here && x <= here + PET_WIDTH && y >= self.lift && y <= self.lift + PET_WIDTH;
+            x >= here && x <= here + self.pet() && y >= self.lift && y <= self.lift + self.pet();
         if inside {
             let since = *self.hover_since.get_or_insert(now);
             if !self.petted && now.saturating_sub(since) >= PET_AFTER {
@@ -1288,7 +1300,7 @@ impl State {
             self.speech = None;
             self.pending.clear();
             self.then = None;
-            self.walk(now, self.max_x() + PET_WIDTH * 0.5, 0.0, WALK_SPEED * 2.0, After::Nothing);
+            self.walk(now, self.max_x() + self.pet() * 0.5, 0.0, WALK_SPEED * 2.0, After::Nothing);
         } else if !self.in_call {
             self.crossing = false;
             if let Some(back) = self.home_x.take() {
@@ -1327,8 +1339,13 @@ impl State {
         }
     }
 
+    /// How wide he is, by the settings' size.
+    fn pet(&self) -> f64 {
+        pet_width(&self.settings.size)
+    }
+
     fn max_x(&self) -> f64 {
-        (self.width - PET_WIDTH).max(1.0)
+        (self.width - self.pet()).max(1.0)
     }
 
     fn here(&self) -> f64 {
@@ -1339,9 +1356,9 @@ impl State {
     fn clamp(&self, x: f64) -> f64 {
         // All of him while crossing, half while peeking from an edge, else none.
         let over = if self.crossing {
-            PET_WIDTH
+            self.pet()
         } else if self.peeking() {
-            PET_WIDTH * 0.5
+            self.pet() * 0.5
         } else {
             0.0
         };
@@ -1385,13 +1402,13 @@ impl State {
             After::Nothing => {}
             After::Back { x, speed } => self.pending.push((now + 400, Step::WalkTo { x, speed })),
             After::Reappear { went_right } => {
-                self.jump(if went_right { -PET_WIDTH } else { self.width });
+                self.jump(if went_right { -self.pet() } else { self.width });
                 let inset = 50.0 + self.below(150) as f64;
                 // Pinned to the edge during a call, that being the whole contract;
                 // otherwise a little way in, so he arrives walking.
                 let landing = match (self.peeking(), went_right) {
-                    (true, true) => -PET_WIDTH * 0.5,
-                    (true, false) => self.max_x() + PET_WIDTH * 0.5,
+                    (true, true) => -self.pet() * 0.5,
+                    (true, false) => self.max_x() + self.pet() * 0.5,
                     (false, true) => inset,
                     (false, false) => self.max_x() - inset,
                 };
@@ -1452,7 +1469,7 @@ impl State {
             }
             Travel::Chase => {
                 if let Some(cursor) = self.cursor_x {
-                    let step = (cursor - PET_WIDTH / 2.0 - here).clamp(-140.0, 140.0);
+                    let step = (cursor - self.pet() / 2.0 - here).clamp(-140.0, 140.0);
                     self.walk(now, here + step, 0.0, WALK_SPEED * 1.4, After::Nothing);
                 }
             }
@@ -1463,7 +1480,7 @@ impl State {
             Travel::Behind => {
                 let went_right = here >= self.width / 2.0;
                 self.crossing = true;
-                let off = if went_right { self.width } else { -PET_WIDTH };
+                let off = if went_right { self.width } else { -self.pet() };
                 self.walk(now, off, 0.0, WALK_SPEED * 1.6, After::Reappear { went_right });
             }
             Travel::Errand => {
