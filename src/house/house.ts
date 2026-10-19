@@ -136,6 +136,18 @@ export const sceneAt = (
  * Nothing here is earned by doing anything. It is earned by time, which is the
  * only axis in this pet that moves one way.
  */
+/**
+ * What he does in each bay once he has settled, which is what makes the place
+ * look lived in rather than furnished: asleep in the cradle, watching the lamp,
+ * sitting on the mat by the fan. The face is a mood from his own set; `look`
+ * and `sit` are for the native build, which can move him without repainting.
+ */
+export const ACTIVITY: Record<Furniture, { mood: 'sleep' | 'idle' | 'watching'; look?: [number, number]; sit?: boolean }> = {
+	chair: { mood: 'sleep' },
+	lamp: { mood: 'watching', look: [0.6, -0.9] },
+	rug: { mood: 'idle', sit: true, look: [0.8, 0] },
+}
+
 export const TIERS: Familiarity[] = ['new', 'knowing', 'familiar', 'old']
 
 export const reached = (tier: Familiarity, needs: Familiarity | undefined): boolean =>
