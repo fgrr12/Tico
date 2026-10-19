@@ -239,7 +239,17 @@ clock is uptime, never zero: anything the Tauri build starts at `Date.now()`
 (talk, moments, strolls, the first reminder check) is set on the first tick,
 or all of it would be due at once — `a_clock_that_does_not_start_at_zero…`
 guards it. `TICO_DATA=<folder>` runs on another data folder;
-`TICO_LOG=1` prints every change of mood, effect and speech. Its words are
+`TICO_LOG=1` prints every change of mood, effect and speech.
+
+Size follows `tico.json` (66/92/124pt, `--pet-width`): the core uses it for
+edges and the hit box and sends `Frame.width`; the shell re-lays him and the
+strip's floor. Window titles (`Pet/WindowTitle.swift`, `window_title.rs`) are
+read once a second only with "Read window titles" on and Accessibility granted
+— turning it on without the grant opens that settings pane instead of ticking
+a box that does nothing; the core drops anything on the `SENSITIVE` blocklist
+or over 200 characters (`readable`), and a file it finds (`document_in`) gets a
+`fileByExt`/`file` line at most every 7 minutes; a new title re-arms the app
+remark, as the Tauri effect re-ran on `activeApp`. Its words are
 `src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
 through `Brain::update_settings`, which saves `tico.json`. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s

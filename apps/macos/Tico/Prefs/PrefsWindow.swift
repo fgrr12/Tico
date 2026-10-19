@@ -6,7 +6,7 @@ import SwiftUI
 /// tab where a body part or a thing to wear is chosen by pressing the place on
 /// him and picking from drawings — a drawing needs no name and survives
 /// translation — and a settings tab. Only what the native build already does is
-/// offered: the burrow and window titles come with their features.
+/// offered: the burrow comes with its feature.
 ///
 /// The words come from `src/prefs/copy.ts`, exported under `prefs` in
 /// `art/copy.json`. Every change goes to the core, which saves `tico.json` and
@@ -218,6 +218,22 @@ private struct SettingsTab: View {
 					ForEach(["auto", "en", "es"], id: \.self) { Text(copy["language", $0]).tag($0) }
 				}
 				Toggle(copy["autostart", "label"], isOn: $model.launchAtLogin)
+			}
+			Section {
+				Toggle(copy["titles", "label"], isOn: Binding(
+					get: { model.settings.readTitles },
+					set: { on in
+						// A checkbox that ticks itself and then does nothing is worse than
+						// none: without the grant, the request goes to where it is given.
+						if on, !WindowTitle.trusted {
+							WindowTitle.openAccessibilitySettings()
+						} else {
+							model.settings.readTitles = on
+						}
+					}
+				))
+			} footer: {
+				Text(copy["titles", "hint"])
 			}
 		}
 		.formStyle(.grouped)

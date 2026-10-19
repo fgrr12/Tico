@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var music: Track?
 	/// Read once a second rather than on every tick: two CoreAudio calls.
 	private var inCall = false
+	private var title: String?
 	private var micCheckedAt: UInt64 = 0
 	private var screen: NSScreen?
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
@@ -171,8 +172,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		if Sensing.clock - micCheckedAt >= 1_000 {
 			micCheckedAt = Sensing.clock
 			inCall = Microphone.live
+			// Another app's main thread answers every Accessibility request, so
+			// once a second, and only when asked for.
+			title = brain.settings().readTitles ? WindowTitle.front() : nil
 		}
-		return Sensing.now(music: music, inCall: inCall, panel: panel, screen: screen ?? NSScreen.main!)
+		return Sensing.now(music: music, inCall: inCall, title: title, panel: panel, screen: screen ?? NSScreen.main!)
 	}
 
 	private var systemLanguage: String {

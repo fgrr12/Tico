@@ -15,8 +15,8 @@ use std::sync::{Arc, Mutex};
 use crate::copy::Copy;
 use crate::data::{
     Colours, Familiarity, Feeling, PROPS, SOUVENIRS, Sensed, TERRORS, TimeOfDay, WornProp,
-    dance_style, energy_at, familiarity_from, feeling_from, match_app, palette, time_of_day,
-    worn_from,
+    dance_style, document_in, energy_at, familiarity_from, feeling_from, match_app, palette,
+    time_of_day, worn_from,
 };
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
@@ -77,6 +77,26 @@ const DWELL_AT: [u64; 2] = [45, 120];
 /// How long after an app comes to the front he says something about it.
 const NOTICE_AFTER: u64 = 1_800;
 const APP_LINE_EVERY: u64 = 180_000;
+/// A file he can see is remarked on at most this often.
+const FILE_LINE_EVERY: u64 = 420_000;
+/// Titles never read, at any permission: a blocklist, so a floor rather than a
+/// guarantee — the first real title the Tauri build ever read was `.env-prod`.
+const SENSITIVE: [&str; 14] = [
+    ".env",
+    "secret",
+    "password",
+    "passwd",
+    "token",
+    "credential",
+    "apikey",
+    "api key",
+    "private key",
+    ".pem",
+    "keychain",
+    "1password",
+    "bitwarden",
+    "lastpass",
+];
 const APP_REPEAT_AFTER: u64 = 900_000;
 const SWITCH_LIMIT: usize = 6;
 const SWITCH_COOLDOWN: u64 = 900_000;
@@ -128,6 +148,9 @@ pub struct Senses {
     pub hour: u8,
     /// The frontmost application's name, which needs no permission anywhere.
     pub front_app: Option<String>,
+    /// Its focused window's title, only when you turned that on and granted
+    /// Accessibility. Never kept, never written anywhere.
+    pub front_title: Option<String>,
     /// Something playing, if anything.
     pub music: Option<Track>,
     /// Width of the strip he walks, in points.
@@ -309,6 +332,9 @@ struct State {
     dwell_done: HashSet<u64>,
     /// The app in front has not been remarked on yet.
     unnoticed: bool,
+    title: Option<String>,
+    last_document: Option<String>,
+    file_line_at: u64,
     /// What he put on himself, until when, and whether it is coming off.
     prop: Option<String>,
     prop_until: u64,
@@ -407,6 +433,9 @@ impl Brain {
                 said_about: HashMap::new(),
                 dwell_done: HashSet::new(),
                 unnoticed: false,
+                title: None,
+                last_document: None,
+                file_line_at: 0,
                 prop: None,
                 prop_until: 0,
                 prop_leaving: false,
@@ -650,6 +679,12 @@ impl Brain {
         s.expire(now);
         s.run_due(now);
         track_app(&mut s, now, senses.front_app.as_deref());
+        // A new title (another file in the same editor) is worth a look too.
+        let title = senses.front_title.as_deref().and_then(readable);
+        if title != s.title {
+            s.title = title;
+            s.unnoticed = true;
+        }
         if !s.asleep && s.hold.is_none() {
             s.notice(now);
         }
@@ -1152,6 +1187,24 @@ impl State {
         if !self.can_speak(now) {
             return;
         }
+        // The file, when he can see one: "Companion.tsx again" is about this
+        // minute; "you are in VS Code" is true all day.
+        if let Some(document) = document_in(self.title.clone())
+            && Some(&document) != self.last_document.as_ref()
+            && (self.file_line_at == 0
+                || now.saturating_sub(self.file_line_at) > self.rated(FILE_LINE_EVERY))
+        {
+            self.last_document = Some(document.clone());
+            self.file_line_at = now;
+            self.app_line_at = now;
+            let ext = document.rsplit('.').next().unwrap_or("").to_lowercase();
+            let specific = format!("fileByExt.{ext}");
+            let has_specific = self.copy.as_ref().is_some_and(|c| !c.pool(&specific).is_empty());
+            self.react(now, Mood::Watching, None, 1_600);
+            self.look = Some((Look { x: 0.0, y: -0.8 }, now + 1_400));
+            self.say_from(now, if has_specific { &specific } else { "file" }, 5_500, &[&document]);
+            return;
+        }
         if self.switches.len() > SWITCH_LIMIT
             && now.saturating_sub(self.switch_line_at) > self.rated(SWITCH_COOLDOWN)
         {
@@ -1554,6 +1607,16 @@ fn track_app(s: &mut State, now: u64, front: Option<&str>) {
     }
 }
 
+/// A title he may look at: nothing on the blocklist, nothing absurdly long.
+fn readable(title: &str) -> Option<String> {
+    let lower = title.to_lowercase();
+    let trimmed = title.trim();
+    (!SENSITIVE.iter().any(|needle| lower.contains(needle))
+        && !trimmed.is_empty()
+        && trimmed.len() <= 200)
+        .then(|| trimmed.to_string())
+}
+
 /// The copy's key for a feeling, as written in `companion.ts`.
 fn feeling_key(feeling: Feeling) -> &'static str {
     use Feeling::*;
@@ -1607,6 +1670,7 @@ mod tests {
             idle_ms,
             hour: 14,
             front_app: Some(app.into()),
+            front_title: None,
             music: None,
             strip_width: 1512.0,
             strip_height: 900.0,
@@ -1683,6 +1747,7 @@ mod tests {
                     idle_ms: now % 20_000,
                     hour,
                     front_app: Some("Finder".into()),
+                    front_title: None,
                     music: music.clone(),
                     strip_width: 1512.0,
                     strip_height: 900.0,
@@ -1751,6 +1816,7 @@ mod tests {
             idle_ms: 0,
             hour: 14,
             front_app: None,
+            front_title: None,
             music: None,
             strip_width: 1512.0,
             strip_height: 900.0,
@@ -1783,6 +1849,7 @@ mod tests {
                         idle_ms: 0,
                         hour: 14,
                         front_app: None,
+                        front_title: None,
                         music: track.clone(),
                         strip_width: 1512.0,
                         strip_height: 900.0,
@@ -1802,6 +1869,7 @@ mod tests {
                         idle_ms: 100_000,
                         hour: 14,
                         front_app: None,
+                        front_title: None,
                         music: track,
                         strip_width: 1512.0,
                         strip_height: 900.0,
@@ -1826,6 +1894,7 @@ mod tests {
                 idle_ms: 10_000,
                 hour: 10,
                 front_app: None,
+                front_title: None,
                 music: None,
                 strip_width: 1512.0,
                 strip_height: 900.0,
@@ -1920,6 +1989,7 @@ mod tests {
                 idle_ms: 0,
                 hour: 14,
                 front_app: None,
+                front_title: None,
                 music: None,
                 strip_width: 1512.0,
                 strip_height: 900.0,
@@ -2024,6 +2094,7 @@ mod tests {
             idle_ms: 0,
             hour: 14,
             front_app: app.map(String::from),
+            front_title: None,
             music: None,
             strip_width: 1512.0,
             strip_height: 900.0,
@@ -2172,7 +2243,11 @@ mod tests {
                 if let Some(s) = brain
                     .tick(
                         i * 250,
-                        Senses { front_app: Some("Finder".into()), ..dated("2026-10-18") },
+                        Senses {
+                            front_app: Some("Finder".into()),
+                            front_title: None,
+                            ..dated("2026-10-18")
+                        },
                     )
                     .speech
                     && s.serial != last
@@ -2203,7 +2278,12 @@ mod tests {
     }
 
     fn calling(in_call: bool) -> Senses {
-        Senses { in_call, front_app: Some("Finder".into()), ..quiet_senses(None) }
+        Senses {
+            in_call,
+            front_app: Some("Finder".into()),
+            front_title: None,
+            ..quiet_senses(None)
+        }
     }
 
     #[test]
@@ -2269,8 +2349,14 @@ mod tests {
         let mut shown = Vec::new();
         let mut last = 0;
         for i in 0..(5 * 240) {
-            let f = brain
-                .tick(i * 250, Senses { front_app: Some("Finder".into()), ..dated("2026-10-18") });
+            let f = brain.tick(
+                i * 250,
+                Senses {
+                    front_app: Some("Finder".into()),
+                    front_title: None,
+                    ..dated("2026-10-18")
+                },
+            );
             if let Some(s) = f.speech
                 && s.serial != last
             {
@@ -2301,5 +2387,20 @@ mod tests {
         assert_eq!(first.move_serial, 0, "walked on the first tick");
         let hello = brain.tick(t0 + 1_700, quiet_senses(Some("Finder"))).speech.unwrap().text;
         assert!(lines("en", "boot").contains(&hello), "{hello}");
+    }
+
+    #[test]
+    fn a_file_in_the_title_gets_a_remark_and_secrets_are_never_read() {
+        assert_eq!(readable(".env-prod — Condominios"), None);
+        assert_eq!(readable("My 1Password vault"), None);
+        assert_eq!(readable("Companion.tsx — tico").as_deref(), Some("Companion.tsx — tico"));
+        let brain = talker("en");
+        brain.tick(0, quiet_senses(None));
+        brain.tick(1_700, quiet_senses(None));
+        let editing =
+            |t| Senses { front_title: Some("brain.rs — tico".into()), ..quiet_senses(Some(t)) };
+        brain.tick(20_000, editing("Code"));
+        let said = brain.tick(22_000, editing("Code")).speech.expect("a line about the file");
+        assert!(said.text.contains("brain.rs"), "{}", said.text);
     }
 }
