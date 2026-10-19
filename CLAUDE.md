@@ -218,8 +218,17 @@ The menu is the Tauri tray, item for item (Show, Hide, Quiet ▸, Preferences…
 Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx`: a "Tico" tab where you press a
 place on him and pick a part or a pinned prop from drawings (`PetPreview`, the
 pet's own `Painter`), and a settings tab — chattiness, language, start at login.
-Size, calls, the burrow and window titles are left out until the native build
-does them; offering a switch that does nothing would be worse. Its words are
+Size, the burrow and window titles are left out until the native build does
+them; offering a switch that does nothing would be worse.
+
+Calls: `Pet/Microphone.swift` is `call.rs` (the default input device running
+somewhere — a property of the device, no permission), read once a second into
+`Senses.in_call`. Peek (the default) walks him to the right edge half showing,
+mutes him, and runs `peek_poll` — calm gestures only, never a travelling moment,
+a wave every 14s, round the back to the other edge now and then — and walks
+him home when the call ends; hide sets `Frame.hidden`; ignore carries on.
+Typing (`keyDown` in the last 1.5s, never which key) or the cursor within 24pt
+veils the bubble to 12%, as `[data-veiled]` does. Its words are
 `src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
 through `Brain::update_settings`, which saves `tico.json`. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s

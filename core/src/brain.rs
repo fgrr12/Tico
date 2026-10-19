@@ -76,6 +76,8 @@ const BOOT_AFTER: u64 = 1_600;
 /// Days and streaks worth remarking on at launch.
 const DAY_MILESTONES: [u32; 4] = [7, 30, 100, 365];
 const STREAK_MILESTONES: [u32; 3] = [5, 15, 50];
+/// How often, at most, he crosses to the other edge while peeking.
+const CROSS_EVERY: u64 = 95_000;
 /// How long the taking-off of a prop takes before it is gone.
 const PROP_LEAVE: u64 = 400;
 /// Feelings he is not always in the mood to be petted in.
@@ -129,6 +131,8 @@ pub struct Senses {
     pub cursor_y: Option<f64>,
     /// The local date, `YYYY-MM-DD`: a new one is a day known.
     pub today: String,
+    /// A microphone is live somewhere: treated as "you are in a call".
+    pub in_call: bool,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -182,6 +186,8 @@ pub struct Frame {
     pub worn: Vec<WornProp>,
     /// The body he was given.
     pub parts: Parts,
+    /// Out of the way for a call, when the settings say "hide".
+    pub hidden: bool,
 }
 
 /// What happens when he gets where he was going.
@@ -293,6 +299,11 @@ struct State {
     opening: Option<Opening>,
     /// The language macOS asked for, used when the settings say "auto".
     copy_json: Option<(String, String)>,
+    in_call: bool,
+    /// Where he stood before going to the corner for a call.
+    home_x: Option<f64>,
+    cross_at: u64,
+    wave_at: u64,
     rng: u64,
 }
 
@@ -377,6 +388,10 @@ impl Brain {
                 memory: Memory::default(),
                 opening: None,
                 copy_json: None,
+                in_call: false,
+                home_x: None,
+                cross_at: 0,
+                wave_at: 0,
                 rng: seed.max(1),
             }),
         }
@@ -535,6 +550,10 @@ impl Brain {
         s.cursor_x = senses.cursor_x;
         s.cursor_y = senses.cursor_y;
         s.height = senses.strip_height;
+        if senses.in_call != s.in_call {
+            s.in_call = senses.in_call;
+            s.call_changed(now);
+        }
         // About a tenth a minute: being petted colours the next five minutes.
         s.attention =
             (s.attention - 0.02 * now.saturating_sub(s.attention_at) as f64 / 12_000.0).max(0.0);
@@ -588,8 +607,13 @@ impl Brain {
 
         if now >= s.next_poll {
             s.next_poll = now + POLL;
-            if !s.asleep && senses.idle_ms <= SLEEP_AFTER && s.free() {
-                s.poll(now, senses.hour, senses.idle_ms);
+            let hidden = s.in_call && s.settings.in_call == "hide";
+            if !s.asleep && !hidden && senses.idle_ms <= SLEEP_AFTER && s.free() {
+                if s.peeking() {
+                    s.peek_poll(now);
+                } else {
+                    s.poll(now, senses.hour, senses.idle_ms);
+                }
             }
         }
 
@@ -617,6 +641,7 @@ impl Brain {
             facing_right: s.facing_right,
             worn: worn_from(s.settings.pinned_props.clone(), s.prop.clone(), s.prop_leaving),
             parts: s.settings.parts.clone(),
+            hidden: s.in_call && s.settings.in_call == "hide",
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -986,7 +1011,11 @@ impl State {
 
     fn say(&mut self, now: u64, text: String, ms: u64) {
         // "Quiet for an hour" from the menu holds everything he would volunteer.
-        if self.settings.quiet_until > unix_now() {
+        // In a call he keeps his gestures and loses his voice: talking over a
+        // demo is what would make you regret installing him.
+        if self.settings.quiet_until > unix_now()
+            || (self.in_call && self.settings.in_call != "ignore")
+        {
             return;
         }
         let until = now + ms + text.chars().count() as u64 * self.reveal();
@@ -1143,6 +1172,13 @@ impl State {
     fn click(&mut self, now: u64) {
         let (count, at) = self.clicks;
         let count = if now.saturating_sub(at) < 900 { count + 1 } else { 1 };
+        // From the corner of a call a click is as likely to be you missing the
+        // window he stands in front of: a small reply, and nothing more.
+        if self.peeking() {
+            self.clicks = (count, now);
+            self.react(now, Mood::Happy, Some("pop"), 1_200);
+            return;
+        }
         if count >= 4 {
             self.clicks = (0, now);
             self.react(now, Mood::Dizzy, Some("spin"), 2_600);
@@ -1155,6 +1191,57 @@ impl State {
         self.say_from(now, "click", 4_200, &[]);
     }
 
+    fn peeking(&self) -> bool {
+        self.in_call && self.settings.in_call == "peek"
+    }
+
+    /// Off to the right edge, half showing, for a call — and back to where he
+    /// was when it ends.
+    fn call_changed(&mut self, now: u64) {
+        if self.peeking() {
+            self.home_x.get_or_insert(self.here());
+            self.speech = None;
+            self.pending.clear();
+            self.then = None;
+            self.walk(now, self.max_x() + PET_WIDTH * 0.5, 0.0, WALK_SPEED * 2.0, After::Nothing);
+        } else if !self.in_call {
+            self.crossing = false;
+            if let Some(back) = self.home_x.take() {
+                self.walk(now, back, 0.0, WALK_SPEED, After::Nothing);
+            }
+        }
+    }
+
+    /// The peek's own poll: gestures, never anything that walks him into the
+    /// middle of the screen; now and then round the back to the other edge,
+    /// and a wave.
+    fn peek_poll(&mut self, now: u64) {
+        if now.saturating_sub(self.cross_at) > CROSS_EVERY && self.chance(0.35) {
+            self.cross_at = now;
+            self.travel(now, Travel::Behind);
+            return;
+        }
+        if now.saturating_sub(self.wave_at) > 14_000 {
+            self.wave_at = now;
+            self.react(now, Mood::Happy, None, 1_400);
+            return;
+        }
+        if now.saturating_sub(self.moment_at) > self.rated(MOMENT_EVERY) && self.chance(0.5) {
+            self.moment_at = now;
+            let calm: Vec<&str> = MOMENTS
+                .iter()
+                .filter(|m| {
+                    m.min <= 0.35
+                        && !m.needs_prop
+                        && !m.steps.iter().any(|(_, s)| matches!(s, Step::Go(_)))
+                })
+                .map(|m| m.key)
+                .collect();
+            let key = calm[self.below(calm.len())];
+            self.start(now, key);
+        }
+    }
+
     fn max_x(&self) -> f64 {
         (self.width - PET_WIDTH).max(1.0)
     }
@@ -1165,7 +1252,14 @@ impl State {
 
     /// Off the strip is allowed only while crossing, and then all the way.
     fn clamp(&self, x: f64) -> f64 {
-        let over = if self.crossing { PET_WIDTH } else { 0.0 };
+        // All of him while crossing, half while peeking from an edge, else none.
+        let over = if self.crossing {
+            PET_WIDTH
+        } else if self.peeking() {
+            PET_WIDTH * 0.5
+        } else {
+            0.0
+        };
         x.clamp(-over, self.max_x() + over)
     }
 
@@ -1208,7 +1302,14 @@ impl State {
             After::Reappear { went_right } => {
                 self.jump(if went_right { -PET_WIDTH } else { self.width });
                 let inset = 50.0 + self.below(150) as f64;
-                let landing = if went_right { inset } else { self.max_x() - inset };
+                // Pinned to the edge during a call, that being the whole contract;
+                // otherwise a little way in, so he arrives walking.
+                let landing = match (self.peeking(), went_right) {
+                    (true, true) => -PET_WIDTH * 0.5,
+                    (true, false) => self.max_x() + PET_WIDTH * 0.5,
+                    (false, true) => inset,
+                    (false, false) => self.max_x() - inset,
+                };
                 let wait = 700 + self.below(1_400) as u64;
                 self.pending.push((now + wait, Step::ComeBack { x: landing }));
             }
@@ -1410,6 +1511,7 @@ mod tests {
             cursor_x: None,
             cursor_y: None,
             today: String::new(),
+            in_call: false,
         }
     }
 
@@ -1485,6 +1587,7 @@ mod tests {
                     cursor_x: None,
                     cursor_y: None,
                     today: String::new(),
+                    in_call: false,
                 },
             );
             if let Some(effect) = frame.effect
@@ -1552,6 +1655,7 @@ mod tests {
             cursor_x: None,
             cursor_y: None,
             today: String::new(),
+            in_call: false,
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -1582,7 +1686,8 @@ mod tests {
                         strip_height: 900.0,
                         cursor_x: None,
                         cursor_y: None,
-                        today: String::new()
+                        today: String::new(),
+                        in_call: false
                     }
                 )
                 .singing
@@ -1600,7 +1705,8 @@ mod tests {
                         strip_height: 900.0,
                         cursor_x: None,
                         cursor_y: None,
-                        today: String::new()
+                        today: String::new(),
+                        in_call: false
                     }
                 )
                 .singing
@@ -1624,6 +1730,7 @@ mod tests {
                 cursor_x: Some(700.0),
                 cursor_y: None,
                 today: String::new(),
+                in_call: false,
             },
         )
     }
@@ -1717,6 +1824,7 @@ mod tests {
                 cursor_x: cursor.map(|c| c.0),
                 cursor_y: cursor.map(|c| c.1),
                 today: String::new(),
+                in_call: false,
             },
         )
     }
@@ -1820,6 +1928,7 @@ mod tests {
             cursor_x: None,
             cursor_y: None,
             today: String::new(),
+            in_call: false,
         }
     }
 
@@ -1988,6 +2097,55 @@ mod tests {
             serde_json::from_str(&std::fs::read_to_string(dir.join("memory.json")).unwrap())
                 .unwrap();
         assert_eq!(saved.pets, 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn calling(in_call: bool) -> Senses {
+        Senses { in_call, front_app: Some("Finder".into()), ..quiet_senses(None) }
+    }
+
+    #[test]
+    fn in_a_call_he_peeks_from_the_edge_in_silence_and_comes_back() {
+        let brain = talker("en");
+        let home = brain.tick(0, calling(false)).x;
+        brain.tick(1_700, calling(false));
+        let mut t = 20_000;
+        brain.tick(t, calling(true));
+        let edge = 1512.0 - PET_WIDTH + PET_WIDTH * 0.5;
+        let mut last_effect = 0;
+        let mut effects = Vec::new();
+        while t < 20 * 60_000 {
+            t += 250;
+            let f = brain.tick(t, calling(true));
+            assert!(f.speech.is_none(), "he spoke during a call: {:?}", f.speech);
+            if let Some(e) = f.effect
+                && e.serial != last_effect
+            {
+                last_effect = e.serial;
+                effects.push(e.name);
+            }
+            assert!(f.x <= 1512.0 + 1.0 && (f.x >= edge - 1.0 || f.x <= 0.0 || f.walking), "x = {} in a call", f.x);
+        }
+        assert!(!effects.is_empty(), "no gestures in twenty minutes of a call");
+        for name in ["hop", "spin", "bounce", "pogo", "land"] {
+            assert!(!effects.iter().any(|e| e == name), "{name} is not a corner gesture");
+        }
+        brain.tick(t + 250, calling(false));
+        let mut back = brain.tick(t + 500, calling(false));
+        for i in 0..40 {
+            back = brain.tick(t + 750 + i * 250, calling(false));
+        }
+        assert!((back.x - home).abs() < 1.0, "came back to {} not {home}", back.x);
+    }
+
+    #[test]
+    fn hide_means_hidden() {
+        let dir = folder("hide", r#"{"in_call":"hide"}"#, "{}");
+        let brain = Brain::still();
+        brain.open(dir.to_string_lossy().into(), None, "2026-10-18".into());
+        assert!(!brain.tick(0, calling(false)).hidden);
+        assert!(brain.tick(1_000, calling(true)).hidden);
+        assert!(!brain.tick(2_000, calling(false)).hidden);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

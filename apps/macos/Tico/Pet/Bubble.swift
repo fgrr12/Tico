@@ -112,6 +112,26 @@ final class Bubble {
 		}
 	}
 
+	/// Reading and writing are the two moments a line in front of your work is
+	/// in the way: while you type, or reach for it with the cursor, it fades to
+	/// 12% (`.companion-bubble[data-veiled]`) and comes back when you stop.
+	func veil(_ on: Bool) {
+		let target: Float = on ? 0.12 : 1
+		guard box.opacity != target else { return }
+		let fade = CABasicAnimation(keyPath: "opacity")
+		fade.fromValue = box.presentation()?.opacity ?? box.opacity
+		fade.toValue = target
+		fade.duration = 0.16
+		fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+		box.opacity = target
+		tail.opacity = target
+		box.add(fade, forKey: "veil")
+		tail.add(fade, forKey: "veil")
+	}
+
+	/// The bubble's box in its superlayer's coordinates, when it is showing.
+	var frame: CGRect? { layer.isHidden ? nil : layer.frame }
+
 	private func hide() {
 		guard serial != nil else { return }
 		serial = nil

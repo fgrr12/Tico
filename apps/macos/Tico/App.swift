@@ -25,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var frame: Frame?
 	private let musicSense = MusicSense()
 	private var music: Track?
+	/// Read once a second rather than on every tick: two CoreAudio calls.
+	private var inCall = false
+	private var micCheckedAt: UInt64 = 0
 	private var screen: NSScreen?
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
 	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
@@ -113,8 +116,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// Asks the core what he is like now and hands it to the panel, which only
 	/// does work for what changed.
 	private func think(art: Art, panel: PetPanel) {
-		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music, panel: panel, screen: screen ?? NSScreen.main!))
+		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: senses(panel))
 		panel.hitTest(cursor: NSEvent.mouseLocation)
+		// A key in the last second and a half, anywhere — never which key.
+		let typing = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown) < 1.5
+		panel.veil(cursor: NSEvent.mouseLocation, typing: typing)
 		// Most ticks change nothing; those cost one comparison.
 		guard next != frame else { return }
 		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
@@ -145,6 +151,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			step(5.2 + Double(i) * 0.05, "drag") { panel.onDrag?(CGPoint(x: grab().x, y: 46 + dy)) }
 		}
 		step(7, "drop") { panel.onRelease?() }
+	}
+
+	private func senses(_ panel: PetPanel) -> Senses {
+		if Sensing.clock - micCheckedAt >= 1_000 {
+			micCheckedAt = Sensing.clock
+			inCall = Microphone.live
+		}
+		return Sensing.now(music: music, inCall: inCall, panel: panel, screen: screen ?? NSScreen.main!)
 	}
 
 	private var systemLanguage: String {
@@ -200,7 +214,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led")
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false
 		)
 		if step != shown {
 			shown = step

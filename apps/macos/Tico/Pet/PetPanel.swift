@@ -131,6 +131,17 @@ final class PetPanel: NSPanel {
 	/// The strip takes the mouse only where he is, so the desktop under the
 	/// rest of it stays usable — `cursor.rs` in the Tauri build. Held for the
 	/// whole of a press, or a fast drag would outrun it and drop him.
+	/// Fades the bubble while you type or reach for it (within 24pt, `VEIL_WITHIN`).
+	func veil(cursor: NSPoint, typing: Bool) {
+		var near = false
+		if let box = bubble.frame {
+			let walkerFrame = (walker.presentation() ?? walker).frame
+			let onScreen = box.offsetBy(dx: walkerFrame.minX + frame.minX, dy: walkerFrame.minY + frame.minY)
+			near = onScreen.insetBy(dx: -24, dy: -24).contains(cursor)
+		}
+		bubble.veil(typing || near)
+	}
+
 	func hitTest(cursor: NSPoint) {
 		guard !pressed else { return }
 		let box = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
@@ -170,6 +181,9 @@ final class PetPanel: NSPanel {
 				walker.add(a, forKey: "travel")
 			}
 		}
+
+		// Out of the way for a call, when that is what he was asked to do.
+		if walker.isHidden != frame.hidden { walker.isHidden = frame.hidden }
 
 		// What he is saying, on whichever side of him keeps it on screen.
 		bubble.show(frame.speech, width: Self.petWidth, onLeft: frame.x + Self.petWidth / 2 < self.frame.width / 2)
