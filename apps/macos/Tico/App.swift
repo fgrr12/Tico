@@ -109,7 +109,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		}
 
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-		item.button?.title = "tico"
+		// The Tauri tray's icon: a template, so macOS colours it for the menu bar.
+		if let icon = NSImage(named: "MenuBarIcon") {
+			icon.isTemplate = true
+			item.button?.image = icon
+		} else {
+			item.button?.title = "tico"
+		}
 
 		// The Tauri build's tray, item for item.
 		let menu = NSMenu()

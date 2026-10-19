@@ -221,6 +221,13 @@ checkboxes; the "Tico" tab with him on a radial glow, a handle on each of the
 six places, the part/worn pills, and the options fanned round the ring as
 close-ups (`CROPS`, `PetPreview` with a crop) — green when chosen, dashed amber
 for "nothing". `TICO_PREFS=body:neck[:part]` opens it on a tab and place.
+
+Icons: `Assets.xcassets/AppIcon` is `app-icon.svg` drawn at 824 of 1024 (the
+macOS icon grid, so it sits the same size as its neighbours; the Tauri build's
+is full-bleed), and `MenuBarIcon` is `tray-icon.svg` as a template image.
+Render SVGs with `NSImage` (it reads them and keeps the alpha) — `qlmanage`
+flattens them onto white, which shows as white corners and, for a template, a
+white block.
 Size, the burrow and window titles are left out until the native build does
 them; offering a switch that does nothing would be worse.
 

@@ -37,6 +37,7 @@ targets:
         # Takes that id the day it replaces it, as Lyra's native build did.
         PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.native
         PRODUCT_NAME: tico
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
