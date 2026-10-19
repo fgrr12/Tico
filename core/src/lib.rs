@@ -9,6 +9,7 @@
 //! - [`store`]: `tico.json` and `memory.json`, as the Tauri build writes them.
 //! - [`brain`]: the poll that decides on its own — sleep, waking, feelings,
 //!   and which [`moments`] he has unprompted.
+//! - [`house`]: the burrow's scene, derived when you look.
 
 use std::sync::Arc;
 
@@ -17,6 +18,7 @@ uniffi::setup_scaffolding!("tico");
 pub mod brain;
 pub mod copy;
 pub mod data;
+pub mod house;
 pub mod moments;
 pub mod store;
 

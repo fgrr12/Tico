@@ -145,7 +145,48 @@ try {
 	const copy = Object.fromEntries(
 		Object.entries(companionCopy).map(([language, lines]) => [language, { ...copyFrom(lines, language), prefs: prefsCopy[language] }])
 	)
-	const art = { version: 2, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces, motion }
+	// The burrow: each piece of the cutaway on its own, so the native shell can
+	// light a bay, leave out what he does not know you well enough for yet, and
+	// animate the fan, without re-deriving a single coordinate.
+	const H = await server.ssrLoadModule('/src/house/House.tsx')
+	const { ACTIVITY, TIERS, houseCopy } = await server.ssrLoadModule('/src/house/house.ts')
+	const kinds = Object.keys(H.ROOMS)
+	const house = {
+		viewBox: [0, 0, 200, 132],
+		hatchBox: [0, 0, 120, 52],
+		defs: one(createElement(H.BurrowDefs)).children,
+		earth: one(createElement(H.Earth)),
+		shaft: one(createElement(H.Shaft)),
+		hatch: walk(createElement(H.HatchArt)),
+		rooms: Object.fromEntries(
+			kinds.map((kind) => {
+				const room = H.ROOMS[kind]
+				return [
+					kind,
+					{
+						x: room.x,
+						y: room.y,
+						w: room.w,
+						h: H.ROOM.h,
+						floor: H.floorOf(kind),
+						stand: room.stand,
+						label: room.label,
+						normal: one(createElement(H.Room, { kind, lit: false })),
+						lit: one(createElement(H.Room, { kind, lit: true })),
+						items: room.items.map((item) => ({
+							since: item.since ?? 'new',
+							node: { tag: 'g', attrs: { transform: `translate(${room.x + item.at[0]} ${H.floorOf(kind) + item.at[1]})` }, children: [one(createElement(H.PIECES[item.piece]))] },
+						})),
+					},
+				]
+			})
+		),
+		hangs: H.HANGS,
+		activity: ACTIVITY,
+		tiers: TIERS,
+	}
+	for (const language of Object.keys(copy)) copy[language].house = houseCopy(language)
+	const art = { version: 2, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces, motion, house }
 
 	// ── The proof ─────────────────────────────────────────────────────────────
 
@@ -203,6 +244,21 @@ try {
 			failed = true
 		}
 		compared++
+	}
+
+	// Every room, lit and not, with everything in it, against React's own.
+	for (const kind of kinds) {
+		for (const lit of [false, true]) {
+			const ours = norm(markup({ tag: 'g', children: [house.rooms[kind][lit ? 'lit' : 'normal'], ...house.rooms[kind].items.map((i) => i.node)] })).replace(/<g>|<\/g>/g, '')
+			const theirs = norm(
+				renderToStaticMarkup(createElement('g', null, createElement(H.Room, { kind, lit }), createElement(H.Furnishings, { kind, familiarity: 'old' })))
+			).replace(/<g( transform="[^"]*")?>|<\/g>/g, (m, t) => (t ? m : ''))
+			if (ours !== theirs.replace(/<g>|<\/g>/g, '')) {
+				console.error(`✗ burrow ${kind}${lit ? ' lit' : ''} differs:\n  ours:  ${ours.slice(0, 300)}\n  react: ${theirs.slice(0, 300)}`)
+				failed = true
+			}
+			compared++
+		}
 	}
 
 	if (!failed) {

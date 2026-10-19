@@ -18,8 +18,17 @@ use crate::data::{
     dance_style, document_in, energy_at, familiarity_from, feeling_from, match_app, palette,
     time_of_day, worn_from,
 };
+use crate::house::{FURNITURE, brought_up, line_index, scene_at};
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
+
+/// Where the hatch is, its left edge on the strip, and how wide.
+pub const HOUSE_X: f64 = 24.0;
+pub const HATCH_WIDTH: f64 = 120.0;
+/// Home is rare, behind its own floor: it takes him off the screen.
+const HOME_EVERY: u64 = 420_000;
+/// "As long as he likes": a pet always back in ninety seconds has a lunch break.
+const HOME_FOR: (u64, u64) = (45_000, 300_000);
 
 /// Falls asleep after this long with no cursor movement anywhere on screen.
 const SLEEP_AFTER: u64 = 90_000;
@@ -256,6 +265,22 @@ pub struct Frame {
     pub falling: bool,
     pub heat: f64,
     pub hanging: bool,
+    /// Down the burrow: off the strip, the hatch open and lit.
+    pub home: bool,
+}
+
+/// What the cutaway shows, worked out once when it is opened.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct Burrow {
+    pub present: bool,
+    /// The bay ("chair", "lamp", "rug").
+    pub at: String,
+    pub settled: bool,
+    pub line: String,
+    /// How well he knows you, as furniture: "new" … "old".
+    pub familiarity: String,
+    /// What you posted down the hatch, on the rail.
+    pub left: Vec<String>,
 }
 
 /// What happens when he gets where he was going.
@@ -288,6 +313,8 @@ enum After {
     Fell {
         ledge: Option<f64>,
     },
+    /// At the hatch: in he goes.
+    Home,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -396,6 +423,11 @@ struct State {
     falling: bool,
     heat: f64,
     hanging: bool,
+    /// When he got in, why (frozen then), until when, and the last trip.
+    home: Option<u64>,
+    home_reason: Option<Feeling>,
+    home_until: u64,
+    home_at: u64,
     rng: u64,
 }
 
@@ -498,6 +530,10 @@ impl Brain {
                 falling: false,
                 heat: 0.0,
                 hanging: false,
+                home: None,
+                home_reason: None,
+                home_until: 0,
+                home_at: 0,
                 rng: seed.max(1),
             }),
         }
@@ -578,6 +614,44 @@ impl Brain {
         s.react(now, Mood::Happy, Some("hop"), 2_000);
     }
 
+    /// Out of the burrow now: clicking him in the cutaway calls him up.
+    pub fn come_up(&self) {
+        let mut s = self.state.lock().unwrap();
+        let now = s.last_tick;
+        if s.home.is_some() {
+            s.come_out(now);
+        }
+    }
+
+    /// The scene for the cutaway, derived at the moment of looking.
+    pub fn burrow(&self) -> Burrow {
+        let s = self.state.lock().unwrap();
+        let now = s.last_tick;
+        let chair = s.opening.as_ref().and_then(|o| o.chair.clone());
+        let scene = scene_at(s.home.unwrap_or(now), now, chair.as_deref(), s.home_reason);
+        let (path, index) = match s.home {
+            Some(_) => {
+                let path = format!("house.at.{}", scene.at);
+                let n = s.copy.as_ref().map_or(0, |c| c.pool(&path).len());
+                (path, line_index(&scene, n))
+            }
+            None => ("house.empty".to_string(), scene.minutes as usize % 2),
+        };
+        let line = s
+            .copy
+            .as_ref()
+            .and_then(|c| c.pool(&path).get(index).and_then(|l| Copy::render(l, s.hour, &[])))
+            .unwrap_or_default();
+        Burrow {
+            present: s.home.is_some(),
+            at: scene.at.to_string(),
+            settled: scene.settled,
+            line,
+            familiarity: familiarity_key(familiarity_from(s.memory.days)).to_string(),
+            left: s.memory.left.clone(),
+        }
+    }
+
     /// The settings as they stand, for the shell (the body, the size).
     pub fn settings(&self) -> Settings {
         self.state.lock().unwrap().settings.clone()
@@ -590,6 +664,11 @@ impl Brain {
         let language = s.settings.language != settings.language;
         s.settings = settings;
         s.save_settings();
+        // Turning the burrow off with him inside would leave him nowhere.
+        if !s.settings.house && s.home.is_some() {
+            let now = s.last_tick;
+            s.come_out(now);
+        }
         if language {
             s.load_copy();
         }
@@ -644,8 +723,25 @@ impl Brain {
     pub fn release(&self, now_ms: u64) {
         let mut s = self.state.lock().unwrap();
         let Some(hold) = s.hold.take() else { return };
+        let middle = s.here() + s.pet() / 2.0;
         if !hold.moved {
             s.click(now_ms);
+        } else if s.settings.house
+            && s.home.is_none()
+            && middle > HOUSE_X
+            && middle < HOUSE_X + HATCH_WIDTH
+        {
+            // Dropped over the hatch, he goes down it — and whatever he had on
+            // comes off on the way and ends up on the rail: the one way anything
+            // of yours gets into the burrow.
+            if let Some(prop) = s.prop.take().filter(|_| !s.prop_leaving) {
+                s.memory.left_behind(&prop);
+                s.save_memory();
+            }
+            s.prop = None;
+            s.prop_leaving = false;
+            s.home_at = now_ms;
+            s.walk(now_ms, HOUSE_X + 30.0, 0.0, FALL_SPEED, After::Home);
         } else if s.lift > 4.0 {
             // Through the same fall as coming off a ladder, ledges and all.
             s.react(now_ms, Mood::Held, None, 0);
@@ -741,6 +837,9 @@ impl Brain {
             }
             s.arrived(now, m.after);
         }
+        if s.home.is_some() && now >= s.home_until {
+            s.come_out(now);
+        }
         s.expire(now);
         s.run_due(now);
         track_app(&mut s, now, senses.front_app.as_deref());
@@ -809,6 +908,7 @@ impl Brain {
             falling: s.falling,
             heat: s.heat,
             hanging: s.hanging,
+            home: s.home.is_some(),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -830,6 +930,7 @@ impl State {
             && self.pending.is_empty()
             && self.then.is_none()
             && self.moving.is_none()
+            && self.home.is_none()
     }
 
     fn expire(&mut self, now: u64) {
@@ -1032,6 +1133,7 @@ impl State {
                 self.walk(now, x, 0.0, speed, After::Nothing);
             }
             Step::Say { path, ms } => self.say_from(now, &path, ms, &[]),
+            Step::GoHome => self.walk(now, HOUSE_X + 30.0, 0.0, WALK_SPEED * 1.1, After::Home),
             Step::Fuss => {
                 if let Some(prop) = self.prop.clone()
                     && self.chance(0.6)
@@ -1213,6 +1315,7 @@ impl State {
             && self.hold.is_none()
             && self.moving.is_none()
             && self.mood == Mood::Idle
+            && self.home.is_none()
     }
 
     /// The feeling's delivery, in milliseconds a character.
@@ -1634,11 +1737,51 @@ impl State {
                     }
                 }
             }
+            After::Home => self.settle_in(now),
             After::Arrive => {
                 self.react(now, Mood::Watching, None, 2_000);
                 self.look = Some((Look { x: 0.0, y: 0.4 }, now + 1_600));
             }
         }
+    }
+
+    /// In: off the strip until a time he picks, the bay counted on the way in
+    /// (so a session that ends down there still counted the visit).
+    fn settle_in(&mut self, now: u64) {
+        self.home = Some(now);
+        self.home_reason = Some(self.feeling);
+        self.home_until = now + HOME_FOR.0 + self.below((HOME_FOR.1 - HOME_FOR.0) as usize) as u64;
+        self.speech = None;
+        self.speech_reminder = None;
+        self.pending.clear();
+        self.then = None;
+        self.look = None;
+        self.sit_until = None;
+        self.mood = Mood::Idle;
+        self.react_until = None;
+        let bay = FURNITURE[self.below(FURNITURE.len())];
+        *self.memory.furniture.entry(bay.to_string()).or_insert(0) += 1;
+        self.save_memory();
+    }
+
+    /// Out again: pleased, and half the time holding something from the bay
+    /// he was last in — which is then the arrival line, rather than "I am
+    /// back" cut off by a remark about a mug.
+    fn come_out(&mut self, now: u64) {
+        let Some(since) = self.home.take() else { return };
+        self.home_at = now;
+        self.react(now, Mood::Happy, Some("pop"), 1_600);
+        if self.prop.is_none() && self.chance(0.5) {
+            let chair = self.opening.as_ref().and_then(|o| o.chair.clone());
+            let at = scene_at(since, now, chair.as_deref(), self.home_reason).at;
+            let speak = self.chance(0.75);
+            self.wear(now, brought_up(at), speak);
+        } else if self.chance(0.6) {
+            self.say_from(now, "house.leaving", 3_600, &[]);
+        }
+        // A few steps out of the doorway, so he does not stand in his own porch.
+        let x = HOUSE_X + 120.0 + self.below(160) as f64;
+        self.walk(now, x, 0.0, WALK_SPEED, After::Nothing);
     }
 
     fn wander(&mut self, now: u64) {
@@ -1702,6 +1845,17 @@ impl State {
             Travel::Flee => {
                 self.react(now, Mood::Scared, None, 2_600);
                 self.walk(now, far, 0.0, WALK_SPEED * 3.0, After::Nothing);
+            }
+            Travel::House => {
+                let recent = self.home_at != 0 && now.saturating_sub(self.home_at) < HOME_EVERY;
+                if !self.settings.house || self.ladder.is_some() || recent {
+                    return;
+                }
+                self.home_at = now;
+                if self.chance(0.55) {
+                    self.say_from(now, "house.arriving", 3_000, &[]);
+                }
+                self.pending.push((now + 1_200, Step::GoHome));
             }
             Travel::Climb => {
                 if self.ladder.is_some() || self.falling || self.hanging {
@@ -2626,5 +2780,67 @@ mod tests {
             }
         }
         panic!("hung: {hung}, never reached the floor");
+    }
+
+    #[test]
+    fn dropped_over_the_hatch_he_goes_down_and_leaves_his_hat_on_the_rail() {
+        let brain = talker("en");
+        brain.tick(0, quiet_senses(None));
+        brain.state.lock().unwrap().prop = Some("cap".into());
+        brain.press(100, 500.0, 0.0, 500.0, 0.0);
+        brain.drag(150, 50.0, 40.0);
+        brain.release(200);
+        let mut frame = brain.tick(250, quiet_senses(None));
+        for t in 1..20 {
+            frame = brain.tick(250 + t * 250, quiet_senses(None));
+        }
+        assert!(frame.home);
+        assert!(frame.worn.iter().all(|w| w.kind != "cap"));
+        assert_eq!(brain.burrow().left, vec!["cap".to_string()]);
+        let burrow = brain.burrow();
+        assert!(burrow.present);
+        assert!(lines("en", &format!("house.at.{}", burrow.at)).contains(&burrow.line));
+        // Clicked in the cutaway, he comes up and walks out of the doorway.
+        brain.come_up();
+        let frame = brain.tick(6_000, quiet_senses(None));
+        assert!(!frame.home);
+        assert!(frame.x > HOUSE_X + 100.0);
+        assert_eq!(brain.burrow().line, lines("en", "house.empty")[0]);
+    }
+
+    #[test]
+    fn he_goes_home_on_his_own_and_comes_out_when_he_likes() {
+        let brain = walker(3);
+        at(&brain, 0);
+        brain.perform("house".into());
+        let mut went = None;
+        let mut back = None;
+        for i in 1..(8 * 240) {
+            let now = i * 250;
+            let frame = at(&brain, now);
+            if frame.home && went.is_none() {
+                went = Some(now);
+            }
+            if went.is_some() && !frame.home && back.is_none() {
+                back = Some(now);
+            }
+        }
+        let (went, back) = (went.expect("never went in"), back.expect("never came out"));
+        let stayed = back - went;
+        assert!((HOME_FOR.0..=HOME_FOR.1 + 1_000).contains(&stayed), "stayed {stayed}");
+        // And not again straight away.
+        brain.perform("house".into());
+        assert!(!at(&brain, back + 10_000).home);
+    }
+
+    #[test]
+    fn turning_the_burrow_off_evicts_him() {
+        let brain = Brain::still();
+        brain.tick(0, quiet_senses(None));
+        brain.state.lock().unwrap().settle_in(0);
+        let mut settings = brain.settings();
+        settings.house = false;
+        brain.update_settings(settings);
+        assert!(!brain.tick(250, quiet_senses(None)).home);
     }
 }

@@ -5,9 +5,6 @@
 //! later. The brain decides when one happens and which; the steps are what the
 //! shell gets to see, as state in the `Frame`.
 //!
-//! One of the Tauri build's moments is not here yet: `house` (the burrow),
-//! which draws a whole cutaway the native shell does not have; a feeling that
-//! lists it picks from the rest.
 
 use crate::brain::Mood;
 use crate::data::{DanceStyle, Feeling};
@@ -34,6 +31,8 @@ pub enum Travel {
     Skip,
     /// Up a ladder for a look, which sometimes goes out from under him.
     Climb,
+    /// Down the hatch for a while.
+    House,
 }
 
 /// One thing a moment does, `at` milliseconds after it starts.
@@ -45,6 +44,8 @@ pub enum Step {
         effect: Option<&'static str>,
         ms: u64,
     },
+    /// The walk to the hatch, a beat after saying so.
+    GoHome,
     /// Sit down for `ms`, or a random 6–15s when `None`.
     Sit {
         ms: Option<u64>,
@@ -179,6 +180,7 @@ pub const MOMENTS: &[Moment] = &[
     moment!("flee", 0.3, [0 => Go(Travel::Flee)]),
     moment!("skip", 0.7, [0 => Go(Travel::Skip), 0 => react(Happy, "bounce", 1_300)]),
     moment!("climb", 0.5, [0 => Go(Travel::Climb)]),
+    moment!("house", 0.25, [0 => Go(Travel::House)]),
 ];
 
 pub fn moment(key: &str) -> Option<&'static Moment> {

@@ -111,6 +111,16 @@ pub struct Opening {
     pub away: u32,
     pub first_day: bool,
     pub favourite: Option<String>,
+    /// The bay he has gone to most, the same way: it bends where he is found.
+    pub chair: Option<String>,
+}
+
+fn most_used(counts: &HashMap<String, u32>) -> Option<String> {
+    counts
+        .iter()
+        .filter(|(_, used)| **used >= FAVOURITE_AFTER)
+        .max_by_key(|(kind, used)| (**used, *kind))
+        .map(|(kind, _)| kind.clone())
 }
 
 impl Memory {
@@ -140,11 +150,7 @@ impl Memory {
 
     /// The most worn, once it has been worn often enough to be a preference.
     pub fn favourite(&self) -> Option<String> {
-        self.props
-            .iter()
-            .filter(|(_, used)| **used >= FAVOURITE_AFTER)
-            .max_by_key(|(kind, used)| (**used, *kind))
-            .map(|(kind, _)| kind.clone())
+        most_used(&self.props)
     }
 
     pub fn opening(&self, away: u32) -> Opening {
@@ -154,6 +160,7 @@ impl Memory {
             away,
             first_day: self.days <= 1,
             favourite: self.favourite(),
+            chair: most_used(&self.furniture),
         }
     }
 
