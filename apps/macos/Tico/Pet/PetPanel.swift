@@ -40,6 +40,11 @@ final class PetPanel: NSPanel {
 	private let walker = CALayer()
 	private let bubble = Bubble()
 	private let body = CALayer()
+	/// The fall's flame behind him, the glow around him, the ring where he lands.
+	private let trail = CAGradientLayer()
+	private let glow = CAGradientLayer()
+	private let impact = CAShapeLayer()
+	private var burning = false
 	private let anim = CALayer()
 	private let svg = CALayer()
 	private let host = CALayer()
@@ -104,7 +109,11 @@ final class PetPanel: NSPanel {
 		lay(width: petWidth)
 		svg.addSublayer(host)
 		anim.addSublayer(svg)
+		body.addSublayer(glow)
+		body.addSublayer(trail)
 		body.addSublayer(anim)
+		walker.addSublayer(impact)
+		setUpHeat()
 		walker.addSublayer(body)
 		walker.addSublayer(bubble.layer)
 		view.layer?.addSublayer(ladder)
@@ -393,9 +402,22 @@ final class PetPanel: NSPanel {
 			}
 		}
 
+		// Falling hot: a flame trailing up from him and a glow around him, both
+		// sized by how far he is falling (`--heat`); flying glows amber.
+		let heat = CGFloat(frame.heat)
+		let hot = frame.falling && heat > 0.02
+		if hot != burning || hot {
+			burning = hot
+			showHeat(hot ? heat : 0, flying: frame.flying)
+		} else if frame.flying != (glow.opacity > 0 && !hot) {
+			showHeat(0, flying: frame.flying)
+		}
+
 		// An effect, once per serial.
 		if let effect = frame.effect, effect.serial != effectSerial {
 			effectSerial = effect.serial
+			// Landing after a hot fall leaves a ring on the floor (`land::after`).
+			if effect.name == "land", heat > 0.05 { ring(heat: heat) }
 			if let spec = motion.effects[effect.name] {
 				if let animation = CSSMotion.animation(spec, motion: motion, rate: Motion.liveRate, base: anim.transform) {
 					anim.add(animation, forKey: "effect")
@@ -479,6 +501,100 @@ final class PetPanel: NSPanel {
 		{
 			blinker = Blinker(open: open, closed: closed)
 		}
+	}
+
+	private func setUpHeat() {
+		// `clip-path: polygon(50% 0, 88% 38%, 100% 100%, 0 100%, 12% 38%)` and the
+		// flame's gradient, bright at his end and gone at the tip.
+		trail.colors = [
+			Painter.color("#ffcd78"), Painter.color("#ff8a28", alpha: 0.95),
+			Painter.color("#e44216", alpha: 0.62), Painter.color("#be280f", alpha: 0),
+		]
+		trail.locations = [0, 0.28, 0.62, 1]
+		trail.startPoint = CGPoint(x: 0.5, y: 0)
+		trail.endPoint = CGPoint(x: 0.5, y: 1)
+		trail.anchorPoint = CGPoint(x: 0.5, y: 0)
+		trail.opacity = 0
+		glow.type = .radial
+		glow.startPoint = CGPoint(x: 0.5, y: 0.5)
+		glow.endPoint = CGPoint(x: 1, y: 1)
+		glow.opacity = 0
+		impact.fillColor = nil
+		impact.lineWidth = 2
+		impact.opacity = 0
+	}
+
+	/// The flame and glow at `heat` (0 hides them), or the rocket's amber glow.
+	private func showHeat(_ heat: CGFloat, flying: Bool) {
+		CATransaction.begin()
+		CATransaction.setDisableActions(true)
+		let w = petWidth
+		if heat > 0 {
+			trail.bounds = CGRect(x: 0, y: 0, width: 52 * heat, height: 190 * heat)
+			trail.position = CGPoint(x: w / 2, y: w * 0.4)
+			let mask = CAShapeLayer()
+			let (tw, th) = (trail.bounds.width, trail.bounds.height)
+			let flame = CGMutablePath()
+			// y-up: the wide end at his body, the point at the top.
+			flame.move(to: CGPoint(x: tw * 0.5, y: th))
+			flame.addLine(to: CGPoint(x: tw * 0.88, y: th * 0.62))
+			flame.addLine(to: CGPoint(x: tw, y: 0))
+			flame.addLine(to: CGPoint(x: 0, y: 0))
+			flame.addLine(to: CGPoint(x: tw * 0.12, y: th * 0.62))
+			flame.closeSubpath()
+			mask.path = flame
+			trail.mask = mask
+			trail.opacity = Float(heat)
+			if trail.animation(forKey: "flicker") == nil {
+				// `companion-trail`: a 0.22s flicker, alternating.
+				let flicker = CABasicAnimation(keyPath: "transform")
+				flicker.fromValue = NSValue(caTransform3D: CATransform3DMakeScale(1.05, 0.86, 1))
+				flicker.toValue = NSValue(caTransform3D: CATransform3DMakeScale(0.9, 1.12, 1))
+				flicker.duration = 0.22
+				flicker.autoreverses = true
+				flicker.repeatCount = .infinity
+				flicker.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+				flicker.preferredFrameRateRange = Motion.liveRate
+				trail.add(flicker, forKey: "flicker")
+			}
+		} else {
+			trail.opacity = 0
+			trail.removeAnimation(forKey: "flicker")
+		}
+		// The drop-shadow glow, as a radial gradient behind him rather than a
+		// blur recomputed every frame of the fall.
+		let reach = heat > 0 ? 40 * heat : flying ? 16 : 0
+		let colour = heat > 0 ? Painter.color("#ff9640", alpha: 0.75 * heat) : Painter.color("#e0af68", alpha: 0.55)
+		glow.bounds = CGRect(x: 0, y: 0, width: w + reach * 2, height: w + reach * 2)
+		glow.position = CGPoint(x: w / 2, y: w / 2)
+		glow.colors = [colour, colour.copy(alpha: 0) ?? colour]
+		glow.locations = [0.45, 1]
+		glow.opacity = reach > 0 ? 1 : 0
+		CATransaction.commit()
+	}
+
+	/// `land::after`: a ring that spreads out on the floor and fades.
+	private func ring(heat: CGFloat) {
+		let size = CGSize(width: 150 * heat, height: 34 * heat)
+		CATransaction.begin()
+		CATransaction.setDisableActions(true)
+		impact.bounds = CGRect(origin: .zero, size: size)
+		impact.position = CGPoint(x: petWidth / 2, y: 0)
+		impact.path = CGPath(ellipseIn: impact.bounds.insetBy(dx: 1, dy: 1), transform: nil)
+		impact.strokeColor = Painter.color("#ffaa50", alpha: 0.8 * heat)
+		CATransaction.commit()
+		let grow = CABasicAnimation(keyPath: "transform.scale")
+		grow.fromValue = 0.25
+		grow.toValue = 1.6
+		let fade = CABasicAnimation(keyPath: "opacity")
+		fade.fromValue = 0.95
+		fade.toValue = 0
+		let group = CAAnimationGroup()
+		group.animations = [grow, fade]
+		group.duration = 0.45
+		group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+		group.preferredFrameRateRange = Motion.liveRate
+		impact.add(group, forKey: "impact")
 	}
 
 	/// `.companion-ladder`: 34pt wide, 4pt rails, a 3pt rung every 16pt, from
