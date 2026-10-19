@@ -71,7 +71,7 @@ export const TONES = {
 	wood: '#7a6242',
 	woodLight: '#8d7150',
 	boards: '#2e2924',
-	lid: '#3a332c',
+	lid: '#332d27',
 	lidEdge: '#2a241f',
 } as const
 
@@ -386,6 +386,10 @@ export const HatchArt = () => (
 				<stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
 				<stop offset="100%" stopColor="#000000" stopOpacity="0.26" />
 			</linearGradient>
+			<radialGradient id="tico-hatch-light">
+				<stop offset="0%" stopColor={TONES.glow} stopOpacity="0.55" />
+				<stop offset="100%" stopColor={TONES.glow} stopOpacity="0" />
+			</radialGradient>
 			{/* Boards that stop being boards at the edges, rather than ending. */}
 			<linearGradient id="tico-floor" x1="0" y1="0" x2="1" y2="0">
 				<stop offset="0%" stopColor={TONES.boards} stopOpacity="0" />
@@ -399,6 +403,8 @@ export const HatchArt = () => (
 			<path d="M6 23.4 L114 23.4" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="1.2" strokeLinecap="round" fill="none" />
 			{/* The hole, always there, simply covered. */}
 			<path d="M26 26 Q26 25.2 27.2 25.2 L92.8 25.2 Q94 25.2 94 26 L86.6 43 Q86.2 44 85 44 L35 44 Q33.8 44 33.4 43 z" fill={TONES.earthBottom} />
+			{/* The burrow's own light, coming up through the hole whenever the lid is. */}
+			<ellipse className="tico-hatch-light" fill="url(#tico-hatch-light)" cx="60" cy="40" rx="30" ry="9" />
 			<path d="M26 26 L94 26 L91 32 L29 32 z" fill="#000000" opacity="0.45" />
 		</g>
 		<g className="tico-hatch-lid">
