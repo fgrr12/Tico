@@ -191,7 +191,15 @@ by time of day, unknown apps), the rocket and coming back from behind — with
 `can_speak` and the bubble's own time as the Tauri build has them. Idle time
 counts from launch at most, as Tauri's `activityAt` does. The shell's
 `Pet/Bubble.swift` draws `.companion-bubble` and types the line in at the
-feeling's `reveal_ms`. Language follows macOS (Spanish or English). The shell ticks
+feeling's `reveal_ms`. Language follows macOS (Spanish or English).
+
+Props: one moment in nine he puts something on (headphones, often, while
+music plays), says something about it 1.2s later most of the time, and takes it
+off 25–95s on (`propOff` sometimes); `adjust` and `admire` are only offered
+while he wears something; coming back from behind brings a souvenir 40% of the
+time. The core sends `worn` back to front (`wornFrom`); the shell wraps each in
+a `companion-worn` layer and plays `companion-wear`/`companion-unwear` from the
+CSS. A new song gets a `track` line 40% of the time. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 

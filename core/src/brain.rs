@@ -7,15 +7,15 @@
 //!
 //! Timers are checked on every call, so a 900ms reaction ends on time; the
 //! decisions — whether to do something, and what — are taken on the 3.5s poll,
-//! as in the Tauri build. Walking, talking and being handled come next.
+//! as in the Tauri build.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::copy::Copy;
 use crate::data::{
-    Colours, Feeling, Sensed, TERRORS, TimeOfDay, dance_style, energy_at, feeling_from, match_app,
-    palette, time_of_day,
+    Colours, Feeling, PROPS, SOUVENIRS, Sensed, TERRORS, TimeOfDay, WornProp, dance_style,
+    energy_at, feeling_from, match_app, palette, time_of_day, worn_from,
 };
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 
@@ -71,6 +71,8 @@ const SWITCH_LIMIT: usize = 6;
 const SWITCH_COOLDOWN: u64 = 900_000;
 /// The first thing he says, this long after launch.
 const BOOT_AFTER: u64 = 1_600;
+/// How long the taking-off of a prop takes before it is gone.
+const PROP_LEAVE: u64 = 400;
 /// Feelings he is not always in the mood to be petted in.
 const PRICKLY: [Feeling; 5] =
     [Feeling::Rattled, Feeling::Scared, Feeling::Worried, Feeling::Restless, Feeling::Sleepy];
@@ -169,6 +171,8 @@ pub struct Frame {
     pub facing_right: bool,
     /// What he is saying, while the bubble is up.
     pub speech: Option<Speech>,
+    /// What he has on, back to front; `leaving` is on its way off.
+    pub worn: Vec<WornProp>,
 }
 
 /// What happens when he gets where he was going.
@@ -268,6 +272,12 @@ struct State {
     dwell_done: HashSet<u64>,
     /// The app in front has not been remarked on yet.
     unnoticed: bool,
+    /// What he put on himself, until when, and whether it is coming off.
+    prop: Option<String>,
+    prop_until: u64,
+    prop_leaving: bool,
+    /// The song last seen, to notice a new one.
+    track: Option<(String, String)>,
     rng: u64,
 }
 
@@ -343,6 +353,10 @@ impl Brain {
                 said_about: HashMap::new(),
                 dwell_done: HashSet::new(),
                 unnoticed: false,
+                prop: None,
+                prop_until: 0,
+                prop_leaving: false,
+                track: None,
                 rng: seed.max(1),
             }),
         }
@@ -453,6 +467,12 @@ impl Brain {
         }
         s.last_idle = senses.idle_ms;
 
+        // A new song: sometimes worth a word, a beat after it starts.
+        let playing = senses.music.as_ref().map(|t| (t.artist.clone(), t.song.clone()));
+        if playing.is_some() && playing != s.track && s.chance(0.4) {
+            s.pending.push((now + 2_500, Step::Track));
+        }
+        s.track = playing;
         s.music = senses.music.clone();
         s.width = senses.strip_width;
         s.cursor_x = senses.cursor_x;
@@ -532,6 +552,7 @@ impl Brain {
             walking: s.moving.is_some() && !s.flying,
             flying: s.flying,
             facing_right: s.facing_right,
+            worn: worn_from(HashMap::new(), s.prop.clone(), s.prop_leaving),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -551,6 +572,19 @@ impl State {
     }
 
     fn expire(&mut self, now: u64) {
+        if self.prop.is_some() && now >= self.prop_until {
+            if !self.prop_leaving {
+                // Taking it off is the smaller event, and gets remarked on less.
+                self.prop_leaving = true;
+                self.prop_until = now + PROP_LEAVE;
+                if self.chance(0.3) {
+                    self.say_from(now, "propOff", 4_000, &[]);
+                }
+            } else {
+                self.prop = None;
+                self.prop_leaving = false;
+            }
+        }
         if self.react_until.is_some_and(|until| now >= until) {
             self.react_until = None;
             self.mood = Mood::Idle;
@@ -662,7 +696,25 @@ impl State {
         }
         self.moment_at = now;
 
-        let possible: Vec<_> = MOMENTS.iter().filter(|m| m.min <= energy).map(|m| m.key).collect();
+        // One in nine, so it is a surprise rather than a wardrobe. Headphones
+        // only while something plays — the one prop with a reason.
+        if self.prop.is_none() && self.chance(0.11) {
+            let kind = if self.music.is_some() && self.chance(0.6) {
+                "headphones"
+            } else {
+                PROPS[self.below(PROPS.len())]
+            };
+            let speak = self.chance(0.65);
+            self.wear(now, kind, speak);
+            return;
+        }
+
+        let wearing = self.prop.is_some() && !self.prop_leaving;
+        let possible: Vec<_> = MOMENTS
+            .iter()
+            .filter(|m| m.min <= energy && (wearing || !m.needs_prop))
+            .map(|m| m.key)
+            .collect();
         let willing: Vec<_> = match by_feeling(self.feeling) {
             Some(keys) => possible.iter().copied().filter(|k| keys.contains(k)).collect(),
             None => possible.clone(),
@@ -699,6 +751,22 @@ impl State {
             Step::WalkTo { x, speed } => {
                 self.crossing = false;
                 self.walk(now, x, 0.0, speed, After::Nothing);
+            }
+            Step::Say { path, ms } => self.say_from(now, &path, ms, &[]),
+            Step::Fuss => {
+                if let Some(prop) = self.prop.clone()
+                    && self.chance(0.6)
+                {
+                    self.say_from(now, &format!("propFuss.{prop}"), 4_500, &[]);
+                }
+            }
+            Step::Track => {
+                if let Some(t) = self.music.clone()
+                    && self.can_speak(now)
+                {
+                    self.react(now, Mood::Happy, Some("pop"), 2_000);
+                    self.say_from(now, "track", 6_000, &[&t.artist, &t.song]);
+                }
             }
             Step::ComeBack { x } => {
                 self.crossing = false;
@@ -737,6 +805,18 @@ impl State {
         self.mood = Mood::Happy;
         self.react_until = Some(now + WAKE_FOR);
         self.play("stretch");
+    }
+
+    /// Puts `kind` on for 25–95s; with `speak`, says something about it a
+    /// beat later — he puts the thing on and *then* has an opinion.
+    fn wear(&mut self, now: u64, kind: &str, speak: bool) {
+        self.prop = Some(kind.to_string());
+        self.prop_leaving = false;
+        self.prop_until = now + 25_000 + self.below(70_000) as u64;
+        if speak {
+            self.pending
+                .push((now + 1_200, Step::Say { path: format!("props.{kind}"), ms: 5_000 }));
+        }
     }
 
     fn busy(&self, now: u64) -> bool {
@@ -995,7 +1075,14 @@ impl State {
                 }
             }
             After::Behind => {
-                if self.chance(0.55) {
+                // Most trips bring back nothing; behind the screen is somewhere
+                // dusty, not a vending machine.
+                if self.chance(0.4) {
+                    let kind = SOUVENIRS[self.below(SOUVENIRS.len())];
+                    self.react(now, Mood::Wow, Some("pop"), 1_800);
+                    // He did not choose this and has only just noticed it: always a line.
+                    self.wear(now, kind, true);
+                } else if self.chance(0.55) {
                     self.say_from(now, "behind", 5_000, &[]);
                 }
             }
@@ -1613,5 +1700,45 @@ mod tests {
         }
         // Boot, the app, and chatter at most every 50s: a handful in ten minutes.
         assert!((4..=14).contains(&said), "{said} lines in ten minutes");
+    }
+
+    #[test]
+    fn he_puts_things_on_and_takes_them_off() {
+        let brain = Brain::seeded(21);
+        let mut worn = std::collections::HashSet::new();
+        let mut saw_leaving = false;
+        for i in 0..(30 * 240) {
+            let f = brain.tick(i * 250, quiet_senses(Some("Finder")));
+            for p in f.worn {
+                saw_leaving |= p.leaving;
+                worn.insert(p.kind);
+            }
+        }
+        assert!(!worn.is_empty(), "nothing worn in 30 minutes");
+        assert!(saw_leaving, "never took anything off");
+    }
+
+    #[test]
+    fn adjusting_needs_something_to_adjust_and_a_prop_gets_its_line() {
+        let brain = talker("en");
+        brain.tick(0, quiet_senses(None));
+        {
+            let mut s = brain.state.lock().unwrap();
+            s.booted = true;
+            s.wear(0, "tophat", true);
+        }
+        assert_eq!(brain.tick(100, quiet_senses(None)).worn[0].kind, "tophat");
+        let said = brain.tick(1_300, quiet_senses(None)).speech.expect("a tophat line");
+        assert!(lines("en", "props.tophat").contains(&said.text), "{}", said.text);
+        // Without a prop, the poll never picks adjust or admire.
+        let bare = Brain::seeded(4);
+        let mut picked = Vec::new();
+        for i in 0..(30 * 240) {
+            if let Some(e) = bare.tick(i * 250, quiet_senses(Some("Finder"))).effect {
+                picked.push(e.name);
+            }
+            bare.state.lock().unwrap().prop = None;
+        }
+        assert!(!picked.iter().any(|e| e == "adjust"), "adjusted nothing");
     }
 }

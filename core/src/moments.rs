@@ -67,6 +67,15 @@ pub enum Step {
     ComeBack {
         x: f64,
     },
+    /// Say a line from this pool, for `ms`.
+    Say {
+        path: String,
+        ms: u64,
+    },
+    /// Complain about what he is wearing, sometimes.
+    Fuss,
+    /// Remark on the song that just started.
+    Track,
 }
 
 pub struct Moment {
@@ -75,6 +84,8 @@ pub struct Moment {
     pub min: f64,
     pub steps: &'static [(u64, Step)],
     pub then: Option<&'static str>,
+    /// Only offered while he is wearing something.
+    pub needs_prop: bool,
 }
 
 use Mood::*;
@@ -90,7 +101,7 @@ const fn hold(mood: Mood, ms: u64) -> Step {
 
 macro_rules! moment {
     ($key:literal, $min:expr, [$($at:expr => $step:expr),* $(,)?] $(, then $then:literal)?) => {
-        Moment { key: $key, min: $min, steps: &[$(($at, $step)),*], then: moment!(@then $($then)?) }
+        Moment { key: $key, min: $min, steps: &[$(($at, $step)),*], then: moment!(@then $($then)?), needs_prop: false }
     };
     (@then) => { None };
     (@then $then:literal) => { Some($then) };
@@ -134,6 +145,21 @@ pub const MOMENTS: &[Moment] = &[
     // The hand gesture is not drawn natively yet; the happy face is.
     moment!("wave", 0.6, [0 => hold(Happy, 1_600)]),
     moment!("cower", 0.0, [0 => react(Scared, "shiver", 2_200), 0 => Sit { ms: Some(5_000) }]),
+    // Straightening the thing he has on, and then deciding why.
+    Moment {
+        key: "adjust",
+        min: 0.3,
+        steps: &[(0, react(Idle, "adjust", 1_300)), (900, Fuss)],
+        then: None,
+        needs_prop: true,
+    },
+    Moment {
+        key: "admire",
+        min: 0.35,
+        steps: &[(0, hold(Love, 2_000)), (0, Look { x: 0.0, y: -0.9, ms: 2_000 })],
+        then: None,
+        needs_prop: true,
+    },
     moment!("pace", 0.6, [0 => Go(Travel::Pace)]),
     moment!("chase", 0.6, [0 => Go(Travel::Chase)], then "stare"),
     moment!("edge", 0.3, [0 => Go(Travel::Edge)], then "lean"),

@@ -318,6 +318,7 @@ function motionFrom(css, companion) {
 			else if (/^[\d.]+$/.test(token)) spec.iterations = parseFloat(token)
 			else if (token === 'alternate') spec.alternate = true
 			else if (token === 'reverse') spec.reverse = true
+			else if (['forwards', 'backwards', 'both', 'none'].includes(token)) spec.fill = token
 			else spec.name = token
 		}
 		if (!spec.name || !keyframes[spec.name]) throw new Error(`animation "${shorthand}" names no keyframes`)
@@ -416,6 +417,8 @@ function motionFrom(css, companion) {
 	const flying = stateRule('flying')
 
 	const base = {
+		wear: animation(find('.companion-worn').animation),
+		unwear: animation(find('.companion-worn[data-leaving]').animation),
 		travel: find('.companion')['transition-timing-function'],
 		limbTransition: parseFloat(limbTransition.split(/\s+/)[1]),
 		origin: find('.companion-anim')['transform-origin'],

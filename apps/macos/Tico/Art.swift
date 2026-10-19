@@ -158,6 +158,9 @@ struct ArtMotion: Decodable, Sendable {
 	}
 
 	struct Base: Decodable, Sendable {
+		/// Putting a prop on and taking it off (`.companion-worn`).
+		let wear: Spec
+		let unwear: Spec
 		/// The timing of a walk, `.companion`'s transition.
 		let travel: String
 		let limbTransition: Double

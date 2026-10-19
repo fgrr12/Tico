@@ -147,7 +147,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: []
 		)
 		if step != shown {
 			shown = step

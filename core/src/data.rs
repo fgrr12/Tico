@@ -313,6 +313,38 @@ impl Where {
     }
 }
 
+/// What he might put on for no reason; the preferences offer the same list.
+pub const PROPS: [&str; 25] = [
+    "party",
+    "tophat",
+    "shades",
+    "crown",
+    "flower",
+    "scarf",
+    "coffee",
+    "afro",
+    "mohawk",
+    "longhair",
+    "beanie",
+    "cap",
+    "hood",
+    "catears",
+    "glasses",
+    "moustache",
+    "tie",
+    "bowtie",
+    "cape",
+    "duck",
+    "umbrella",
+    "sneakers",
+    "wellies",
+    "monocle",
+    "ninjamask",
+];
+
+/// Never chosen: only ever brought back from behind the screen.
+pub const SOUVENIRS: [&str; 3] = ["cobweb", "bolt", "dust"];
+
 /// Back to front.
 pub const WORN_ORDER: [Where; 6] =
     [Where::Body, Where::Neck, Where::Feet, Where::Head, Where::Face, Where::Hand];

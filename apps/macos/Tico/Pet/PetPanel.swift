@@ -44,6 +44,8 @@ final class PetPanel: NSPanel {
 	private var moveSerial: UInt32?
 	private var walking = false
 	private var flying = false
+	private var worn: [String] = []
+	private var leaving: Set<String> = []
 
 	init(screen: NSScreen) {
 		let size = NSSize(width: screen.frame.width, height: screen.frame.height)
@@ -176,11 +178,30 @@ final class PetPanel: NSPanel {
 		// Landing, or stopping a walk while singing, redraws to restore what
 		// flying recoloured and walking took over.
 		if (flying && !frame.flying) || (walking && !frame.walking && frame.singing) { drawn = nil }
-		let key = "\(mood)|\(frame.singing)|\(c.face)\(c.screen)\(c.led)|\(parts)"
+		let kinds = frame.worn.map(\.kind)
+		let key = "\(mood)|\(frame.singing)|\(c.face)\(c.screen)\(c.led)|\(parts)|\(kinds)"
 		if key != drawn {
 			drawn = key
-			draw(art: art, mood: mood, parts: parts, colours: colours, singing: frame.singing, asleep: asleep)
+			draw(art: art, mood: mood, parts: parts, colours: colours, singing: frame.singing, asleep: asleep, worn: kinds)
 			posture = nil
+			// Something new on: it puts itself on (`companion-wear`).
+			for kind in kinds where !worn.contains(kind) {
+				for layer in Motion.find("prop-\(kind)", in: host) {
+					if let a = CSSMotion.animation(motion.base.wear, motion: motion, rate: Motion.liveRate) { layer.add(a, forKey: "wear") }
+				}
+			}
+			worn = kinds
+			leaving = []
+		}
+		// On its way off: `companion-unwear`, held at its end until it is gone.
+		for prop in frame.worn where prop.leaving && !leaving.contains(prop.kind) {
+			leaving.insert(prop.kind)
+			for layer in Motion.find("prop-\(prop.kind)", in: host) {
+				guard let a = CSSMotion.animation(motion.base.unwear, motion: motion, rate: Motion.liveRate) else { continue }
+				a.fillMode = .forwards
+				a.isRemovedOnCompletion = false
+				layer.add(a, forKey: "wear")
+			}
 		}
 
 		// Breathing: the bob, at the feeling's pace; sitting breathes instead;
@@ -280,12 +301,15 @@ final class PetPanel: NSPanel {
 		}
 	}
 
-	private func draw(art: Art, mood: String, parts: [String: String], colours: [String: String], singing: Bool, asleep: Bool) {
+	private func draw(
+		art: Art, mood: String, parts: [String: String], colours: [String: String], singing: Bool, asleep: Bool,
+		worn: [String]
+	) {
 		let motion = art.motion
 		blinker?.stop()
 		blinker = nil
 		svg.removeAllAnimations()
-		host.sublayers = Pet.layers(art: art, mood: mood, parts: parts, colours: colours, singing: singing)
+		host.sublayers = Pet.layers(art: art, mood: mood, parts: parts, colours: colours, singing: singing, worn: worn)
 
 		// Pivots. Limbs and notes have none in the CSS, which for an SVG element
 		// means the drawing's own top-left corner; the singing mouth turns about
@@ -293,6 +317,8 @@ final class PetPanel: NSPanel {
 		for name in ["companion-hand", "companion-foot", "companion-notes"] {
 			for layer in Motion.find(name, in: host) { CSSMotion.anchor(layer, at: CGPoint(x: 0, y: Painter.size)) }
 		}
+		// What he wears grows from the bottom middle (`transform-origin: 50% 100%`).
+		for layer in Motion.find("companion-worn", in: host) { CSSMotion.anchor(layer, at: CGPoint(x: Painter.size / 2, y: 0)) }
 		for mouth in Motion.find("companion-sing", in: host) {
 			let box = CSSMotion.box(mouth)
 			if !box.isNull { CSSMotion.anchor(mouth, at: CGPoint(x: box.midX, y: box.midY)) }
@@ -391,9 +417,20 @@ enum Pet {
 			guard node.tag == "slot" else { return node }
 			return node.name.flatMap { parts[$0] }.flatMap { variant in node.name.flatMap { art.slots[$0]?[variant] } }
 		}
-		// Worn things go over the face, as in CompanionFace; the singing notes and
-		// the thinking and sleeping marks above them are not drawn with a prop on yet.
-		return Painter(art: art, colours: colours).layers(resolved + worn.compactMap { art.props[$0] })
+		// Worn things go over the face, each in a `.companion-worn` group the
+		// way CompanionFace wraps them, so putting it on and off can animate it.
+		// (The singing notes and the thinking and sleeping marks go above them
+		// there; here they are under — a small difference, not yet worth a pass.)
+		let painter = Painter(art: art, colours: colours)
+		let props = worn.compactMap { kind -> CALayer? in
+			guard let node = art.props[kind], let drawn = painter.layer(node, inherited: Painter.Style()) else { return nil }
+			let group = CALayer()
+			group.frame = CGRect(x: 0, y: 0, width: Painter.size, height: Painter.size)
+			group.name = "companion-worn prop-\(kind)"
+			group.addSublayer(drawn)
+			return group
+		}
+		return painter.layers(resolved) + props
 	}
 }
 
