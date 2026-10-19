@@ -170,7 +170,12 @@ feels, and has moments (`moments.rs`: the table, `BY_FEELING`, energy floors,
 `then` chains, losing interest, dances by `danceStyle`). The moments that cover
 ground are in too (`Travel` in `moments.rs`: pace, chase, edge, behind,
 errand, rocket, flee, skip), plus the poll's wander; `house` and `climb` wait
-for the burrow and the window ledges. Talking and being handled come after. The shell ticks
+for the burrow and the window ledges. Handling is in the core too: the shell
+reports `press`/`drag`/`release` and the cursor as a sense (`cursor_x/y`), and
+the core decides — a click pleases him, four make him dizzy, a drag picks him
+up (`held`), a drop in mid-air falls and lands, 1.6s hovering on him is petting
+(declined, sometimes, when prickly), and a cursor within 220pt is watched with
+his eyes. Attention and recent drags feed the feeling ladder. Talking next. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 
@@ -189,8 +194,12 @@ prints when each starts, for timing screenshots.
 the width of the screen, and the core's `Frame.x`/`lift`/`move_ms` are eased
 into the `body` layer's position by the render server (`.companion`'s travel
 curve), so walking costs tico nothing — moving a pet-sized window instead
-would be AppKit setting a frame every frame from this process. 150pt of strip
-above him and 90pt below, for props, the rocket and `spin`. Walking steps the
+would be AppKit setting a frame every frame from this process. The strip runs
+from 90pt below his floor (for `spin`) up to the menu bar, so he can be
+carried anywhere; it is click-through except over him, re-checked every tick
+and held for the length of a press (`hitTest(cursor:)`, `cursor.rs` in Tauri).
+`TICO_SELFTEST=1` drives a click, a pick-up and a drop through the same path
+the mouse takes and prints when each happens, for screenshots. Walking steps the
 feet and takes them over from singing; flying leans into `facing_right`,
 thrusts and recolours the feet as flames, and landing redraws.
 Measured with moments and walking (Debug): 26 MB, 0.2–0.3% CPU.

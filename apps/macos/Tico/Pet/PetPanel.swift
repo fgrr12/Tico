@@ -16,11 +16,16 @@ import QuartzCore
 final class PetPanel: NSPanel {
 	/// `--pet-width` in companion.css: the 96-unit drawing shown 92 points wide.
 	static let petWidth: CGFloat = 92
-	/// Room above and below the drawing for everything that leaves it: props
-	/// reach ~30 units over the head, the rocket lifts him 60, and `spin` turns
-	/// him about a point by his feet, sweeping ~85pt. Below the floor the strip
-	/// simply hangs off the bottom of the screen.
-	private static let margin = (top: CGFloat(150), bottom: CGFloat(90))
+	/// Below his floor the strip hangs 90pt off the bottom of the screen, for
+	/// `spin`, which turns him about a point by his feet. Above, it reaches the
+	/// menu bar: you can pick him up and carry him anywhere, as in Tauri.
+	private static let below: CGFloat = 90
+
+	/// Gestures on him, in strip points (y up from his floor).
+	var onPress: ((CGPoint) -> Void)?
+	var onDrag: ((CGPoint) -> Void)?
+	var onRelease: (() -> Void)?
+	private var pressed = false
 
 	private let body = CALayer()
 	private let anim = CALayer()
@@ -38,7 +43,7 @@ final class PetPanel: NSPanel {
 	private var flying = false
 
 	init(screen: NSScreen) {
-		let size = NSSize(width: screen.frame.width, height: Self.petWidth + Self.margin.top + Self.margin.bottom)
+		let size = NSSize(width: screen.frame.width, height: screen.frame.height)
 		super.init(
 			contentRect: NSRect(origin: .zero, size: size),
 			styleMask: [.borderless, .nonactivatingPanel],
@@ -54,14 +59,24 @@ final class PetPanel: NSPanel {
 		collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 		hidesOnDeactivate = false
 		isReleasedWhenClosed = false
-		// Nothing takes the mouse yet; petting and dragging come with behaviour.
+		// Click-through everywhere but on him; `hitTest(cursor:)` flips it.
 		ignoresMouseEvents = true
 
-		let view = NSView(frame: NSRect(origin: .zero, size: size))
+		let view = StripView(frame: NSRect(origin: .zero, size: size))
+		view.onDown = { [weak self] p in
+			guard let self else { return }
+			self.pressed = true
+			self.onPress?(CGPoint(x: p.x, y: p.y - Self.below))
+		}
+		view.onDrag = { [weak self] p in self?.onDrag?(CGPoint(x: p.x, y: p.y - Self.below)) }
+		view.onUp = { [weak self] in
+			self?.pressed = false
+			self?.onRelease?()
+		}
 		view.wantsLayer = true
 		contentView = view
 
-		let box = CGRect(x: 0, y: Self.margin.bottom, width: Self.petWidth, height: Self.petWidth)
+		let box = CGRect(x: 0, y: Self.below, width: Self.petWidth, height: Self.petWidth)
 		body.frame = box
 		anim.frame = CGRect(origin: .zero, size: box.size)
 		// `transform-origin: 50% 90%`, measured from the top.
@@ -85,13 +100,34 @@ final class PetPanel: NSPanel {
 	/// build does: he stands over the Dock rather than above it.
 	func place(on screen: NSScreen) {
 		let shadowBelowFeet = (Painter.size - 90 - 4.5) * Self.petWidth / Painter.size
-		setFrame(
-			NSRect(
-				x: screen.frame.minX, y: screen.frame.minY - Self.margin.bottom + shadowBelowFeet,
-				width: screen.frame.width, height: Self.petWidth + Self.margin.top + Self.margin.bottom
-			),
-			display: false
-		)
+		let bottom = screen.frame.minY - Self.below + shadowBelowFeet
+		// Up to the menu bar and no further: over it, he would swallow its clicks.
+		let top = screen.visibleFrame.maxY
+		setFrame(NSRect(x: screen.frame.minX, y: bottom, width: screen.frame.width, height: top - bottom), display: false)
+	}
+
+	/// How high above his floor the strip reaches.
+	var reach: CGFloat { frame.height - Self.below }
+
+	/// A screen point in strip points, y up from his floor.
+	func strip(_ point: NSPoint) -> CGPoint {
+		CGPoint(x: point.x - frame.minX, y: point.y - frame.minY - Self.below)
+	}
+
+	/// Where he visibly is right now, mid-walk included: (x, lift).
+	var standing: CGPoint {
+		let p = body.presentation()?.position ?? body.position
+		return CGPoint(x: p.x - Self.petWidth / 2, y: p.y - Self.below - Self.petWidth / 2)
+	}
+
+	/// The strip takes the mouse only where he is, so the desktop under the
+	/// rest of it stays usable — `cursor.rs` in the Tauri build. Held for the
+	/// whole of a press, or a fast drag would outrun it and drop him.
+	func hitTest(cursor: NSPoint) {
+		guard !pressed else { return }
+		let box = (body.presentation() ?? body).frame.offsetBy(dx: frame.minX, dy: frame.minY)
+		let over = box.contains(cursor)
+		if ignoresMouseEvents == over { ignoresMouseEvents = !over }
 	}
 
 	/// Draws what the core decided. Called on every tick; each part only does
@@ -110,7 +146,7 @@ final class PetPanel: NSPanel {
 		if frame.moveSerial != moveSerial {
 			let first = moveSerial == nil
 			moveSerial = frame.moveSerial
-			let to = CGPoint(x: frame.x + Self.petWidth / 2, y: Self.margin.bottom + frame.lift + Self.petWidth / 2)
+			let to = CGPoint(x: frame.x + Self.petWidth / 2, y: Self.below + frame.lift + Self.petWidth / 2)
 			let from = body.presentation()?.position ?? body.position
 			CATransaction.begin()
 			CATransaction.setDisableActions(true)
@@ -350,4 +386,18 @@ enum Pet {
 		// the thinking and sleeping marks above them are not drawn with a prop on yet.
 		return Painter(art: art, colours: colours).layers(resolved + worn.compactMap { art.props[$0] })
 	}
+}
+
+/// The strip's content: forwards a press, its drag and its release.
+final class StripView: NSView {
+	var onDown: ((CGPoint) -> Void)?
+	var onDrag: ((CGPoint) -> Void)?
+	var onUp: (() -> Void)?
+
+	// The panel is never key, so without this the first click would only
+	// bring it forward.
+	override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+	override func mouseDown(with event: NSEvent) { onDown?(event.locationInWindow) }
+	override func mouseDragged(with event: NSEvent) { onDrag?(event.locationInWindow) }
+	override func mouseUp(with event: NSEvent) { onUp?() }
 }

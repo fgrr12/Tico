@@ -7,18 +7,20 @@ import CoreGraphics
 /// which `MusicSense` asks the players for.
 @MainActor
 enum Sensing {
-	static func now(music: Track?, screen: NSScreen) -> Senses {
+	static func now(music: Track?, panel: PetPanel, screen: NSScreen) -> Senses {
 		let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
-		// Where the cursor is along his strip, when it is on his screen at all.
+		// The cursor on his strip, when it is on his screen at all.
 		let cursor = NSEvent.mouseLocation
-		let frame = screen.frame
+		let onStrip = screen.frame.contains(cursor) ? panel.strip(cursor) : nil
 		return Senses(
 			idleMs: UInt64(max(0, idle) * 1000),
 			hour: UInt8(Calendar.current.component(.hour, from: Date())),
 			frontApp: NSWorkspace.shared.frontmostApplication?.localizedName,
 			music: music,
-			stripWidth: Double(frame.width),
-			cursorX: frame.contains(cursor) ? Double(cursor.x - frame.minX) : nil
+			stripWidth: Double(panel.frame.width),
+			stripHeight: Double(panel.reach),
+			cursorX: onStrip.map { Double($0.x) },
+			cursorY: onStrip.map { Double($0.y) }
 		)
 	}
 

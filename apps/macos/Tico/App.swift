@@ -42,10 +42,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 				}
 			}
 			musicSense.watch { [weak self] track in self?.music = track }
+			// Handling him: the core decides what a press, a drag and a drop mean;
+			// each is followed by a tick so he answers at once, not on the next one.
+			panel.onPress = { [weak self, weak panel] p in
+				guard let self, let panel else { return }
+				let at = panel.standing
+				self.brain.press(nowMs: Sensing.clock, px: p.x, py: p.y, x: at.x, lift: at.y)
+				self.think(art: art, panel: panel)
+			}
+			panel.onDrag = { [weak self, weak panel] p in
+				guard let self, let panel else { return }
+				self.brain.drag(nowMs: Sensing.clock, px: p.x, py: p.y)
+				self.think(art: art, panel: panel)
+			}
+			panel.onRelease = { [weak self, weak panel] in
+				guard let self, let panel else { return }
+				self.brain.release(nowMs: Sensing.clock)
+				self.think(art: art, panel: panel)
+			}
 			panel.place(on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel
 			if ProcessInfo.processInfo.environment["TICO_SHEET"] != nil { sheet = Sheet.open(art: art) }
+			if ProcessInfo.processInfo.environment["TICO_SELFTEST"] != nil { selfTest(panel) }
 		}
 
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -64,7 +83,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// Asks the core what he is like now and hands it to the panel, which only
 	/// does work for what changed.
 	private func think(art: Art, panel: PetPanel) {
-		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music, screen: screen ?? NSScreen.main!))
+		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music, panel: panel, screen: screen ?? NSScreen.main!))
+		panel.hitTest(cursor: NSEvent.mouseLocation)
 		// Most ticks change nothing; those cost one comparison.
 		guard next != frame else { return }
 		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
@@ -73,6 +93,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		if let effect = next.effect, effect.serial != frame?.effect?.serial { stateItem.title = "effect: \(effect.name)" }
 		frame = next
 		panel.apply(next, art: art)
+	}
+
+	/// `TICO_SELFTEST=1`: handles him the way the mouse would — the same
+	/// callbacks, through the core and back — on a schedule a script can time
+	/// screenshots against (each step prints when it happens). A click at 2s,
+	/// a pick-up and carry to 300pt at 5s, the drop at 7s.
+	private func selfTest(_ panel: PetPanel) {
+		func step(_ at: Double, _ name: String, _ action: @escaping @MainActor () -> Void) {
+			DispatchQueue.main.asyncAfter(deadline: .now() + at) {
+				print("selftest \(name) \(Date().timeIntervalSince1970)")
+				fflush(stdout)
+				action()
+			}
+		}
+		let grab = { CGPoint(x: panel.standing.x + 46, y: panel.standing.y + 46) }
+		step(2, "click") { panel.onPress?(grab()); panel.onRelease?() }
+		step(5, "pickup") { panel.onPress?(grab()) }
+		for (i, dy) in stride(from: 10.0, through: 300, by: 20).enumerated() {
+			step(5.2 + Double(i) * 0.05, "drag") { panel.onDrag?(CGPoint(x: grab().x, y: 46 + dy)) }
+		}
+		step(7, "drop") { panel.onRelease?() }
 	}
 
 	private func artSummary() -> String {

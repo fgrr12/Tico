@@ -46,6 +46,20 @@ const WANDER_EVERY: u64 = 30_000;
 const ERRAND_EVERY: u64 = 190_000;
 /// `--pet-width`: how much of the strip he takes up.
 pub const PET_WIDTH: f64 = 92.0;
+/// Cursor this close to his middle and he watches it.
+const NOTICE_WITHIN: f64 = 220.0;
+/// Hover on him this long and it counts as petting.
+const PET_AFTER: u64 = 1_600;
+/// Movement before a press becomes a drag rather than a click.
+const DRAG_THRESHOLD: f64 = 5.0;
+/// Feelings he is not always in the mood to be petted in.
+const PRICKLY: [Feeling; 5] = [
+    Feeling::Rattled,
+    Feeling::Scared,
+    Feeling::Worried,
+    Feeling::Restless,
+    Feeling::Sleepy,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum Mood {
@@ -86,8 +100,12 @@ pub struct Senses {
     pub music: Option<Track>,
     /// Width of the strip he walks, in points.
     pub strip_width: f64,
-    /// The cursor's x on the strip, if it is over that screen.
+    /// How high above the floor the strip reaches, in points.
+    pub strip_height: f64,
+    /// The cursor on the strip, if it is over that screen: x from the left,
+    /// y up from his floor.
     pub cursor_x: Option<f64>,
+    pub cursor_y: Option<f64>,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -199,7 +217,28 @@ struct State {
     crossing: bool,
     wander_at: u64,
     errand_at: u64,
+    height: f64,
+    cursor_y: Option<f64>,
+    /// Raised by being handled, decaying on its own.
+    attention: f64,
+    attention_at: u64,
+    drags: Vec<u64>,
+    hover_since: Option<u64>,
+    petted: bool,
+    watching: bool,
+    hold: Option<Hold>,
+    clicks: (u32, u64),
     rng: u64,
+}
+
+/// A press on him: where it started, where he was, and whether it moved.
+#[derive(Debug, Clone, Copy)]
+struct Hold {
+    px: f64,
+    py: f64,
+    x: f64,
+    lift: f64,
+    moved: bool,
 }
 
 #[derive(uniffi::Object)]
@@ -242,6 +281,16 @@ impl Brain {
                 crossing: false,
                 wander_at: 0,
                 errand_at: 0,
+                height: 0.0,
+                cursor_y: None,
+                attention: 0.0,
+                attention_at: 0,
+                drags: Vec::new(),
+                hover_since: None,
+                petted: false,
+                watching: false,
+                hold: None,
+                clicks: (0, 0),
                 rng: seed.max(1),
             }),
         }
@@ -274,6 +323,67 @@ impl Brain {
         Arc::new(Self::default())
     }
 
+    /// A press on him at (`px`, `py`) on the strip — y up from his floor —
+    /// while he is visibly at (`x`, `lift`): whatever he was doing stops.
+    pub fn press(&self, now_ms: u64, px: f64, py: f64, x: f64, lift: f64) {
+        let mut s = self.state.lock().unwrap();
+        if s.asleep {
+            s.wake(now_ms);
+        }
+        s.moving = None;
+        s.pending.clear();
+        s.sit_until = None;
+        s.x = Some(x);
+        s.lift = lift;
+        s.hold = Some(Hold {
+            px,
+            py,
+            x,
+            lift,
+            moved: false,
+        });
+    }
+
+    /// The press moved to (`px`, `py`). Past a few points it is a drag: he is
+    /// picked up, and follows the pointer.
+    pub fn drag(&self, now_ms: u64, px: f64, py: f64) {
+        let mut s = self.state.lock().unwrap();
+        let Some(mut hold) = s.hold else { return };
+        let (dx, dy) = (px - hold.px, py - hold.py);
+        if !hold.moved {
+            if (dx * dx + dy * dy).sqrt() < DRAG_THRESHOLD {
+                return;
+            }
+            hold.moved = true;
+            s.drags.push(now_ms);
+            s.hover_since = None;
+            s.react(now_ms, Mood::Held, None, 0);
+        }
+        s.hold = Some(hold);
+        let (x, lift) = (
+            s.clamp(hold.x + dx),
+            (hold.lift + dy).clamp(0.0, s.max_lift()),
+        );
+        s.lift = lift;
+        s.jump(x);
+    }
+
+    /// The press ended: a click if it never moved, otherwise he is put down —
+    /// and falls the rest of the way if that was in mid-air.
+    pub fn release(&self, now_ms: u64) {
+        let mut s = self.state.lock().unwrap();
+        let Some(hold) = s.hold.take() else { return };
+        if !hold.moved {
+            s.click(now_ms);
+        } else if s.lift > 4.0 {
+            let x = s.here();
+            s.react(now_ms, Mood::Held, None, 0);
+            s.walk(now_ms, x, 0.0, FALL_SPEED, After::Landed);
+        } else {
+            s.react(now_ms, Mood::Wow, Some("land"), 900);
+        }
+    }
+
     /// `now_ms` is any monotonic clock; only differences are used.
     pub fn tick(&self, now_ms: u64, senses: Senses) -> Frame {
         let mut s = self.state.lock().unwrap();
@@ -281,19 +391,20 @@ impl Brain {
 
         // The cursor moved since the last tick: he wakes, glad you are back.
         if s.asleep && senses.idle_ms < s.last_idle {
-            s.asleep = false;
-            s.pending.clear();
-            s.then = None;
-            s.sit_until = None;
-            s.mood = Mood::Happy;
-            s.react_until = Some(now + WAKE_FOR);
-            s.play("stretch");
+            s.wake(now);
         }
         s.last_idle = senses.idle_ms;
 
         s.music = senses.music.clone();
         s.width = senses.strip_width;
         s.cursor_x = senses.cursor_x;
+        s.cursor_y = senses.cursor_y;
+        s.height = senses.strip_height;
+        // About a tenth a minute: being petted colours the next five minutes.
+        s.attention =
+            (s.attention - 0.02 * now.saturating_sub(s.attention_at) as f64 / 12_000.0).max(0.0);
+        s.attention_at = now;
+        s.drags.retain(|at| now.saturating_sub(*at) < 120_000);
         s.energy = energy_at(senses.hour);
         if s.x.is_none() {
             // A little way in from the left, where the Tauri build starts him the
@@ -309,6 +420,9 @@ impl Brain {
         s.expire(now);
         s.run_due(now);
         track_app(&mut s, now, senses.front_app.as_deref());
+        if !s.asleep && s.hold.is_none() {
+            s.notice(now);
+        }
 
         if senses.idle_ms > SLEEP_AFTER {
             if !s.asleep && s.free() {
@@ -338,7 +452,10 @@ impl Brain {
             colours,
             effect: s.effect.clone(),
             sitting: s.sit_until.is_some(),
-            look: s.look.map(|(look, _)| look),
+            look: s
+                .look
+                .map(|(look, _)| look)
+                .or_else(|| (!s.asleep).then(|| s.following()).flatten()),
             singing: senses.music.is_some() && s.mood != Mood::Sleep,
             x: s.x.unwrap_or(0.0),
             lift: s.lift,
@@ -407,13 +524,13 @@ impl State {
             .is_some_and(|a| now.saturating_sub(a.since) < NEW_FOR);
         self.feeling = feeling_from(&Sensed {
             neglect: senses.idle_ms as f64 / 60_000.0,
-            attention: 0.0,
+            attention: self.attention,
             dwell: self
                 .app
                 .as_ref()
                 .map_or(0.0, |a| now.saturating_sub(a.since) as f64 / 3_600_000.0),
             switches: self.switches.len() as u32,
-            drags: 0,
+            drags: self.drags.len() as u32,
             new_app: fresh
                 && self
                     .app
@@ -534,6 +651,91 @@ impl State {
             name: name.to_string(),
             serial,
         });
+    }
+
+    fn wake(&mut self, now: u64) {
+        self.asleep = false;
+        self.pending.clear();
+        self.then = None;
+        self.sit_until = None;
+        self.mood = Mood::Happy;
+        self.react_until = Some(now + WAKE_FOR);
+        self.play("stretch");
+    }
+
+    fn max_lift(&self) -> f64 {
+        (self.height - PET_WIDTH).max(0.0)
+    }
+
+    /// His middle, in strip points (y up from the floor).
+    fn middle(&self) -> (f64, f64) {
+        (self.here() + PET_WIDTH / 2.0, self.lift + PET_WIDTH / 2.0)
+    }
+
+    /// Eyes on the cursor, when nothing else is holding his gaze.
+    fn following(&self) -> Option<Look> {
+        let (cx, cy) = self.middle();
+        let (x, y) = (self.cursor_x?, self.cursor_y?);
+        Some(Look {
+            x: ((x - cx) / 280.0).clamp(-1.0, 1.0),
+            y: (-(y - cy) / 220.0).clamp(-1.0, 1.0),
+        })
+    }
+
+    /// The cursor as a sense: hovering on him long enough is petting, and
+    /// coming near while he is idle makes him watch it.
+    fn notice(&mut self, now: u64) {
+        let (Some(x), Some(y)) = (self.cursor_x, self.cursor_y) else {
+            return;
+        };
+        let here = self.here();
+        let inside =
+            x >= here && x <= here + PET_WIDTH && y >= self.lift && y <= self.lift + PET_WIDTH;
+        if inside {
+            let since = *self.hover_since.get_or_insert(now);
+            if !self.petted && now.saturating_sub(since) >= PET_AFTER {
+                self.petted = true;
+                self.watching = false;
+                // Not always in the mood, and never at random.
+                if PRICKLY.contains(&self.feeling) && self.chance(0.6) {
+                    self.react(now, Mood::Idle, Some("shake"), 1_100);
+                    self.look = Some((Look { x: 0.0, y: 0.5 }, now + 1_400));
+                } else {
+                    self.attention = (self.attention + 0.35).min(1.0);
+                    self.react(now, Mood::Love, Some("pop"), 3_200);
+                }
+            }
+        } else {
+            self.hover_since = None;
+            self.petted = false;
+        }
+
+        let (cx, cy) = self.middle();
+        let near = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() < NOTICE_WITHIN;
+        if !inside && near && self.mood == Mood::Idle && self.free() {
+            self.mood = Mood::Watching;
+            self.watching = true;
+        } else if self.watching && (!near || inside) && self.mood == Mood::Watching {
+            self.mood = Mood::Idle;
+            self.watching = false;
+        }
+    }
+
+    fn click(&mut self, now: u64) {
+        let (count, at) = self.clicks;
+        let count = if now.saturating_sub(at) < 900 {
+            count + 1
+        } else {
+            1
+        };
+        if count >= 4 {
+            self.clicks = (0, now);
+            self.react(now, Mood::Dizzy, Some("spin"), 2_600);
+            return;
+        }
+        self.clicks = (count, now);
+        self.attention = (self.attention + 0.35).min(1.0);
+        self.react(now, Mood::Happy, Some("pop"), 2_000);
     }
 
     fn max_x(&self) -> f64 {
@@ -760,7 +962,9 @@ mod tests {
             front_app: Some(app.into()),
             music: None,
             strip_width: 1512.0,
+            strip_height: 900.0,
             cursor_x: None,
+            cursor_y: None,
         }
     }
 
@@ -868,7 +1072,9 @@ mod tests {
                     front_app: Some("Finder".into()),
                     music: music.clone(),
                     strip_width: 1512.0,
+                    strip_height: 900.0,
                     cursor_x: None,
+                    cursor_y: None,
                 },
             );
             if let Some(effect) = frame.effect
@@ -951,7 +1157,9 @@ mod tests {
             front_app: None,
             music: None,
             strip_width: 1512.0,
+            strip_height: 900.0,
             cursor_x: None,
+            cursor_y: None,
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -983,7 +1191,9 @@ mod tests {
                         front_app: None,
                         music: track.clone(),
                         strip_width: 1512.0,
-                        cursor_x: None
+                        strip_height: 900.0,
+                        cursor_x: None,
+                        cursor_y: None
                     }
                 )
                 .singing
@@ -998,7 +1208,9 @@ mod tests {
                         front_app: None,
                         music: track,
                         strip_width: 1512.0,
-                        cursor_x: None
+                        strip_height: 900.0,
+                        cursor_x: None,
+                        cursor_y: None
                     }
                 )
                 .singing
@@ -1018,7 +1230,9 @@ mod tests {
                 front_app: None,
                 music: None,
                 strip_width: 1512.0,
+                strip_height: 900.0,
                 cursor_x: Some(700.0),
+                cursor_y: None,
             },
         )
     }
@@ -1101,5 +1315,103 @@ mod tests {
             last = at(&brain, t);
         }
         assert!((last.x - start).abs() < 1.0);
+    }
+
+    fn with_cursor(brain: &Brain, now: u64, cursor: Option<(f64, f64)>) -> Frame {
+        brain.tick(
+            now,
+            Senses {
+                idle_ms: 0,
+                hour: 14,
+                front_app: None,
+                music: None,
+                strip_width: 1512.0,
+                strip_height: 900.0,
+                cursor_x: cursor.map(|c| c.0),
+                cursor_y: cursor.map(|c| c.1),
+            },
+        )
+    }
+
+    #[test]
+    fn a_click_pleases_him_and_four_make_him_dizzy() {
+        let brain = Brain::still();
+        let f = with_cursor(&brain, 0, None);
+        brain.press(10, f.x + 40.0, 40.0, f.x, 0.0);
+        brain.release(20);
+        let clicked = with_cursor(&brain, 30, None);
+        assert_eq!(clicked.mood, Mood::Happy);
+        assert_eq!(clicked.effect.unwrap().name, "pop");
+        for t in [100, 200, 300] {
+            brain.press(t, f.x + 40.0, 40.0, f.x, 0.0);
+            brain.release(t + 10);
+        }
+        assert_eq!(with_cursor(&brain, 400, None).mood, Mood::Dizzy);
+    }
+
+    #[test]
+    fn picked_up_he_follows_and_dropped_in_the_air_he_falls_and_lands() {
+        let brain = Brain::still();
+        let f = with_cursor(&brain, 0, None);
+        brain.press(10, f.x + 40.0, 40.0, f.x, 0.0);
+        brain.drag(20, f.x + 42.0, 41.0);
+        assert_eq!(
+            with_cursor(&brain, 25, None).mood,
+            Mood::Idle,
+            "a 2pt wobble is still a click"
+        );
+        brain.drag(30, f.x + 140.0, 340.0);
+        let held = with_cursor(&brain, 40, None);
+        assert_eq!(held.mood, Mood::Held);
+        assert_eq!((held.x - f.x, held.lift, held.move_ms), (100.0, 300.0, 0));
+        brain.release(50);
+        let falling = with_cursor(&brain, 60, None);
+        assert_eq!(falling.lift, 0.0);
+        assert!(falling.move_ms > 0);
+        let mut t = 60;
+        loop {
+            t += 100;
+            let f = with_cursor(&brain, t, None);
+            if f.mood == Mood::Wow {
+                assert_eq!(f.effect.unwrap().name, "land");
+                return;
+            }
+            assert!(t < 3_000, "never landed");
+        }
+    }
+
+    #[test]
+    fn thrown_around_three_times_he_is_rattled() {
+        let brain = Brain::still();
+        let f = with_cursor(&brain, 0, None);
+        for i in 0..3u64 {
+            let t = 10 + i * 5_000;
+            brain.press(t, f.x + 40.0, 40.0, f.x, 0.0);
+            brain.drag(t + 10, f.x + 80.0, 40.0);
+            brain.release(t + 20);
+        }
+        assert_eq!(with_cursor(&brain, 20_000, None).feeling, Feeling::Rattled);
+    }
+
+    #[test]
+    fn hovering_on_him_is_petting_and_the_cursor_nearby_is_watched() {
+        let brain = Brain::still();
+        let f = with_cursor(&brain, 0, None);
+        let (cx, cy) = (f.x + 46.0, 46.0);
+        // Near but not on him: he watches, eyes on the cursor.
+        let near = with_cursor(&brain, 100, Some((cx + 150.0, cy)));
+        assert_eq!(near.mood, Mood::Watching);
+        assert!(near.look.unwrap().x > 0.4);
+        // On him for 1.6s: petted, and pleased about it.
+        with_cursor(&brain, 200, Some((cx, cy)));
+        assert_ne!(with_cursor(&brain, 1_000, Some((cx, cy))).mood, Mood::Love);
+        let petted = with_cursor(&brain, 1_900, Some((cx, cy)));
+        assert_eq!(petted.mood, Mood::Love);
+        assert_eq!(petted.effect.unwrap().name, "pop");
+        // Far away: back to idle.
+        assert_eq!(
+            with_cursor(&brain, 6_000, Some((cx + 900.0, cy))).mood,
+            Mood::Idle
+        );
     }
 }
