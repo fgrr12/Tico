@@ -55,6 +55,9 @@ pub struct Settings {
     pub parts: Parts,
     /// What he wears permanently, by place ("head" → "cap").
     pub pinned_props: HashMap<String, String>,
+    /// The menu bar icon. Only offered off when Flint is installed, which can
+    /// reach everything the menu does (the shell decides).
+    pub menu_bar_icon: bool,
 }
 
 impl Default for Settings {
@@ -70,6 +73,7 @@ impl Default for Settings {
             house: true,
             parts: Parts::default(),
             pinned_props: HashMap::new(),
+            menu_bar_icon: true,
         }
     }
 }

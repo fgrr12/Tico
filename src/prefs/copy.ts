@@ -19,6 +19,7 @@ interface PrefsCopy {
 	inCall: { label: string; hint: string; peek: string; hide: string; ignore: string }
 	language: { label: string; auto: string; en: string; es: string }
 	house: { label: string; hint: string }
+	menuBar: { label: string; hint: string }
 	titles: { label: string; hint: string }
 	autostart: { label: string; hint: string }
 	/** The six of him you can press. They are the six places a thing is worn,
@@ -50,6 +51,7 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 		},
 		language: { label: 'Language', auto: 'Follow the system', en: 'English', es: 'Español' },
 		house: { label: 'Burrow', hint: 'Somewhere of his own to go when he likes, and a way in after him.' },
+		menuBar: { label: 'Menu bar icon', hint: 'Without it, Flint has his commands, and opening tico again opens this window.' },
 		titles: {
 			label: 'Read window titles',
 			hint: 'Needs Accessibility, and is the only thing here that does. He reads the name of a document and never keeps it.',
@@ -85,6 +87,7 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 		},
 		language: { label: 'Idioma', auto: 'Seguir al sistema', en: 'English', es: 'Español' },
 		house: { label: 'Madriguera', hint: 'Un sitio suyo al que irse cuando quiera, y una entrada para seguirlo.' },
+		menuBar: { label: 'Icono en la barra de menú', hint: 'Sin él, Flint tiene sus comandos, y abrir tico otra vez abre esta ventana.' },
 		titles: {
 			label: 'Leer títulos de ventana',
 			hint: 'Necesita Accesibilidad, y es lo único aquí que la necesita. Lee el nombre de un documento y nunca se lo queda.',

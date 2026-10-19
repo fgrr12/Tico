@@ -366,3 +366,9 @@ The core sings only in sung lines, now and then bounces as one starts or looks
 up at the overlay (one beat every `LYRIC_BEAT`), and sometimes says
 `lyricsNone`. Nothing from Lyra is kept. Lyra quitting is seen through
 `NSWorkspace`, and tico goes back to asking the players itself.
+
+**Flint** (by the same author) lists tico's commands while he runs and sends
+them as `dev.fgrr.tico.do` (`action`: show, hide, goHome, comeOut, quiet,
+talk, dance, wave, preferences — small and harmless, since any local process
+could post it). With Flint installed the preferences offer hiding the menu bar
+icon (`settings.menu_bar_icon`); opening tico again opens the preferences.

@@ -98,6 +98,8 @@ export interface CompanionCopy {
 	 */
 	grab: string[]
 	/** After a drop long enough to have been on fire for part of it. */
+	/** Lyra found no lyrics for the song anywhere (native build, from its suite events). */
+	lyricsNone: string[]
 	hardLanding: string[]
 	/** Said while in a feeling, folded into the idle chatter. */
 	feelings: Record<Feeling, string[]>

@@ -70,11 +70,15 @@ final class PrefsModel {
 			live.house = settings.house
 			live.parts = settings.parts
 			live.pinnedProps = settings.pinnedProps
+			live.menuBarIcon = settings.menuBarIcon
 			brain.updateSettings(settings: live)
+			onChange?()
 			if settings.language != oldValue.language { copy = Self.copy(copyJSON, settings.language, system) }
 		}
 	}
 	@ObservationIgnored private var syncing = false
+	/// Told after every change, for what lives outside the window (the menu bar icon).
+	@ObservationIgnored var onChange: (() -> Void)?
 	/// The window's words, in the language it is set to, redrawn when that changes.
 	private(set) var copy: PrefsCopy
 	var launchAtLogin = SMAppService.mainApp.status == .enabled {
@@ -263,6 +267,10 @@ private struct SettingsPanel: View {
 				row("inCall", hint: true) { chips(["peek", "hide", "ignore"], section: "inCall", value: $model.settings.inCall) }
 				row("language") { chips(["auto", "en", "es"], section: "language", value: $model.settings.language) }
 				row("house", hint: true) { Check(on: model.settings.house) { model.settings.house.toggle() } }
+				// Only with Flint installed: without it the icon is the way in.
+				if AppDelegate.flintInstalled {
+					row("menuBar", hint: true) { Check(on: model.settings.menuBarIcon) { model.settings.menuBarIcon.toggle() } }
+				}
 				row("titles", hint: true) {
 					Check(on: model.settings.readTitles) {
 						// Ticked from the settings, not from the click: without the

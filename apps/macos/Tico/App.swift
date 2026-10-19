@@ -45,11 +45,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// "Go home", or "Come out" while he is in.
 	private let homeItem = NSMenuItem(title: "Go home", action: #selector(goHome), keyEquivalent: "")
 
-	/// Clicking the Dock icon (only there while the preferences are open)
-	/// brings them forward.
+	/// Opening tico again while he runs opens the preferences — with the menu
+	/// bar icon off, that and Flint are the ways in — and clicking the Dock
+	/// icon (there while they are open) brings them forward.
 	func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-		prefs?.makeKeyAndOrderFront(nil)
+		openPrefs()
 		return true
+	}
+
+	/// Flint is installed: it lists tico's commands, so the menu bar icon may go.
+	static var flintInstalled: Bool {
+		NSWorkspace.shared.urlForApplication(withBundleIdentifier: "dev.fgrr.Flint") != nil
+	}
+
+	/// The icon, unless it was switched off and Flint is there to stand in for it.
+	private func showIcon() {
+		statusItem?.isVisible = brain.settings().menuBarIcon || !Self.flintInstalled
+	}
+
+	/// What Flint asks for (`dev.fgrr.tico.do`, its suite commands). Only small,
+	/// harmless things: any local process could post the same notification.
+	private func listenToFlint() {
+		DistributedNotificationCenter.default().addObserver(
+			forName: Notification.Name("dev.fgrr.tico.do"), object: nil, queue: .main
+		) { [weak self] note in
+			let action = note.userInfo?["action"] as? String ?? ""
+			MainActor.assumeIsolated { self?.flint(action) }
+		}
+	}
+
+	private func flint(_ action: String) {
+		switch action {
+		case "show": show()
+		case "hide": hide()
+		case "goHome": brain.goHome()
+		case "comeOut": brain.comeUp()
+		case "quiet", "talk":
+			var settings = brain.settings()
+			settings.quietUntil = action == "quiet" ? Int64(Date().timeIntervalSince1970) + 3_600 : 0
+			brain.updateSettings(settings: settings)
+		case "dance", "wave": brain.perform(key: action)
+		case "preferences": openPrefs()
+		default: return
+		}
+		if let art, let panel { think(art: art, panel: panel) }
 	}
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
@@ -206,6 +245,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		menu.delegate = self
 		item.menu = menu
 		statusItem = item
+		showIcon()
+		listenToFlint()
 	}
 
 	/// Asks the core what he is like now and hands it to the panel, which only
@@ -358,6 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			prefsModel.refresh()
 		} else {
 			let model = PrefsModel(brain: brain, copyJSON: copyJSON, system: systemLanguage)
+			model.onChange = { [weak self] in self?.showIcon() }
 			prefsModel = model
 			prefs = PrefsWindow.make(art: art, model: model)
 			NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: prefs, queue: .main) { _ in
