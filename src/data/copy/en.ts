@@ -620,6 +620,13 @@ export const en: CompanionCopy = {
 		'Nothing above me. I checked.',
 	],
 
+	// Lyra found no lyrics for this song anywhere.
+	lyricsNone: [
+		'Nobody knows the words to this one. Not even the internet.',
+		'No lyrics. I will hum.',
+		'This one has no words. I will make some up.',
+	],
+
 	hardLanding: [
 		'I am fine. Structurally.',
 		'That was further than it looked.',

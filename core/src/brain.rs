@@ -27,6 +27,8 @@ use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
 const PORTAL_REACH: f64 = 40.0;
 /// After he steps out it stays open this long, then closes behind him.
 const PORTAL_LINGERS: u64 = 1_800;
+/// Lyra's lines bring a beat (a bounce, a look up) at most this often.
+const LYRIC_BEAT: u64 = 6_000;
 /// Home is rare, behind its own floor: it takes him off the screen.
 const HOME_EVERY: u64 = 420_000;
 /// "As long as he likes": a pet always back in ninety seconds has a lunch break.
@@ -202,6 +204,23 @@ pub struct Senses {
     pub in_call: bool,
     /// Your windows' top edges, highest first, refreshed now and then.
     pub ledges: Vec<Ledge>,
+    /// What Lyra says about the song, when it is running: it reads the same
+    /// players, and knows the lyrics.
+    pub lyra: Option<Lyra>,
+}
+
+/// Lyra's half of the song, from its suite events.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct Lyra {
+    /// In a sung line (true), between lines or before the first (false), or
+    /// no synced lyrics to tell (None).
+    pub sung: Option<bool>,
+    /// Bumps on every new line.
+    pub line: u32,
+    /// The song has no lyrics anywhere.
+    pub missing: bool,
+    /// The middle of its overlay on his strip, while it shows.
+    pub overlay_x: Option<f64>,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -435,6 +454,11 @@ struct State {
     falling: bool,
     heat: f64,
     hanging: bool,
+    /// The last line Lyra reported, when he last moved to one, and whether the
+    /// song had no lyrics last time he looked.
+    lyric_line: u32,
+    beat_at: u64,
+    no_lyrics: bool,
     /// When he got in, why (frozen then), until when, and the last trip.
     home: Option<u64>,
     home_reason: Option<Feeling>,
@@ -545,6 +569,9 @@ impl Brain {
                 falling: false,
                 heat: 0.0,
                 hanging: false,
+                lyric_line: 0,
+                beat_at: 0,
+                no_lyrics: false,
                 home: None,
                 home_reason: None,
                 home_until: 0,
@@ -837,6 +864,7 @@ impl Brain {
             s.pending.push((now + 2_500, Step::Track));
         }
         s.track = playing;
+        s.follow_lyra(now, &senses);
         s.music = senses.music.clone();
         s.width = senses.strip_width;
         s.cursor_x = senses.cursor_x;
@@ -937,7 +965,10 @@ impl Brain {
                 .look
                 .map(|(look, _)| look)
                 .or_else(|| (!s.asleep).then(|| s.following()).flatten()),
-            singing: senses.music.is_some() && s.mood != Mood::Sleep,
+            // Not in Lyra's gaps between lines: an instrumental is not his to sing.
+            singing: senses.music.is_some()
+                && s.mood != Mood::Sleep
+                && senses.lyra.and_then(|l| l.sung) != Some(false),
             x: s.x.unwrap_or(0.0),
             lift: s.lift,
             move_ms: s.move_ms,
@@ -1261,6 +1292,35 @@ impl State {
         self.mood = Mood::Happy;
         self.react_until = Some(now + WAKE_FOR);
         self.play("stretch");
+    }
+
+    /// Lyra's lines: now and then a bounce as a new one starts, or a look up
+    /// at the overlay showing it; and a word when a song turns out to have no
+    /// lyrics anywhere. At most one beat every few seconds.
+    fn follow_lyra(&mut self, now: u64, senses: &Senses) {
+        let Some(lyra) = senses.lyra else { return };
+        let missing = lyra.missing && senses.music.is_some();
+        if missing && !self.no_lyrics && self.can_speak(now) && self.chance(0.35) {
+            self.say_from(now, "lyricsNone", 4_500, &[]);
+        }
+        self.no_lyrics = missing;
+        if lyra.line == self.lyric_line {
+            return;
+        }
+        self.lyric_line = lyra.line;
+        if lyra.sung != Some(true) || senses.music.is_none() || self.asleep || !self.free() {
+            return;
+        }
+        if now.saturating_sub(self.beat_at) < LYRIC_BEAT {
+            return;
+        }
+        self.beat_at = now;
+        if self.chance(0.3) {
+            self.react(now, Mood::Happy, Some("bounce"), 900);
+        } else if let Some(x) = lyra.overlay_x.filter(|_| self.chance(0.2)) {
+            let dx = x - (self.here() + self.pet() / 2.0);
+            self.look = Some((Look { x: (dx / 400.0).clamp(-1.0, 1.0), y: -0.85 }, now + 1_600));
+        }
     }
 
     /// Puts `kind` on for 25–95s; with `speak`, says something about it a
@@ -2057,6 +2117,7 @@ mod tests {
             today: String::new(),
             in_call: false,
             ledges: Vec::new(),
+            lyra: None,
         }
     }
 
@@ -2135,6 +2196,7 @@ mod tests {
                     today: String::new(),
                     in_call: false,
                     ledges: Vec::new(),
+                    lyra: None,
                 },
             );
             if let Some(effect) = frame.effect
@@ -2205,6 +2267,7 @@ mod tests {
             today: String::new(),
             in_call: false,
             ledges: Vec::new(),
+            lyra: None,
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -2238,7 +2301,8 @@ mod tests {
                         cursor_y: None,
                         today: String::new(),
                         in_call: false,
-                        ledges: Vec::new()
+                        ledges: Vec::new(),
+                        lyra: None
                     }
                 )
                 .singing
@@ -2259,7 +2323,8 @@ mod tests {
                         cursor_y: None,
                         today: String::new(),
                         in_call: false,
-                        ledges: Vec::new()
+                        ledges: Vec::new(),
+                        lyra: None
                     }
                 )
                 .singing
@@ -2286,6 +2351,7 @@ mod tests {
                 today: String::new(),
                 in_call: false,
                 ledges: Vec::new(),
+                lyra: None,
             },
         )
     }
@@ -2382,6 +2448,7 @@ mod tests {
                 today: String::new(),
                 in_call: false,
                 ledges: Vec::new(),
+                lyra: None,
             },
         )
     }
@@ -2488,6 +2555,7 @@ mod tests {
             today: String::new(),
             in_call: false,
             ledges: Vec::new(),
+            lyra: None,
         }
     }
 
@@ -2922,5 +2990,29 @@ mod tests {
         settings.house = false;
         brain.update_settings(settings);
         assert!(!brain.tick(250, quiet_senses(None)).home);
+    }
+
+    #[test]
+    fn with_lyra_he_sings_the_lines_and_not_the_gaps() {
+        let brain = talker("en");
+        let song = Track { artist: "a".into(), song: "s".into(), genre: String::new(), bpm: 0 };
+        let mut senses = quiet_senses(None);
+        senses.music = Some(song);
+        senses.lyra = Some(Lyra { sung: Some(true), line: 1, missing: false, overlay_x: None });
+        assert!(brain.tick(0, senses.clone()).singing);
+        senses.lyra = Some(Lyra { sung: Some(false), line: 1, missing: false, overlay_x: None });
+        assert!(!brain.tick(250, senses.clone()).singing);
+        // No synced lyrics to go by: he sings along as he always did.
+        senses.lyra = Some(Lyra { sung: None, line: 1, missing: false, overlay_x: None });
+        assert!(brain.tick(500, senses.clone()).singing);
+        // A song with no lyrics anywhere is sometimes worth a word.
+        let said = (0..40).any(|i| {
+            let b = talker("en");
+            b.state.lock().unwrap().rng = i + 1;
+            let mut s = senses.clone();
+            s.lyra = Some(Lyra { sung: None, line: 0, missing: true, overlay_x: None });
+            b.tick(20_000, s).speech.is_some_and(|sp| lines("en", "lyricsNone").contains(&sp.text))
+        });
+        assert!(said);
     }
 }

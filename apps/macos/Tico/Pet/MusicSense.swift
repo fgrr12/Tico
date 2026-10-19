@@ -17,6 +17,14 @@ final class MusicSense: @unchecked Sendable {
 	}
 
 	private let queue = DispatchQueue(label: "com.fgrr6.tico.music")
+	/// While Lyra is running it asks the players already, and tico listens to
+	/// it instead (`LyraLink`): no Apple Events from here at all.
+	private let lock = NSLock()
+	private var deferring = false
+
+	func standDown(_ other: Bool) {
+		lock.withLock { deferring = other }
+	}
 	private var players = [
 		Player(
 			name: "Spotify",
@@ -50,6 +58,11 @@ final class MusicSense: @unchecked Sendable {
 	}
 
 	private func loop(last: Track?, _ onChange: @escaping @MainActor @Sendable (Track?) -> Void) {
+		if lock.withLock({ deferring }) {
+			// Forget what was on, so the first poll after Lyra quits reports it.
+			queue.asyncAfter(deadline: .now() + 4) { self.loop(last: nil, onChange) }
+			return
+		}
 		let now = poll()
 		if now != last { DispatchQueue.main.async { onChange(now) } }
 		queue.asyncAfter(deadline: .now() + (now == nil ? 15 : 4)) { self.loop(last: now, onChange) }

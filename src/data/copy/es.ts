@@ -622,6 +622,13 @@ export const es: CompanionCopy = {
 		'No hay nada encima de mí. Ya revisé.',
 	],
 
+	// Lyra found no lyrics for this song anywhere.
+	lyricsNone: [
+		'Esta no se la sabe nadie. Ni internet.',
+		'Sin letra. Voy a tararear.',
+		'Esta no tiene letra. Me la voy a inventar.',
+	],
+
 	hardLanding: [
 		'Estoy bien. Estructuralmente.',
 		'Eso era más alto de lo que se veía.',

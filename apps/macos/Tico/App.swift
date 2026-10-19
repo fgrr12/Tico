@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private let brain = Brain()
 	private var frame: Frame?
 	private let musicSense = MusicSense()
+	private let lyra = LyraLink()
 	private var music: Track?
 	/// Read once a second rather than on every tick: two CoreAudio calls.
 	private var inCall = false
@@ -79,7 +80,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 					self.think(art: art, panel: panel)
 				}
 			}
-			musicSense.watch { [weak self] track in self?.music = track }
+			musicSense.watch { [weak self] track in
+				guard let self, !self.lyra.active else { return }
+				self.music = track
+			}
+			// Lyra running: its word on the music, and no polling of our own.
+			lyra.onChange = { [weak self] in
+				guard let self else { return }
+				self.musicSense.standDown(self.lyra.active)
+				if self.lyra.active { self.music = self.lyra.track }
+			}
 			// Handling him: the core decides what a press, a drag and a drop mean;
 			// each is followed by a tick so he answers at once, not on the next one.
 			panel.onPress = { [weak self, weak panel] p in
@@ -186,7 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		guard next != frame else { return }
 		// `TICO_LOG=1`: every change of mood, effect or speech, for debugging.
 		if ProcessInfo.processInfo.environment["TICO_LOG"] != nil {
-			print("tico \(Sensing.clock) \(next.mood) \(next.feeling) x=\(Int(next.x)) effect=\(next.effect?.name ?? "-") speech=\(next.speech.map { "\($0.reminder ?? "")|\($0.text)" } ?? "-")")
+			print("tico \(Sensing.clock) \(next.mood) \(next.feeling) x=\(Int(next.x)) sing=\(next.singing) effect=\(next.effect?.name ?? "-") speech=\(next.speech.map { "\($0.reminder ?? "")|\($0.text)" } ?? "-")")
 			fflush(stdout)
 		}
 		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
@@ -264,7 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			// Your windows' tops, for catching him; fresh before any fall he takes.
 			ledges = Ledges.around(panel: panel)
 		}
-		return Sensing.now(music: music, inCall: inCall, title: title, ledges: ledges, panel: panel, screen: screen ?? NSScreen.main!)
+		return Sensing.now(music: music, inCall: inCall, title: title, ledges: ledges, lyra: lyra.sense(panel: panel), panel: panel, screen: screen ?? NSScreen.main!)
 	}
 
 	private var systemLanguage: String {

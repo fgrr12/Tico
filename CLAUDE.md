@@ -331,3 +331,17 @@ Measured with moments and walking (Debug): 26 MB, 0.2–0.3% CPU.
 `Pet/MusicSense.swift` is `music.rs` in-process: one compiled `NSAppleScript`
 per player, only for players already open, every 4s while playing and 15s
 otherwise. It needs the Apple Events grant, under the native app's own id.
+
+**Lyra, when it runs** (`Pet/LyraLink.swift`): Lyra publishes the song, each
+lyric line and where its overlay is as distributed notifications (the protocol
+is in Lyra's `macos/Lyra/Suite.swift`; `dev.fgrr.suite.hello` makes it repeat
+them). While it is running and talking, `MusicSense` stands down — no Apple
+Events from tico, one detector instead of two — and the song comes from Lyra
+(no genre or bpm: Lyra does not ask for them). `Senses.lyra` carries whether a
+sung line is on (a line counts for its length, at most 7s, since LRC drops the
+empty lines that would mark a gap; only while the overlay shows synced lyrics),
+a line counter, "no lyrics anywhere", and the overlay's middle on the strip.
+The core sings only in sung lines, now and then bounces as one starts or looks
+up at the overlay (one beat every `LYRIC_BEAT`), and sometimes says
+`lyricsNone`. Nothing from Lyra is kept. Lyra quitting is seen through
+`NSWorkspace`, and tico goes back to asking the players itself.
