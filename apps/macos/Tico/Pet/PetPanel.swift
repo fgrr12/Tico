@@ -59,6 +59,7 @@ final class PetPanel: NSPanel {
 
 	private var art: Art?
 	private var drawn: String?
+	private var palette: String?
 	private var breathing: String?
 	private var posture: String?
 	private var effectSerial: UInt32 = 0
@@ -275,7 +276,7 @@ final class PetPanel: NSPanel {
 			CATransaction.setDisableActions(true)
 			walker.position = to
 			CATransaction.commit()
-			if frame.moveMs > 0, !first {
+			if frame.moveMs > 0, !first, !Motion.reduced {
 				let a = CABasicAnimation(keyPath: "position")
 				a.fromValue = NSValue(point: from)
 				a.toValue = NSValue(point: to)
@@ -331,16 +332,25 @@ final class PetPanel: NSPanel {
 		if walker.isHidden != away { walker.isHidden = away }
 
 		// What he is saying, on whichever side of him keeps it on screen.
-		bubble.show(frame.speech, width: petWidth, onLeft: frame.x + petWidth / 2 < self.frame.width / 2)
+		bubble.show(frame.speech, width: petWidth, onLeft: frame.x + petWidth / 2 < self.frame.width / 2, feeling: feeling)
 
 		// The drawing: rebuilt when the face, the colours or the singing change.
 		// Landing, or stopping a walk while singing, redraws to restore what
 		// flying recoloured and walking took over.
 		if (flying && !frame.flying) || (walking && !frame.walking && frame.singing) { drawn = nil }
 		let kinds = frame.worn.map(\.kind)
-		let key = "\(mood)|\(frame.singing)|\(c.face)\(c.screen)\(c.led)|\(parts)|\(kinds)"
+		// A new feeling's colours bleed in over 1.5s rather than switching (an
+		// instant change reads as a bug, a slow one as a mood arriving); fright
+		// arrives faster. Only a change of drawing redraws.
+		let key = "\(mood)|\(frame.singing)|\(parts)|\(kinds)"
+		let shades = "\(c.face)\(c.screen)\(c.led)"
+		if key == drawn, shades != palette {
+			palette = shades
+			bleed(art: art, mood: mood, parts: parts, colours: colours, singing: frame.singing, worn: kinds, over: feeling == "scared" ? 0.35 : 1.5)
+		}
 		if key != drawn {
 			drawn = key
+			palette = shades
 			draw(art: art, mood: mood, parts: parts, colours: colours, singing: frame.singing, asleep: asleep, worn: kinds)
 			posture = nil
 			// Something new on: it puts itself on (`companion-wear`).
@@ -603,6 +613,56 @@ final class PetPanel: NSPanel {
 		}
 	}
 
+	/// Recolours the drawing in place: the same art in the new colours is drawn
+	/// aside, and each layer's fill, stroke and gradient animate to its twin's.
+	/// The trees match because they come from the same nodes — bar the blink's
+	/// closed eyes, which sit beside the open ones and get their own twin.
+	private func bleed(
+		art: Art, mood: String, parts: [String: String], colours: [String: String], singing: Bool, worn: [String], over seconds: Double
+	) {
+		let closed = blinker?.closed
+		func fade(_ layer: CALayer, _ key: String, from: Any?, to: Any?) {
+			guard !Motion.reduced else { return }
+			let a = CABasicAnimation(keyPath: key)
+			a.fromValue = from
+			a.toValue = to
+			a.duration = seconds
+			a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+			a.preferredFrameRateRange = Motion.idleRate
+			layer.add(a, forKey: "bleed-\(key)")
+		}
+		func blend(_ old: CALayer, _ new: CALayer) {
+			CATransaction.begin()
+			CATransaction.setDisableActions(true)
+			if let o = old as? CAShapeLayer, let n = new as? CAShapeLayer {
+				if o.fillColor != n.fillColor {
+					fade(o, "fillColor", from: o.presentation()?.fillColor ?? o.fillColor, to: n.fillColor)
+					o.fillColor = n.fillColor
+				}
+				if o.strokeColor != n.strokeColor {
+					fade(o, "strokeColor", from: o.presentation()?.strokeColor ?? o.strokeColor, to: n.strokeColor)
+					o.strokeColor = n.strokeColor
+				}
+			}
+			if let o = old as? CAGradientLayer, let n = new as? CAGradientLayer,
+				let from = o.colors as? [CGColor], let to = n.colors as? [CGColor], from != to
+			{
+				fade(o, "colors", from: from, to: to)
+				o.colors = to
+			}
+			CATransaction.commit()
+			let children = (old.sublayers ?? []).filter { $0 !== closed }
+			for (o, n) in zip(children, new.sublayers ?? []) { blend(o, n) }
+		}
+		let fresh = Pet.layers(art: art, mood: mood, parts: parts, colours: colours, singing: singing, worn: worn)
+		for (o, n) in zip(host.sublayers ?? [], fresh) { blend(o, n) }
+		if let closed, let twin = Pet.layers(art: art, mood: mood, parts: parts, colours: colours, singing: singing, blink: true)
+			.lazy.compactMap({ Motion.find("companion-eyes", in: $0).first }).first
+		{
+			blend(closed, twin)
+		}
+	}
+
 	private func setUpHeat() {
 		// `clip-path: polygon(50% 0, 88% 38%, 100% 100%, 0 100%, 12% 38%)` and the
 		// flame's gradient, bright at his end and gone at the tip.
@@ -751,6 +811,7 @@ final class PetPanel: NSPanel {
 	private func ease(_ layer: CALayer, to target: CATransform3D, over seconds: Double, timing: String) {
 		let from = layer.presentation()?.transform ?? layer.transform
 		layer.transform = target
+		if Motion.reduced { return }
 		let a = CABasicAnimation(keyPath: "transform")
 		a.fromValue = NSValue(caTransform3D: from)
 		a.toValue = NSValue(caTransform3D: target)

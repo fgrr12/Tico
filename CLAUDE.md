@@ -155,7 +155,12 @@ how much moves: uncapped, any animation drives the ProMotion panel at 120Hz and
 cost WindowServer +20% of a core — exactly what the WebView build paid. At
 15fps (`Motion.idleRate`) it measured the same as no tico; 30fps was +5–10%.
 Every new animation sets `preferredFrameRateRange`, as low as it still looks
-smooth. Measure WindowServer with `top -pid`, alternating with and without tico,
+smooth. A change of feeling's colours does not redraw: `PetPanel.bleed` draws the
+same art in the new colours aside and animates every fill, stroke and
+gradient to its twin over 1.5s (0.35s into scared), as companion.css's
+`transition: fill 1.5s` did. "Reduce motion" (`Motion.reduced`) turns every
+CSS animation, the walk, eased transitions and the portal's and burrow's
+loops off — he blinks, talks and teleports. Measure WindowServer with `top -pid`, alternating with and without tico,
 because your own use of the Mac is the noise.
 
 **The core so far** (`core/src/`): `data.rs` is the pure half of
@@ -191,7 +196,9 @@ by time of day, unknown apps), the rocket and coming back from behind — with
 `can_speak` and the bubble's own time as the Tauri build has them. Idle time
 counts from launch at most, as Tauri's `activityAt` does. The shell's
 `Pet/Bubble.swift` draws `.companion-bubble` and types the line in at the
-feeling's `reveal_ms`. Language follows the setting; "auto" is macOS's (Spanish or English).
+feeling's `reveal_ms`, with a caret `▌` while it types; the feeling sets its
+weight, spacing, opacity and colour (`Bubble.Voice`, from the
+`[data-feeling] .companion-bubble` rules), and scared or rattled lines shake. Language follows the setting; "auto" is macOS's (Spanish or English).
 
 Props: one moment in nine he puts something on (headphones, often, while
 music plays), says something about it 1.2s later most of the time, and takes it

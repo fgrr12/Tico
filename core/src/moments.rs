@@ -139,7 +139,8 @@ pub const MOMENTS: &[Moment] = &[
     moment!("shake", 0.35, [0 => react(Idle, "shake", 900)], then "blinkfast"),
     moment!("ceiling", 0.35, [0 => hold(Watching, 1_800), 0 => Look { x: 0.0, y: -1.0, ms: 1_800 }]),
     // Looks straight out: the cursor is not one of his senses yet.
-    moment!("watchyou", 0.4, [0 => hold(Watching, 2_600), 0 => Look { x: 0.0, y: 0.0, ms: 2_600 }]),
+    // No look of its own: with none set, his eyes follow the cursor.
+    moment!("watchyou", 0.4, [0 => hold(Watching, 2_600)]),
     moment!("sneeze", 0.45, [0 => react(Wow, "sneeze", 900)], then "shake"),
     moment!("spin", 0.5, [0 => react(Happy, "spin", 1_000)]),
     moment!("bounce", 0.55, [0 => react(Happy, "bounce", 1_300)]),

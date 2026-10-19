@@ -21,6 +21,35 @@ final class Bubble {
 	private static let buttonFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
 	private var typing: Timer?
 	private var serial: UInt32?
+	/// How the feeling says it, for the line being shown.
+	private var voice = Voice(feeling: "content")
+
+	/// The bubble carries the feeling too (`.companion[data-feeling] .companion-bubble`):
+	/// weight, spacing and opacity only, subtle on purpose — read first, noticed
+	/// second. Scared and rattled lines come out bold and still shaking.
+	struct Voice {
+		var weight = NSFont.Weight.regular
+		/// `letter-spacing`, in em.
+		var spacing: CGFloat = 0
+		var opacity: Float = 1
+		var colour = "#c8d0e0"
+		var size: CGFloat = 12
+		var shakes = false
+
+		init(feeling: String) {
+			switch feeling {
+			case "sleepy", "lonely": (weight, spacing, opacity) = (.light, 0.06, 0.82)
+			case "bored": (spacing, opacity) = (0.05, 0.88)
+			case "smug": (weight, spacing) = (.bold, -0.01)
+			case "festive", "pleased": (weight, colour) = (.semibold, "#ffffff")
+			case "worried": (size, spacing) = (11.5, -0.005)
+			case "scared", "rattled": (weight, shakes) = (.bold, true)
+			default: break
+			}
+		}
+
+		var font: NSFont { NSFont.monospacedSystemFont(ofSize: size, weight: weight) }
+	}
 
 	private static let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
 	private static let maxWidth: CGFloat = 15.5 * 16
@@ -63,13 +92,14 @@ final class Bubble {
 
 	/// Shows `speech` over a pet `width` wide; `onLeft` anchors it to his left
 	/// edge (he is on the left half of the screen), otherwise his right.
-	func show(_ speech: Speech?, width: CGFloat, onLeft: Bool) {
+	func show(_ speech: Speech?, width: CGFloat, onLeft: Bool, feeling: String) {
 		guard let speech else {
 			hide()
 			return
 		}
 		guard speech.serial != serial else { return }
 		serial = speech.serial
+		voice = Voice(feeling: feeling)
 
 		// Measured by CoreText, which is what CATextLayer draws with: AppKit's
 		// own measurement disagrees with it by a line once the text wraps.
@@ -114,6 +144,7 @@ final class Bubble {
 		tail.position = CGPoint(x: onLeft ? 26 + 4.5 : size.width - 26 - 4.5, y: 0)
 		text.string = attributed("")
 		layer.isHidden = false
+		layer.opacity = voice.opacity
 		CATransaction.commit()
 
 		// `companion-say`: a quick rise and fade in.
@@ -128,6 +159,16 @@ final class Bubble {
 		enter.duration = 0.26
 		enter.timingFunction = CAMediaTimingFunction(name: .easeOut)
 		layer.add(enter, forKey: "enter")
+		// `companion-textshake`: said too fast and too loud, still shaking as it is read.
+		if voice.shakes {
+			let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
+			shake.values = [0, -1.5, 1.5, -1, 0]
+			shake.keyTimes = [0, 0.2, 0.45, 0.7, 1]
+			shake.duration = 0.9
+			shake.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+			shake.preferredFrameRateRange = Motion.liveRate
+			layer.add(shake, forKey: "shake")
+		}
 
 		// Typed in a character at a time; the box is already its final size,
 		// so nothing reflows while it types.
@@ -140,7 +181,9 @@ final class Bubble {
 				shown += 1
 				CATransaction.begin()
 				CATransaction.setDisableActions(true)
-				self.text.string = self.attributed(String(characters.prefix(shown)))
+				// A caret while it types (`.caret`), gone once the line is all there.
+				let typed = String(characters.prefix(shown))
+				self.text.string = self.attributed(shown < characters.count ? typed + "▌" : typed)
 				CATransaction.commit()
 				if shown >= characters.count {
 					self.typing?.invalidate()
@@ -193,8 +236,9 @@ final class Bubble {
 		let paragraph = NSMutableParagraphStyle()
 		paragraph.lineSpacing = Self.leading
 		return NSAttributedString(string: string, attributes: [
-			.font: Self.font,
-			.foregroundColor: NSColor(cgColor: Painter.color("#c8d0e0")) ?? .white,
+			.font: voice.font,
+			.kern: voice.spacing * voice.size,
+			.foregroundColor: Painter.nsColor(voice.colour),
 			.paragraphStyle: paragraph,
 		])
 	}

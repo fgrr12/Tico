@@ -53,6 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
+		// One tico: a second launch (from Finder, a login item and a click, two
+		// builds of the same id) brings the running one forward and leaves.
+		if let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+			.first(where: { $0 != .current })
+		{
+			other.activate()
+			NSApp.terminate(nil)
+			return
+		}
 		// The primary display (the one with the menu bar), as the Tauri build anchors to.
 		if let art = try? Art.load(), let screen = NSScreen.screens.first {
 			// What he remembers and how he is set up: tico.json and memory.json in
@@ -131,6 +140,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 				self.closeBurrow(panel)
 				self.think(art: art, panel: panel)
 			}
+			// What VoiceOver calls him, from the copy (`label`).
+			let lines = (try? JSONSerialization.jsonObject(with: Data(copyJSON.utf8))) as? [String: [String: Any]]
+			panel.contentView?.setAccessibilityElement(true)
+			panel.contentView?.setAccessibilityRole(.button)
+			panel.contentView?.setAccessibilityLabel(lines?[systemLanguage]?["label"] as? String ?? "tico")
 			panel.place(on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel

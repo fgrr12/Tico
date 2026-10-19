@@ -16,6 +16,12 @@ enum Motion {
 	/// the WebView paid. At 15fps it was indistinguishable from no tico at all
 	/// (30fps: +5–10%). The bob moves 2.5px a second and the pulse is slow, so
 	/// 15 frames is smooth; walking will need its own, higher, rate.
+	/// "Reduce motion" in Accessibility: what is left is a pet that blinks,
+	/// talks and teleports rather than walks, which is how the Tauri build read
+	/// it (`prefers-reduced-motion` zeroed every animation and transition).
+	/// Read each time, so changing it applies at once.
+	static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
 	static let idleRate = CAFrameRateRange(minimum: 10, maximum: 15, preferred: 15)
 	/// Effects and singing move fast — a hop is 18px in 0.6s — and at 15fps
 	/// they stutter. They are short, or only run while music plays, so they get
@@ -35,7 +41,8 @@ enum Motion {
 @MainActor
 final class Blinker {
 	private let open: CALayer
-	private let closed: CALayer
+	/// The closed eyes, beside the open ones in his drawing (recoloured with it).
+	let closed: CALayer
 	private var task: Task<Void, Never>?
 
 	/// `open` is the drawn eyes; `closed` replaces them during a blink and is

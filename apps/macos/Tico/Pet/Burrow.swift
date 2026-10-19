@@ -248,6 +248,7 @@ final class BurrowPanel: NSPanel {
 			layer.position = point
 		}
 		func run(_ layer: CALayer, _ key: String, from: Any, to: Any, duration: Double, reverses: Bool) {
+			if Motion.reduced { return }
 			let a = CABasicAnimation(keyPath: key)
 			a.fromValue = from
 			a.toValue = to

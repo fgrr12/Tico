@@ -27,6 +27,7 @@ use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
 const PORTAL_REACH: f64 = 40.0;
 /// After he steps out it stays open this long, then closes behind him.
 const PORTAL_LINGERS: u64 = 1_800;
+const REMINDERS_REREAD: u64 = 300_000;
 /// Lyra's lines bring a beat (a bounce, a look up) at most this often.
 const LYRIC_BEAT: u64 = 6_000;
 /// Home is rare, behind its own floor: it takes him off the screen.
@@ -403,6 +404,8 @@ struct State {
     crossing: bool,
     wander_at: u64,
     errand_at: u64,
+    /// Where the errand he is on goes, until he gets there.
+    errand: Option<f64>,
     height: f64,
     cursor_y: Option<f64>,
     /// Raised by being handled, decaying on its own.
@@ -421,6 +424,9 @@ struct State {
     reminders: Vec<Reminder>,
     reminded_today: HashSet<String>,
     reminder_at: u64,
+    /// When `reminders.json` was last read: again every five minutes, so one
+    /// added by hand turns up without a relaunch.
+    reminders_read: u64,
     today: String,
     /// The clock at the last tick, for things the shell reports between ticks.
     last_tick: u64,
@@ -531,6 +537,7 @@ impl Brain {
                 crossing: false,
                 wander_at: 0,
                 errand_at: 0,
+                errand: None,
                 height: 0.0,
                 cursor_y: None,
                 attention: 0.0,
@@ -547,6 +554,7 @@ impl Brain {
                 reminders: Vec::new(),
                 reminded_today: HashSet::new(),
                 reminder_at: 0,
+                reminders_read: 0,
                 today: String::new(),
                 last_tick: 0,
                 speech_serial: 0,
@@ -835,6 +843,11 @@ impl Brain {
             s.fall(now_ms, lift);
         } else {
             s.react(now_ms, Mood::Wow, Some("land"), 900);
+            // Where you put him is where he stands next launch.
+            if s.store.is_some() {
+                s.settings.x = (s.here() / s.max_x()).clamp(0.0, 1.0);
+                s.save_settings();
+            }
         }
     }
 
@@ -957,6 +970,8 @@ impl Brain {
             if !s.asleep && s.free() {
                 s.asleep = true;
                 s.mood = Mood::Sleep;
+                s.speech = None;
+                s.speech_reminder = None;
                 s.sit_until = None;
                 s.look = None;
             }
@@ -1116,6 +1131,21 @@ impl State {
             return;
         }
 
+        // Put down somewhere else halfway to somewhere: he goes back to going
+        // there, annoyed about it. Re-clamped every time, since the strip's
+        // limits move (a call changes how far past the edge he may go).
+        if let Some(target) = self.errand {
+            let target = self.clamp(target);
+            if (self.here() - target).abs() <= 40.0 {
+                self.errand = None;
+            } else {
+                self.moment_at = now;
+                self.react(now, Mood::Idle, Some("shake"), 700);
+                self.walk(now, target, 0.0, WALK_SPEED, After::Arrive);
+                return;
+            }
+        }
+
         let energy = energy_at(hour);
 
         // Having been somewhere a long time is worth more than a stock line.
@@ -1262,8 +1292,12 @@ impl State {
                 }
             }
             Step::Track => {
+                // Not behind the chatter floors: a new song is him reacting to the
+                // room. `say` still holds quiet and calls.
                 if let Some(t) = self.music.clone()
-                    && self.can_speak(now)
+                    && !self.asleep
+                    && self.hold.is_none()
+                    && self.home.is_none()
                 {
                     self.react(now, Mood::Happy, Some("pop"), 2_000);
                     self.say_from(now, "track", 6_000, &[&t.artist, &t.song]);
@@ -1489,6 +1523,12 @@ impl State {
         if now.saturating_sub(self.reminder_at) < 9_000 || !self.can_speak(now) {
             return;
         }
+        if now.saturating_sub(self.reminders_read) >= REMINDERS_REREAD
+            && let Some(store) = &self.store
+        {
+            self.reminders_read = now;
+            self.reminders = store.reminders(&self.today);
+        }
         self.reminder_at = now;
         let today = self.today.clone();
         let Some(next) = self
@@ -1655,6 +1695,10 @@ impl State {
             if !self.petted && now.saturating_sub(since) >= PET_AFTER {
                 self.petted = true;
                 self.watching = false;
+                // Counted either way: whether he was in the mood is his business,
+                // that you did it is the fact the memory keeps.
+                self.memory.pets += 1;
+                self.save_memory();
                 // Not always in the mood, and never at random.
                 if PRICKLY.contains(&self.feeling) && self.chance(0.6) {
                     self.react(now, Mood::Idle, Some("shake"), 1_100);
@@ -1663,11 +1707,8 @@ impl State {
                     let path = format!("feelings.{}", feeling_key(self.feeling));
                     self.say_from(now, &path, 3_600, &[]);
                 } else {
-                    self.attention = (self.attention + 0.35).min(1.0);
                     self.react(now, Mood::Love, Some("pop"), 3_200);
                     self.say_from(now, "pet", 3_600, &[]);
-                    self.memory.pets += 1;
-                    self.save_memory();
                 }
             }
         } else {
@@ -1934,6 +1975,7 @@ impl State {
             }
             After::Home => self.settle_in(now),
             After::Arrive => {
+                self.errand = None;
                 self.react(now, Mood::Watching, None, 2_000);
                 self.look = Some((Look { x: 0.0, y: 0.4 }, now + 1_600));
             }
@@ -1979,7 +2021,7 @@ impl State {
         self.home_at = now;
         self.portal_closes = now + PORTAL_LINGERS;
         self.react(now, Mood::Happy, Some("pop"), 1_600);
-        if self.prop.is_none() && self.chance(0.5) {
+        if self.chance(0.5) {
             let chair = self.opening.as_ref().and_then(|o| o.chair.clone());
             let at = scene_at(since, now, chair.as_deref(), self.home_reason).at;
             let speak = self.chance(0.75);
@@ -2039,6 +2081,7 @@ impl State {
                 let wanted = self.below(self.max_x().max(1.0) as usize) as f64;
                 // Far enough to be a journey; a step is not an errand.
                 let target = if (wanted - here).abs() < 200.0 { far } else { wanted };
+                self.errand = Some(target);
                 self.walk(now, target, 0.0, WALK_SPEED, After::Arrive);
             }
             Travel::Rocket => {
@@ -3141,5 +3184,46 @@ mod tests {
         senses.strip_width = 1_024.0;
         let x = brain.tick(250, senses).x;
         assert!(x <= 1_024.0 - PET_WIDTH, "x = {x}");
+    }
+
+    #[test]
+    fn put_down_halfway_through_an_errand_he_carries_on_to_it() {
+        let brain = walker(5);
+        at(&brain, 0);
+        brain.state.lock().unwrap().travel(0, Travel::Errand);
+        let target = brain.state.lock().unwrap().errand.expect("an errand");
+        let x = at(&brain, 500).x;
+        brain.press(600, x + 40.0, 30.0, x, 0.0);
+        brain.drag(650, x + 40.0 + (if target > 700.0 { -300.0 } else { 300.0 }), 30.0);
+        brain.release(700);
+        let mut frame = at(&brain, 750);
+        for i in 1..120 {
+            frame = at(&brain, 750 + i * 250);
+        }
+        assert!(
+            (frame.x - brain.state.lock().unwrap().clamp(target)).abs() <= 40.0,
+            "at {} for {target}",
+            frame.x
+        );
+        assert!(brain.state.lock().unwrap().errand.is_none());
+    }
+
+    #[test]
+    fn a_declined_pet_still_counts() {
+        let brain = Brain::still();
+        brain.tick(0, quiet_senses(None));
+        {
+            let mut st = brain.state.lock().unwrap();
+            st.feeling = Feeling::Rattled;
+            st.rng = 3;
+        }
+        let x = brain.state.lock().unwrap().here();
+        let mut senses = quiet_senses(None);
+        senses.cursor_x = Some(x + 40.0);
+        senses.cursor_y = Some(40.0);
+        for t in 1..12 {
+            brain.tick(t * 250, senses.clone());
+        }
+        assert_eq!(brain.state.lock().unwrap().memory.pets, 1);
     }
 }

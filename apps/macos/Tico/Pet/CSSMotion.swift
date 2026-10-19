@@ -80,6 +80,7 @@ enum CSSMotion {
 		_ spec: ArtMotion.Spec, motion: ArtMotion, rate: CAFrameRateRange,
 		name: String? = nil, duration: Double? = nil, base: CATransform3D = CATransform3DIdentity
 	) -> CAAnimation? {
+		if Motion.reduced { return nil }
 		guard var frames = motion.keyframes[name ?? spec.name], !frames.isEmpty else { return nil }
 		// `reverse` plays the keyframes backwards.
 		if spec.reverse == true {

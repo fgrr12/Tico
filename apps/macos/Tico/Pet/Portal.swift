@@ -269,6 +269,7 @@ final class PortalLayer {
 		layer.add(grow, forKey: "open")
 
 		func loop(_ target: CALayer, _ key: String, from: Any, to: Any, _ duration: Double, reverses: Bool = false) {
+			if Motion.reduced { return }
 			let a = CABasicAnimation(keyPath: key)
 			a.fromValue = from
 			a.toValue = to
