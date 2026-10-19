@@ -267,6 +267,8 @@ pub struct Frame {
     pub hanging: bool,
     /// Down the burrow: off the strip, the hatch open and lit.
     pub home: bool,
+    /// Whether there is a burrow at all (the "house" setting): the hatch.
+    pub house: bool,
 }
 
 /// What the cutaway shows, worked out once when it is opened.
@@ -909,6 +911,7 @@ impl Brain {
             heat: s.heat,
             hanging: s.hanging,
             home: s.home.is_some(),
+            house: s.settings.house,
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,

@@ -17,17 +17,30 @@ struct Painter {
 	private let classStyles: [String: [String: String]]
 	private let colours: [String: String]
 	nonisolated static let size: CGFloat = 96
-	nonisolated private static let frame = CGRect(x: 0, y: 0, width: size, height: size)
+	/// The canvas every layer spans: his 96×96, or the burrow's 200×132.
+	private let frame: CGRect
 
 	/// `colours` fills the runtime tokens: `["{screen}": "#1a1c23", …]`.
 	init(art: Art, colours: [String: String]) {
+		self.init(defs: art.defs, classStyles: art.classStyles, colours: colours, size: CGSize(width: Self.size, height: Self.size))
+	}
+
+	init(defs list: [ArtNode], classStyles: [String: [String: String]] = [:], colours: [String: String] = [:], size: CGSize) {
 		var defs: [String: ArtNode] = [:]
-		for node in art.defs {
+		for node in list {
 			if case .string(let id) = node.attrs?["id"] { defs[id] = node }
 		}
 		self.defs = defs
-		classStyles = art.classStyles
+		self.classStyles = classStyles
 		self.colours = colours
+		frame = CGRect(origin: .zero, size: size)
+	}
+
+	/// The starting style for this canvas: y flipped about its own height.
+	var root: Style {
+		var style = Style()
+		style.transform = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: frame.height)
+		return style
 	}
 
 	/// What SVG inherits from a parent to its children.
@@ -45,8 +58,8 @@ struct Painter {
 		var transform = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: Painter.size)
 	}
 
-	func layers(_ nodes: [ArtNode], style: Style = Style()) -> [CALayer] {
-		nodes.compactMap { layer($0, inherited: style) }
+	func layers(_ nodes: [ArtNode], style: Style? = nil) -> [CALayer] {
+		nodes.compactMap { layer($0, inherited: style ?? root) }
 	}
 
 	func layer(_ node: ArtNode, inherited: Style) -> CALayer? {
@@ -82,7 +95,7 @@ struct Painter {
 		switch tag {
 		case "g":
 			layer = CALayer()
-			layer.frame = Self.frame
+			layer.frame = frame
 			for child in node.children ?? [] {
 				if let sub = self.layer(child, inherited: style) { layer.addSublayer(sub) }
 			}
@@ -98,7 +111,7 @@ struct Painter {
 		if let opacity = number(values["opacity"]) { layer.opacity = Float(opacity) }
 		if let clip = values["clip-path"], let id = Self.reference(clip), let node = defs[id] {
 			let mask = CAShapeLayer()
-			mask.frame = Self.frame
+			mask.frame = frame
 			let union = CGMutablePath()
 			for child in node.children ?? [] {
 				guard let tag = child.tag, let path = shape(tag, attributes(child)) else { continue }
@@ -190,7 +203,7 @@ struct Painter {
 		}
 
 		let shape = CAShapeLayer()
-		shape.frame = Self.frame
+		shape.frame = frame
 		shape.path = path
 		shape.fillColor = plainFill
 		if let stroke = style.stroke {
@@ -204,7 +217,7 @@ struct Painter {
 		guard let fillLayer else { return shape }
 
 		let group = CALayer()
-		group.frame = Self.frame
+		group.frame = frame
 		group.addSublayer(fillLayer)
 		group.addSublayer(shape)
 		return group
@@ -225,8 +238,9 @@ struct Painter {
 			if def.tag == "radialGradient" {
 				// SVG's defaults: centred, radius half the box.
 				gradient.type = .radial
-				gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
-				gradient.endPoint = CGPoint(x: 1, y: 1)
+				let (cx, cy, r) = (percent(a["cx"]) ?? 0.5, percent(a["cy"]) ?? 0.5, percent(a["r"]) ?? 0.5)
+				gradient.startPoint = CGPoint(x: cx, y: 1 - cy)
+				gradient.endPoint = CGPoint(x: cx + r, y: 1 - cy - r)
 			} else {
 				// objectBoundingBox fractions, y measured down; the unit space is y-up.
 				gradient.startPoint = CGPoint(x: percent(a["x1"]) ?? 0, y: 1 - (percent(a["y1"]) ?? 0))
@@ -256,12 +270,12 @@ struct Painter {
 				y += h
 			}
 			let stripes = CAShapeLayer()
-			stripes.frame = Self.frame
+			stripes.frame = frame
 			stripes.path = union
 			stripes.fillColor = Self.color(tileValues["fill"] ?? "#000000", alpha: opacity)
 			stripes.opacity = Float(number(tileValues["opacity"]) ?? 1)
 			let mask = CAShapeLayer()
-			mask.frame = Self.frame
+			mask.frame = frame
 			mask.path = path
 			stripes.mask = mask
 			return stripes

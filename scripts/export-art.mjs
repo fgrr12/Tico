@@ -182,6 +182,7 @@ try {
 			})
 		),
 		hangs: H.HANGS,
+		wears: WEARS,
 		activity: ACTIVITY,
 		tiers: TIERS,
 	}

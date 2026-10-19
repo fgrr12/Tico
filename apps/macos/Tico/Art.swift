@@ -20,6 +20,8 @@ struct Art: Decodable, Sendable {
 	let faces: [String: Face]
 	/// How he moves, from companion.css.
 	let motion: ArtMotion
+	/// The burrow: the hatch on the strip and the cutaway under it, from House.tsx.
+	let house: House
 
 	/// One mood, back to front, with each body part left as a `slot` node.
 	struct Face: Decodable, Sendable {
@@ -34,6 +36,45 @@ struct Art: Decodable, Sendable {
 			throw CocoaError(.fileNoSuchFile)
 		}
 		return try JSONDecoder().decode(Art.self, from: Data(contentsOf: url))
+	}
+}
+
+/// The burrow, in pieces so a bay can be lit, furniture left out until he
+/// knows you, and the fan turned. Drawn in a 200×132 box (the hatch 120×52).
+struct House: Decodable, Sendable {
+	let viewBox: [Double]
+	let hatchBox: [Double]
+	let defs: [ArtNode]
+	let earth: ArtNode
+	let shaft: ArtNode
+	let hatch: [ArtNode]
+	let rooms: [String: Room]
+	/// Where each place's worn things hang from in his drawing (for the rail),
+	/// and which place each prop is worn on.
+	let hangs: [String: Double]
+	let wears: [String: String]
+	let activity: [String: Activity]
+	let tiers: [String]
+
+	struct Room: Decodable, Sendable {
+		let x, y, w, h, floor, stand: Double
+		let label: [String: String]
+		let normal: ArtNode
+		let lit: ArtNode
+		let items: [Item]
+	}
+
+	struct Item: Decodable, Sendable {
+		/// The familiarity it turns up at.
+		let since: String
+		let node: ArtNode
+	}
+
+	/// What he does in a bay once settled.
+	struct Activity: Decodable, Sendable {
+		let mood: String
+		let look: [Double]?
+		let sit: Bool?
 	}
 }
 

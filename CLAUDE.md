@@ -169,8 +169,7 @@ memory (apps seen, switches). So far it sleeps after 90s still, wakes happy,
 feels, and has moments (`moments.rs`: the table, `BY_FEELING`, energy floors,
 `then` chains, losing interest, dances by `danceStyle`). The moments that cover
 ground are in too (`Travel` in `moments.rs`: pace, chase, edge, behind,
-errand, rocket, flee, skip), plus the poll's wander; `house` and `climb` wait
-for the burrow. Handling is in the core too: the shell
+errand, rocket, flee, skip, climb, house), plus the poll's wander. Handling is in the core too: the shell
 reports `press`/`drag`/`release` and the cursor as a sense (`cursor_x/y`), and
 the core decides — a click pleases him, four make him dizzy, a drag picks him
 up (`held`), a drop in mid-air falls and lands, 1.6s hovering on him is petting
@@ -228,8 +227,26 @@ is full-bleed), and `MenuBarIcon` is `tray-icon.svg` as a template image.
 Render SVGs with `NSImage` (it reads them and keeps the alpha) — `qlmanage`
 flattens them onto white, which shows as white corners and, for a template, a
 white block.
-Size, the burrow and window titles are left out until the native build does
-them; offering a switch that does nothing would be worse.
+The burrow: `House.tsx` draws with explicit fills from `TONES` (no colour
+classes — a class rule beats a presentation attribute), so `export-art.mjs`
+exports it piece by piece under `house` in `art/tico.json` (earth, each bay
+lit and unlit, the shaft, furniture by familiarity tier, the hatch, `hangs`,
+`wears`, `ACTIVITY`) and checks every bay against React; its lines go under
+`house` in `art/copy.json`. `core/src/house.rs` is `house.ts` (`scene_at`,
+`brought_up`); the brain does the visits — the `house` moment (behind
+`HOME_EVERY`), the walk to `HOUSE_X`, 45–300s down, coming out pleased and
+half the time holding the bay's souvenir, a drop over the hatch going down it
+and leaving the worn prop on the rail (`memory.left`), the setting evicting
+him — and `Brain::burrow` derives the cutaway's scene when it is opened.
+`HOUSE_X` is duplicated as `houseX` in `PetPanel.swift`: change both. The
+shell draws the hatch on the strip (it takes clicks; its lid swings open with
+the burrow's light while he is in or you look) and `Pet/Burrow.swift` is the
+cutaway, its own panel rising from the hatch, shut by any click outside
+(a global mouse monitor, no permission). He stands in his bay doing its
+`ACTIVITY` (asleep in the cradle, watching the lamp); clicking him or "Subí"
+brings him up. The fan, the plant and the beacon move only while it is open,
+at `Motion.idleRate`. `TICO_BURROW=<s>` opens it that many seconds in;
+with `TICO_DO=house` he goes down first.
 
 Calls: `Pet/Microphone.swift` is `call.rs` (the default input device running
 somewhere — a property of the device, no permission), read once a second into

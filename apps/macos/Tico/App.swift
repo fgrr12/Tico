@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var panel: PetPanel?
 	private var sheet: NSWindow?
 	private var prefs: NSWindow?
+	/// The cutaway, while it is open, and the click-outside watch that shuts it.
+	private let burrow = BurrowPanel()
+	private var burrowOpen = false
+	private var outside: Any?
 	private var art: Art?
 	private var copyJSON = ""
 	private let brain = Brain()
@@ -90,6 +94,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 				self.brain.release(nowMs: Sensing.clock)
 				self.think(art: art, panel: panel)
 			}
+			panel.onHatch = { [weak self, weak panel] in
+				guard let self, let panel else { return }
+				if self.burrowOpen { self.closeBurrow(panel) } else { self.openBurrow(art: art, panel: panel) }
+			}
+			burrow.onCall = { [weak self, weak panel] in
+				guard let self, let panel else { return }
+				self.brain.comeUp()
+				self.closeBurrow(panel)
+				self.think(art: art, panel: panel)
+			}
 			panel.place(on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel
@@ -97,6 +111,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			if ProcessInfo.processInfo.environment["TICO_SELFTEST"] != nil { selfTest(panel) }
 			if ProcessInfo.processInfo.environment["TICO_PREFS"] != nil {
 				DispatchQueue.main.async { [weak self] in self?.openPrefs() }
+			}
+			// `TICO_BURROW=<seconds>`: lifts the hatch that far in, to look.
+			if let wait = ProcessInfo.processInfo.environment["TICO_BURROW"].flatMap(Double.init) {
+				DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self, weak panel] in
+					guard let self, let panel else { return }
+					self.openBurrow(art: art, panel: panel)
+				}
 			}
 			// `TICO_DO=climb` (any moment's key): does it 2s in, to look at.
 			if let key = ProcessInfo.processInfo.environment["TICO_DO"] {
@@ -160,9 +181,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			stateItem.title = "\(next.mood) · \(next.feeling)\(next.singing ? " · singing" : "")"
 		}
 		if let effect = next.effect, effect.serial != frame?.effect?.serial { stateItem.title = "effect: \(effect.name)" }
+		// He went in or came out while you were looking: the scene again, in place.
+		if burrowOpen, next.home != frame?.home { openBurrow(art: art, panel: panel, rising: false) }
 		frame = next
 		let p = next.parts
 		panel.apply(next, art: art, parts: ["shell": p.shell, "hands": p.hands, "feet": p.feet, "antenna": p.antenna])
+	}
+
+	/// Lifts the hatch: the scene is worked out now, from how long he has been
+	/// down there — nothing ran below to produce it.
+	private func openBurrow(art: Art, panel: PetPanel, rising: Bool = true) {
+		guard let frame else { return }
+		let language = brain.settings().language
+		burrow.show(
+			brain.burrow(), art: art, frame: frame, language: language == "auto" ? systemLanguage : language,
+			hatch: panel.hatchOnScreen, rising: rising
+		)
+		burrowOpen = true
+		panel.looking = true
+		// A click anywhere else shuts it; clicks on our own windows never get here.
+		if outside == nil {
+			outside = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self, weak panel] _ in
+				MainActor.assumeIsolated {
+					guard let self, let panel else { return }
+					self.closeBurrow(panel)
+				}
+			}
+		}
+	}
+
+	private func closeBurrow(_ panel: PetPanel) {
+		burrow.hide()
+		burrowOpen = false
+		panel.looking = false
+		if let outside { NSEvent.removeMonitor(outside) }
+		outside = nil
 	}
 
 	/// `TICO_SELFTEST=1`: handles him the way the mouse would — the same
@@ -252,7 +305,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false, home: false, house: true
 		)
 		if step != shown {
 			shown = step

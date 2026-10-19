@@ -222,6 +222,7 @@ private struct SettingsPanel: View {
 				row("size") { chips(["small", "normal", "large"], section: "size", value: $model.settings.size) }
 				row("inCall", hint: true) { chips(["peek", "hide", "ignore"], section: "inCall", value: $model.settings.inCall) }
 				row("language") { chips(["auto", "en", "es"], section: "language", value: $model.settings.language) }
+				row("house", hint: true) { Check(on: model.settings.house) { model.settings.house.toggle() } }
 				row("titles", hint: true) {
 					Check(on: model.settings.readTitles) {
 						// Ticked from the settings, not from the click: without the
