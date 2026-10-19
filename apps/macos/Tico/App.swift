@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var statusItem: NSStatusItem?
 	private var panel: PetPanel?
 	private var sheet: NSWindow?
+	private var prefs: NSWindow?
+	private var art: Art?
+	private var copyJSON = ""
 	private let brain = Brain()
 	private var frame: Frame?
 	private let musicSense = MusicSense()
@@ -39,9 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			brain.open(dir: own.path, seed: own == tauri ? nil : tauri.path, today: Sensing.today)
 			// What he says, in the language macOS is set to: Spanish or English.
 			if let url = Bundle.main.url(forResource: "copy", withExtension: "json"), let json = try? String(contentsOf: url, encoding: .utf8) {
-				let spanish = Locale.preferredLanguages.first?.lowercased().hasPrefix("es") == true
-				brain.setCopy(json: json, language: spanish ? "es" : "en")
+				copyJSON = json
+				brain.setCopy(json: json, language: systemLanguage)
 			}
+			self.art = art
 			let panel = PetPanel(screen: screen)
 			self.screen = screen
 			think(art: art, panel: panel)
@@ -82,12 +86,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 		item.button?.title = "tico"
 
+		// The Tauri build's tray, item for item.
 		let menu = NSMenu()
+		menu.addItem(withTitle: "Show", action: #selector(show), keyEquivalent: "").target = self
+		menu.addItem(withTitle: "Hide", action: #selector(hide), keyEquivalent: "").target = self
+		menu.addItem(.separator())
+		let quiet = NSMenu()
+		for (title, minutes) in [("30 minutes", 30), ("1 hour", 60), ("Until I say otherwise", -1), ("Off", 0)] {
+			let entry = quiet.addItem(withTitle: title, action: #selector(beQuiet(_:)), keyEquivalent: "")
+			entry.target = self
+			entry.tag = minutes
+		}
+		menu.addItem(withTitle: "Quiet", action: nil, keyEquivalent: "").submenu = quiet
+		menu.addItem(.separator())
+		menu.addItem(withTitle: "Preferences…", action: #selector(openPrefs), keyEquivalent: ",").target = self
+		menu.addItem(.separator())
 		menu.addItem(withTitle: "core \(core.version())", action: nil, keyEquivalent: "")
 		menu.addItem(withTitle: artSummary(), action: nil, keyEquivalent: "")
 		menu.addItem(stateItem)
 		menu.addItem(.separator())
-		menu.addItem(withTitle: "Quit tico", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+		menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 		item.menu = menu
 		statusItem = item
 	}
@@ -127,6 +145,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			step(5.2 + Double(i) * 0.05, "drag") { panel.onDrag?(CGPoint(x: grab().x, y: 46 + dy)) }
 		}
 		step(7, "drop") { panel.onRelease?() }
+	}
+
+	private var systemLanguage: String {
+		Locale.preferredLanguages.first?.lowercased().hasPrefix("es") == true ? "es" : "en"
+	}
+
+	@objc private func show() { panel?.orderFrontRegardless() }
+	@objc private func hide() { panel?.orderOut(nil) }
+
+	/// Minutes of silence; -1 is until said otherwise, 0 lifts it.
+	@objc private func beQuiet(_ sender: NSMenuItem) {
+		var settings = brain.settings()
+		let now = Int64(Date().timeIntervalSince1970)
+		settings.quietUntil = sender.tag == 0 ? 0 : sender.tag < 0 ? Int64.max : now + Int64(sender.tag) * 60
+		brain.updateSettings(settings: settings)
+	}
+
+	@objc private func openPrefs() {
+		guard let art else { return }
+		if prefs == nil {
+			let language = brain.settings().language
+			let copy = PrefsCopy(json: copyJSON, language: language == "auto" ? systemLanguage : language)
+			prefs = PrefsWindow.make(art: art, brain: brain, copy: copy)
+		}
+		// An accessory app has to bring itself forward, or the window opens behind.
+		NSApp.activate()
+		prefs?.makeKeyAndOrderFront(nil)
 	}
 
 	private func artSummary() -> String {

@@ -139,7 +139,12 @@ try {
 
 	const motion = motionFrom(css, readFileSync(`${root}src/companion/Companion.tsx`, 'utf8'))
 	const { companionCopy } = await server.ssrLoadModule('/src/data/companion.ts')
-	const copy = Object.fromEntries(Object.entries(companionCopy).map(([language, lines]) => [language, copyFrom(lines, language)]))
+	const { prefsCopy } = await server.ssrLoadModule('/src/prefs/copy.ts')
+	// The preferences window's own words ride along under `prefs`: furniture,
+	// never said out loud, but data keyed by language all the same.
+	const copy = Object.fromEntries(
+		Object.entries(companionCopy).map(([language, lines]) => [language, { ...copyFrom(lines, language), prefs: prefsCopy[language] }])
+	)
 	const art = { version: 2, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces, motion }
 
 	// ── The proof ─────────────────────────────────────────────────────────────

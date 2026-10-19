@@ -435,6 +435,18 @@ impl Brain {
         self.state.lock().unwrap().settings.clone()
     }
 
+    /// Settings changed from the preferences or the menu: kept, saved, and in
+    /// effect from the next tick (a new language reloads what he says).
+    pub fn update_settings(&self, settings: Settings) {
+        let mut s = self.state.lock().unwrap();
+        let language = s.settings.language != settings.language;
+        s.settings = settings;
+        s.save_settings();
+        if language {
+            s.load_copy();
+        }
+    }
+
     /// A press on him at (`px`, `py`) on the strip — y up from his floor —
     /// while he is visibly at (`x`, `lift`): whatever he was doing stops.
     pub fn press(&self, now_ms: u64, px: f64, py: f64, x: f64, lift: f64) {

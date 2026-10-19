@@ -212,7 +212,16 @@ back after days, day milestones, streaks, else `boot`; chatter mixes in
 `memory.tier` by familiarity. The native app keeps its files in its own folder
 (Application Support/<bundle id>) and seeds them once from the Tauri build's,
 never writing there, so both can run at once; on taking the Tauri id it simply
-uses the original folder. The shell ticks
+uses the original folder.
+
+The menu is the Tauri tray, item for item (Show, Hide, Quiet ▸, Preferences…,
+Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx`: a "Tico" tab where you press a
+place on him and pick a part or a pinned prop from drawings (`PetPreview`, the
+pet's own `Painter`), and a settings tab — chattiness, language, start at login.
+Size, calls, the burrow and window titles are left out until the native build
+does them; offering a switch that does nothing would be worse. Its words are
+`src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
+through `Brain::update_settings`, which saves `tico.json`. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 
