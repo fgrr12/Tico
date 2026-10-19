@@ -3,12 +3,16 @@
 //! says and tells it what happened. Exposed to the shells through UniFFI, the
 //! same way Flint's core is.
 //!
-//! Only the skeleton exists so far: one object the shells can create, which
-//! proves the whole chain (Rust → static library → generated bindings → app).
+//! - [`data`]: the pure functions of `src/data/companion.ts` (time, energy,
+//!   feelings, palette, apps, dances, familiarity, what he wears).
+//! - [`brain`]: the poll that decides on its own — sleep, waking, feelings.
 
 use std::sync::Arc;
 
 uniffi::setup_scaffolding!("tico");
+
+pub mod brain;
+pub mod data;
 
 #[derive(uniffi::Object)]
 pub struct TicoCore {}

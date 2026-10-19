@@ -156,3 +156,14 @@ cost WindowServer +20% of a core — exactly what the WebView build paid. At
 Every new animation sets `preferredFrameRateRange`, as low as it still looks
 smooth. Measure WindowServer with `top -pid`, alternating with and without tico,
 because your own use of the Mac is the noise.
+
+**The core so far** (`core/src/`): `data.rs` is the pure half of
+`src/data/companion.ts` — time of day, energy, the feeling ladder, the palette,
+`matchApp`, `documentIn`, `danceStyle` (its FNV hash walks UTF-16 units so it
+matches JavaScript, emoji included), familiarity and `wornFrom` — with
+`scripts/check.mjs`'s cases as Rust tests. **Change one, change both** until the
+Tauri build retires. `brain.rs` is the poll: the shell calls `Brain::tick` every
+3.5s with `Senses` (cursor idle time, hour, front app name, music) and draws the
+`Frame` it returns (mood, feeling, colours); the core keeps the afternoon's
+memory (apps seen, switches). So far it sleeps after 90s still, wakes happy, and
+feels; moments, walking, talking and being handled go into the same `tick`.

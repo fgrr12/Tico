@@ -54,7 +54,7 @@ final class PetPanel: NSPanel {
 		host.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
 		body.addSublayer(host)
 		view.layer?.addSublayer(body)
-		Motion.bob(body)
+
 	}
 
 	override var canBecomeKey: Bool { false }
@@ -66,6 +66,13 @@ final class PetPanel: NSPanel {
 		blinker?.stop()
 		blinker = nil
 		host.sublayers = Pet.layers(art: art, mood: mood, parts: parts, colours: colours)
+		// Asleep, everything stops, as the CSS pauses it: a pet nobody is looking
+		// at should cost nothing at all.
+		if mood == "sleep" {
+			body.removeAnimation(forKey: "bob")
+			return
+		}
+		if body.animation(forKey: "bob") == nil { Motion.bob(body) }
 		Motion.pulse(host)
 		// Only moods whose eyes are open have a blink drawing.
 		if art.faces[mood]?.blink != nil,
