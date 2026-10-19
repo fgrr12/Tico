@@ -49,7 +49,7 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			ignore: 'Carry on',
 		},
 		language: { label: 'Language', auto: 'Follow the system', en: 'English', es: 'Español' },
-		house: { label: 'Burrow', hint: 'The hatch in the floor, and somewhere to go down to.' },
+		house: { label: 'Burrow', hint: 'Somewhere of his own to go when he likes, and a way in after him.' },
 		titles: {
 			label: 'Read window titles',
 			hint: 'Needs Accessibility, and is the only thing here that does. He reads the name of a document and never keeps it.',
@@ -84,7 +84,7 @@ export const prefsCopy: Record<Language, PrefsCopy> = {
 			ignore: 'Seguir a lo suyo',
 		},
 		language: { label: 'Idioma', auto: 'Seguir al sistema', en: 'English', es: 'Español' },
-		house: { label: 'Madriguera', hint: 'La trampilla en el suelo, y un sitio al que bajar.' },
+		house: { label: 'Madriguera', hint: 'Un sitio suyo al que irse cuando quiera, y una entrada para seguirlo.' },
 		titles: {
 			label: 'Leer títulos de ventana',
 			hint: 'Necesita Accesibilidad, y es lo único aquí que la necesita. Lee el nombre de un documento y nunca se lo queda.',

@@ -42,6 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// "Go home", or "Come out" while he is in.
 	private let homeItem = NSMenuItem(title: "Go home", action: #selector(goHome), keyEquivalent: "")
 
+	/// Clicking the Dock icon (only there while the preferences are open)
+	/// brings them forward.
+	func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+		prefs?.makeKeyAndOrderFront(nil)
+		return true
+	}
+
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
 			// What he remembers and how he is set up: tico.json and memory.json in
@@ -286,9 +293,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			let language = brain.settings().language
 			let copy = PrefsCopy(json: copyJSON, language: language == "auto" ? systemLanguage : language)
 			prefs = PrefsWindow.make(art: art, brain: brain, copy: copy)
+			NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: prefs, queue: .main) { _ in
+				MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
+			}
 		}
+		// In the Dock while the preferences are open, like any app with a window
+		// up; back to a menu bar app when it closes.
+		NSApp.setActivationPolicy(.regular)
 		// An accessory app has to bring itself forward, or the window opens behind.
 		NSApp.activate()
+		prefs?.center()
 		prefs?.makeKeyAndOrderFront(nil)
 	}
 

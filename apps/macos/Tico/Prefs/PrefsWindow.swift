@@ -20,6 +20,9 @@ enum PrefsWindow {
 		window.isReleasedWhenClosed = false
 		window.appearance = NSAppearance(named: .darkAqua)
 		window.backgroundColor = Painter.nsColor(Tone.pane)
+		// Its size now, not when SwiftUI gets round to it: otherwise it is
+		// centred while still small and then grows off to one side.
+		window.setContentSize(NSSize(width: 720 + 48, height: 640))
 		window.center()
 		return window
 	}
@@ -259,12 +262,52 @@ private struct SettingsPanel: View {
 	}
 
 	private func chips(_ ids: [String], section: String, value: Binding<String>) -> some View {
-		HStack(spacing: 6) {
+		Flow(spacing: 6) {
 			ForEach(ids, id: \.self) { id in
 				Button { value.wrappedValue = id } label: { Text(copy[section, id]).lineLimit(1).fixedSize() }
 					.buttonStyle(ChipStyle(on: value.wrappedValue == id))
 			}
 		}
+	}
+}
+
+/// Chips in a row that wraps when it runs out of room, as `flex-wrap` does in
+/// prefs.css — an `HStack` of fixed-size chips instead grows past the window
+/// and the whole pane is clipped on both sides.
+private struct Flow: Layout {
+	var spacing: CGFloat
+
+	func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+		let rows = arrange(subviews, width: proposal.width ?? .infinity)
+		return CGSize(width: rows.map(\.width).max() ?? 0, height: rows.last.map { $0.y + $0.height } ?? 0)
+	}
+
+	func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+		for row in arrange(subviews, width: bounds.width) {
+			var x = bounds.minX
+			for index in row.items {
+				let size = subviews[index].sizeThatFits(.unspecified)
+				subviews[index].place(at: CGPoint(x: x, y: bounds.minY + row.y), proposal: ProposedViewSize(size))
+				x += size.width + spacing
+			}
+		}
+	}
+
+	private func arrange(_ subviews: Subviews, width: CGFloat) -> [(items: [Int], width: CGFloat, height: CGFloat, y: CGFloat)] {
+		var rows: [(items: [Int], width: CGFloat, height: CGFloat, y: CGFloat)] = []
+		for (index, view) in subviews.enumerated() {
+			let size = view.sizeThatFits(.unspecified)
+			if var row = rows.last, row.width + spacing + size.width <= width {
+				row.items.append(index)
+				row.width += spacing + size.width
+				row.height = max(row.height, size.height)
+				rows[rows.count - 1] = row
+			} else {
+				let y = rows.last.map { $0.y + $0.height + spacing } ?? 0
+				rows.append(([index], size.width, size.height, y))
+			}
+		}
+		return rows
 	}
 }
 
