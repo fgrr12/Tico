@@ -46,6 +46,13 @@ pub enum Step {
     },
     /// The walk to the hatch, a beat after saying so.
     GoHome,
+    /// A wave of the hands (`companion-wave`).
+    Wave,
+    /// Back to the edge of the screen after stepping out of a call's corner
+    /// to say hello: the left one, or the right.
+    BackToPeek {
+        left: bool,
+    },
     /// Sit down for `ms`, or a random 6–15s when `None`.
     Sit {
         ms: Option<u64>,
@@ -154,7 +161,7 @@ pub const MOMENTS: &[Moment] = &[
     moment!("trip", 0.55, [0 => react(Wow, "trip", 1_100)], then "shake"),
     moment!("bow", 0.6, [0 => react(Happy, "bow", 1_400)]),
     // The hand gesture is not drawn natively yet; the happy face is.
-    moment!("wave", 0.6, [0 => hold(Happy, 1_600)]),
+    moment!("wave", 0.6, [0 => hold(Happy, 1_600), 0 => Wave]),
     moment!("cower", 0.0, [0 => react(Scared, "shiver", 2_200), 0 => Sit { ms: Some(5_000) }]),
     // Straightening the thing he has on, and then deciding why.
     Moment {

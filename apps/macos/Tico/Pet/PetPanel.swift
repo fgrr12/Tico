@@ -62,6 +62,7 @@ final class PetPanel: NSPanel {
 	private var breathing: String?
 	private var posture: String?
 	private var effectSerial: UInt32 = 0
+	private var waveSerial: UInt32?
 	private var moveSerial: UInt32?
 	private var walking = false
 	private var flying = false
@@ -138,6 +139,23 @@ final class PetPanel: NSPanel {
 	override var canBecomeKey: Bool { false }
 	override var canBecomeMain: Bool { false }
 
+	/// Both hands, 1.4s, turning about the drawing's bottom middle
+	/// (`transform-origin: 50% 100%`): the hands' layers pivot on the drawing's
+	/// top-left corner, so each frame is moved to that point and back.
+	private func wave(_ motion: ArtMotion) {
+		let spec = ArtMotion.Spec(
+			name: "companion-wave", duration: 1.4, timing: "ease-in-out", delay: 0, iterations: 1,
+			alternate: false, target: nil, side: nil, child: nil, also: nil
+		)
+		guard let group = CSSMotion.animation(spec, motion: motion, rate: Motion.liveRate) as? CAAnimationGroup else { return }
+		let (to, back) = (CATransform3DMakeTranslation(-Painter.size / 2, Painter.size, 0), CATransform3DMakeTranslation(Painter.size / 2, -Painter.size, 0))
+		for case let part as CAKeyframeAnimation in group.animations ?? [] where part.keyPath == "transform" {
+			part.values = part.values?.compactMap { ($0 as? NSValue)?.caTransform3DValue }
+				.map { NSValue(caTransform3D: CATransform3DConcat(CATransform3DConcat(to, $0), back)) }
+		}
+		for hand in Motion.find("companion-hand", in: host) { hand.add(group, forKey: "wave") }
+	}
+
 	/// The portal's top-left corner on screen, where the cutaway rises from.
 	var portalOnScreen: CGPoint {
 		CGPoint(x: frame.minX + portal.opening.minX, y: frame.minY + portal.opening.maxY)
@@ -207,6 +225,13 @@ final class PetPanel: NSPanel {
 		guard let button = bubble.buttonFrame else { return nil }
 		let w = (walker.presentation() ?? walker).frame
 		return button.offsetBy(dx: w.minX + frame.minX, dy: w.minY + frame.minY)
+	}
+
+	/// Whether the pointer is within `distance` of him, the portal or the bubble.
+	func near(cursor: NSPoint, within distance: CGFloat) -> Bool {
+		let him = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
+		let door = portal.shown ? portal.opening.offsetBy(dx: frame.minX, dy: frame.minY) : CGRect.null
+		return him.union(door).insetBy(dx: -distance, dy: -distance).contains(cursor) || buttonOnScreen?.contains(cursor) == true
 	}
 
 	func hitTest(cursor: NSPoint) {
@@ -336,6 +361,14 @@ final class PetPanel: NSPanel {
 				a.isRemovedOnCompletion = false
 				layer.add(a, forKey: "wear")
 			}
+		}
+
+		// A wave of the hands: `companion-wave` on both, as `[data-gesture="wave"]`
+		// plays it. After the redraw above,
+		// which would otherwise throw the animated hands away. The first frame only remembers where the count is.
+		if frame.wave != waveSerial {
+			if waveSerial != nil { wave(motion) }
+			waveSerial = frame.wave
 		}
 
 		// Breathing: the bob, at the feeling's pace; sitting breathes instead;
@@ -500,7 +533,9 @@ final class PetPanel: NSPanel {
 		let reach = motion.base.look.first?.args ?? [3, 2.4]
 		let target = CATransform3DMakeTranslation(CGFloat(look.x * reach[0]), CGFloat(-look.y * (reach.count > 1 ? reach[1] : reach[0])), 0)
 		for eyes in Motion.find("companion-eyes", in: host) where !CATransform3DEqualToTransform(eyes.transform, target) {
-			ease(eyes, to: target, over: 0.12, timing: "ease-out")
+			// Over a whole tick (the core looks four times a second), so following
+			// the cursor glides instead of stepping.
+			ease(eyes, to: target, over: 0.25, timing: "linear")
 		}
 	}
 

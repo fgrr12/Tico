@@ -191,7 +191,7 @@ by time of day, unknown apps), the rocket and coming back from behind — with
 `can_speak` and the bubble's own time as the Tauri build has them. Idle time
 counts from launch at most, as Tauri's `activityAt` does. The shell's
 `Pet/Bubble.swift` draws `.companion-bubble` and types the line in at the
-feeling's `reveal_ms`. Language follows macOS (Spanish or English).
+feeling's `reveal_ms`. Language follows the setting; "auto" is macOS's (Spanish or English).
 
 Props: one moment in nine he puts something on (headphones, often, while
 music plays), says something about it 1.2s later most of the time, and takes it
@@ -215,8 +215,10 @@ it only applies under another id, e.g. a `TICO_DATA` run). When the native
 build took the id, its files replaced the Tauri ones there (the Tauri state was
 kept in `com.fgrr6.tico.tauri-backup`).
 
-The menu is the Tauri tray, item for item (Show, Hide, Quiet ▸, Preferences…,
-Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx` and `prefs.css`, drawn the same:
+The menu is the Tauri tray (Show, Hide, Quiet ▸, Preferences…, Quit), plus
+Go home / Come out. Show, like a display change
+(`didChangeScreenParametersNotification`), lays the strip along the bottom of
+the primary display again; a narrower strip pulls him back onto it. `Prefs/PrefsWindow.swift` is `Prefs.tsx` and `prefs.css`, drawn the same:
 the pane, the mono type, pill tabs, rows of name + hint beside chips, purple
 checkboxes; the "Tico" tab with him on a radial glow, a handle on each of the
 six places, the part/worn pills, and the options fanned round the ring as
@@ -264,8 +266,12 @@ Calls: `Pet/Microphone.swift` is `call.rs` (the default input device running
 somewhere — a property of the device, no permission), read once a second into
 `Senses.in_call`. Peek (the default) walks him to the right edge half showing,
 mutes him, and runs `peek_poll` — calm gestures only, never a travelling moment,
-a wave every 14s, round the back to the other edge now and then — and walks
-him home when the call ends; hide sets `Frame.hidden`; ignore carries on.
+a wave every 14s (`Frame.wave`, which plays `companion-wave` on both hands
+about the drawing's bottom middle; the `wave` moment uses it too), round the
+back to the other edge now and then, waving on arrival 60% of the time and
+never with a souvenir — and walks him home when the call ends. Three clicks
+on him in the corner make him step out, wave and say `peekHello` (the one line
+let through a call's silence), then go back; hide sets `Frame.hidden`; ignore carries on.
 Typing (`keyDown` in the last 1.5s, never which key) or the cursor within 24pt
 veils the bubble to 12%, as `[data-veiled]` does.
 
@@ -296,12 +302,20 @@ in mid-air — goes through `fall`, which picks the first window ledge under him
 before it starts (`Senses.ledges`, from `Pet/Ledges.swift`: window *bounds*,
 no permission, `ledges.rs`'s filter, refreshed once a second), hangs there
 (`Frame.hanging`, swinging from 50% 12%) and drops again. `TICO_DO=<moment>`
-performs a moment 2s after launch (`Brain::perform`), for looking at one. Not
-drawn yet: the fall's heat trail and glow (CSS pseudo-elements with a blur). Its words are
-`src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
-through `Brain::update_settings`, which saves `tico.json`. The shell ticks
+performs a moment 2s after launch (`Brain::perform`), for looking at one. The
+fall's heat (`Frame.heat`) draws the trail, the glow and the landing ring.
+The preferences' words are `src/prefs/copy.ts`, exported under `prefs` in
+`art/copy.json`, and follow the language setting live. Changes go through
+`Brain::update_settings` as only the fields the window edits, laid over the
+core's current settings (`PrefsModel`): the menu's Quiet and his position
+change behind the window's back, and writing a stale whole copy undid them.
+The window re-reads the settings each time it opens. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
-poll — and skips the panel entirely when the `Frame` did not change.
+poll — and skips the panel entirely when the `Frame` did not change. With
+the pointer within 220pt of him or the portal, a 20Hz timer re-checks only
+whether it is over him (`cursor.rs` polls at 20Hz): at 4Hz a quick click on
+him while he walked went through to the desktop. The eyes ease over a whole
+tick, so following the cursor glides.
 
 **Motion is data too.** `export-art.mjs` also writes `motion` from
 companion.css: every `@keyframes`, which effect plays which, each feeling's

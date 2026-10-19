@@ -288,6 +288,8 @@ pub struct Frame {
     pub hanging: bool,
     /// Down the burrow: off the strip.
     pub home: bool,
+    /// A new value is a wave of the hands.
+    pub wave: u32,
     /// The way in, only while there is one: when he is heading home, inside,
     /// or just stepped out. Clickable, to look in.
     pub portal: Option<Portal>,
@@ -346,6 +348,10 @@ enum After {
     },
     /// At the hatch: in he goes.
     Home,
+    /// Out of the call's corner, where he can be seen: hello, then back.
+    Introduce {
+        left: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -457,6 +463,11 @@ struct State {
     /// The last line Lyra reported, when he last moved to one, and whether the
     /// song had no lyrics last time he looked.
     lyric_line: u32,
+    wave: u32,
+    /// Out of a call's corner to say hello, and on his way back.
+    stepping_out: bool,
+    /// Lets one line through a call's silence: the hello he was asked for.
+    force_voice: bool,
     beat_at: u64,
     no_lyrics: bool,
     /// When he got in, why (frozen then), until when, and the last trip.
@@ -570,6 +581,9 @@ impl Brain {
                 heat: 0.0,
                 hanging: false,
                 lyric_line: 0,
+                wave: 0,
+                stepping_out: false,
+                force_voice: false,
                 beat_at: 0,
                 no_lyrics: false,
                 home: None,
@@ -867,6 +881,17 @@ impl Brain {
         s.follow_lyra(now, &senses);
         s.music = senses.music.clone();
         s.width = senses.strip_width;
+        // The strip shrank (a smaller display, a rearranged one): back on it.
+        if let Some(x) = s.x
+            && s.width > 0.0
+            && !s.crossing
+            && s.moving.is_none()
+            && s.hold.is_none()
+            && x > s.max_x() + s.pet() * 0.5
+        {
+            let edge = s.max_x();
+            s.jump(edge);
+        }
         s.cursor_x = senses.cursor_x;
         s.cursor_y = senses.cursor_y;
         s.height = senses.strip_height;
@@ -985,6 +1010,7 @@ impl Brain {
             heat: s.heat,
             hanging: s.hanging,
             home: s.home.is_some(),
+            wave: s.wave,
             portal: (s.home.is_some() || s.going_home || now < s.portal_closes)
                 .then(|| Portal { x: s.portal_x(), inside: s.home.is_some() }),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
@@ -1211,6 +1237,17 @@ impl State {
                 self.walk(now, x, 0.0, speed, After::Nothing);
             }
             Step::Say { path, ms } => self.say_from(now, &path, ms, &[]),
+            Step::Wave => self.wave(),
+            Step::BackToPeek { left } => {
+                self.stepping_out = false;
+                // Only if the call is still on: if it ended meanwhile, he has
+                // already been sent home.
+                if self.peeking() {
+                    let edge =
+                        if left { -self.pet() * 0.5 } else { self.max_x() + self.pet() * 0.5 };
+                    self.walk(now, edge, 0.0, WALK_SPEED * 1.6, After::Nothing);
+                }
+            }
             Step::GoHome => {
                 if self.going_home {
                     let x = self.portal_x() - self.pet() / 2.0;
@@ -1475,7 +1512,7 @@ impl State {
         // In a call he keeps his gestures and loses his voice: talking over a
         // demo is what would make you regret installing him.
         if self.settings.quiet_until > unix_now()
-            || (self.in_call && self.settings.in_call != "ignore")
+            || (self.in_call && self.settings.in_call != "ignore" && !self.force_voice)
         {
             return;
         }
@@ -1655,8 +1692,18 @@ impl State {
         // From the corner of a call a click is as likely to be you missing the
         // window he stands in front of: a small reply, and nothing more.
         if self.peeking() {
-            self.clicks = (count, now);
-            self.react(now, Mood::Happy, Some("pop"), 1_200);
+            // Whatever he is already doing out there wins.
+            if self.stepping_out || self.crossing {
+                return;
+            }
+            // Three, and not one: then he steps out, says hello and goes back.
+            if count < 3 {
+                self.clicks = (count, now);
+                self.react(now, Mood::Happy, Some("pop"), 1_200);
+                return;
+            }
+            self.clicks = (0, now);
+            self.introduce(now);
             return;
         }
         if count >= 4 {
@@ -1669,6 +1716,19 @@ impl State {
         self.attention = (self.attention + 0.35).min(1.0);
         self.react(now, Mood::Happy, Some("pop"), 2_000);
         self.say_from(now, "click", 4_200, &[]);
+    }
+
+    /// Out where he can be seen, but still his end of the strip: walking into
+    /// the middle of someone's meeting is the whole nightmare.
+    fn introduce(&mut self, now: u64) {
+        self.stepping_out = true;
+        let left = self.here() < self.width / 2.0;
+        let out = if left { self.pet() * 0.5 } else { self.max_x() - self.pet() * 0.5 };
+        self.walk(now, out, 0.0, WALK_SPEED * 1.5, After::Introduce { left });
+    }
+
+    fn wave(&mut self) {
+        self.wave = self.wave.wrapping_add(1);
     }
 
     fn peeking(&self) -> bool {
@@ -1705,6 +1765,7 @@ impl State {
         if now.saturating_sub(self.wave_at) > 14_000 {
             self.wave_at = now;
             self.react(now, Mood::Happy, None, 1_400);
+            self.wave();
             return;
         }
         if now.saturating_sub(self.moment_at) > self.rated(MOMENT_EVERY) && self.chance(0.5) {
@@ -1812,6 +1873,22 @@ impl State {
                 // The landing is the funnier half, so it talks more often.
                 if was_flying && self.chance(0.7) {
                     self.say_from(now, "rocketDown", 5_000, &[]);
+                }
+            }
+            After::Introduce { left } => {
+                self.react(now, Mood::Happy, Some("pop"), 3_600);
+                self.wave();
+                self.force_voice = true;
+                self.say_from(now, "peekHello", 4_600, &[]);
+                self.force_voice = false;
+                self.pending.push((now + 5_400, Step::BackToPeek { left }));
+            }
+            After::Behind if self.peeking() => {
+                // Back in the corner of a call: a wave, often but not always, and
+                // never a souvenir — both at once is him doing a bit.
+                if self.chance(0.6) {
+                    self.wave_at = now;
+                    self.pending.push((now + 900, Step::Wave));
                 }
             }
             After::Behind => {
@@ -2750,9 +2827,15 @@ mod tests {
         let edge = 1512.0 - PET_WIDTH + PET_WIDTH * 0.5;
         let mut last_effect = 0;
         let mut effects = Vec::new();
+        let mut waves = 0;
+        let mut last_wave = 0;
         while t < 20 * 60_000 {
             t += 250;
             let f = brain.tick(t, calling(true));
+            if f.wave != last_wave {
+                last_wave = f.wave;
+                waves += 1;
+            }
             assert!(f.speech.is_none(), "he spoke during a call: {:?}", f.speech);
             if let Some(e) = f.effect
                 && e.serial != last_effect
@@ -2766,7 +2849,8 @@ mod tests {
                 f.x
             );
         }
-        assert!(!effects.is_empty(), "no gestures in twenty minutes of a call");
+        assert!(!effects.is_empty() || waves > 0, "no gestures in twenty minutes of a call");
+        assert!(waves > 10, "only {waves} waves in twenty minutes of a call");
         for name in ["hop", "spin", "bounce", "pogo", "land"] {
             assert!(!effects.iter().any(|e| e == name), "{name} is not a corner gesture");
         }
@@ -3014,5 +3098,48 @@ mod tests {
             b.tick(20_000, s).speech.is_some_and(|sp| lines("en", "lyricsNone").contains(&sp.text))
         });
         assert!(said);
+    }
+
+    #[test]
+    fn three_clicks_in_a_call_and_he_steps_out_to_say_hello() {
+        let brain = talker("en");
+        let mut senses = quiet_senses(None);
+        brain.tick(0, senses.clone());
+        senses.in_call = true;
+        // Into the corner first.
+        for t in 1..40 {
+            brain.tick(t * 250, senses.clone());
+        }
+        let corner = brain.tick(10_000, senses.clone()).x;
+        assert!(corner > 1_400.0);
+        let wave = brain.tick(10_250, senses.clone()).wave;
+        for t in 0..3 {
+            brain.press(10_300 + t * 100, corner + 40.0, 30.0, corner, 0.0);
+            brain.release(10_350 + t * 100);
+        }
+        let mut frame = brain.tick(10_700, senses.clone());
+        // Out in about a second, hello for five, then back.
+        for t in 1..16 {
+            frame = brain.tick(10_700 + t * 250, senses.clone());
+        }
+        assert!(frame.x < corner - 40.0, "stepped out to {}", frame.x);
+        assert_ne!(frame.wave, wave);
+        assert!(frame.speech.is_some_and(|s| lines("en", "peekHello").contains(&s.text)));
+        // And back to the corner afterwards.
+        for t in 1..60 {
+            frame = brain.tick(21_000 + t * 250, senses.clone());
+        }
+        assert!(frame.x > 1_400.0, "back at {}", frame.x);
+    }
+
+    #[test]
+    fn a_narrower_display_puts_him_back_on_the_strip() {
+        let brain = Brain::still();
+        brain.tick(0, quiet_senses(None));
+        brain.state.lock().unwrap().x = Some(1_400.0);
+        let mut senses = quiet_senses(None);
+        senses.strip_width = 1_024.0;
+        let x = brain.tick(250, senses).x;
+        assert!(x <= 1_024.0 - PET_WIDTH, "x = {x}");
     }
 }

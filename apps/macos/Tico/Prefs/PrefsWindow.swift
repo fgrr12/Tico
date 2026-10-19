@@ -12,9 +12,8 @@ import SwiftUI
 /// redraws him on the next tick.
 @MainActor
 enum PrefsWindow {
-	static func make(art: Art, brain: Brain, copy: PrefsCopy) -> NSWindow {
-		let model = PrefsModel(brain: brain)
-		let window = NSWindow(contentViewController: NSHostingController(rootView: PrefsView(art: art, model: model, copy: copy)))
+	static func make(art: Art, model: PrefsModel) -> NSWindow {
+		let window = NSWindow(contentViewController: NSHostingController(rootView: PrefsView(art: art, model: model)))
 		window.title = "tico"
 		window.styleMask = [.titled, .closable]
 		window.isReleasedWhenClosed = false
@@ -53,9 +52,31 @@ private let mono = Font.system(size: 13, design: .monospaced)
 @MainActor @Observable
 final class PrefsModel {
 	private let brain: Brain
+	private let copyJSON: String
+	private let system: String
+	/// What the window shows and edits. A change goes to the core as only the
+	/// fields this window edits, laid over the core's current settings: the
+	/// menu's Quiet and where he stands change behind its back, and writing
+	/// the whole of a stale copy back would undo them.
 	var settings: Settings {
-		didSet { brain.updateSettings(settings: settings) }
+		didSet {
+			guard !syncing else { return }
+			var live = brain.settings()
+			live.chattiness = settings.chattiness
+			live.size = settings.size
+			live.inCall = settings.inCall
+			live.readTitles = settings.readTitles
+			live.language = settings.language
+			live.house = settings.house
+			live.parts = settings.parts
+			live.pinnedProps = settings.pinnedProps
+			brain.updateSettings(settings: live)
+			if settings.language != oldValue.language { copy = Self.copy(copyJSON, settings.language, system) }
+		}
 	}
+	@ObservationIgnored private var syncing = false
+	/// The window's words, in the language it is set to, redrawn when that changes.
+	private(set) var copy: PrefsCopy
 	var launchAtLogin = SMAppService.mainApp.status == .enabled {
 		didSet {
 			guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
@@ -67,9 +88,25 @@ final class PrefsModel {
 		}
 	}
 
-	init(brain: Brain) {
+	init(brain: Brain, copyJSON: String, system: String) {
 		self.brain = brain
+		self.copyJSON = copyJSON
+		self.system = system
+		let settings = brain.settings()
+		self.settings = settings
+		copy = Self.copy(copyJSON, settings.language, system)
+	}
+
+	/// The core's settings as they are now, read each time the window opens.
+	func refresh() {
+		syncing = true
 		settings = brain.settings()
+		syncing = false
+		copy = Self.copy(copyJSON, settings.language, system)
+	}
+
+	private static func copy(_ json: String, _ language: String, _ system: String) -> PrefsCopy {
+		PrefsCopy(json: json, language: language == "auto" ? system : language)
 	}
 
 	var parts: [String: String] {
@@ -126,7 +163,7 @@ private let crops: [String: (CGFloat, CGFloat, CGFloat)] = [
 private struct PrefsView: View {
 	let art: Art
 	@Bindable var model: PrefsModel
-	let copy: PrefsCopy
+	var copy: PrefsCopy { model.copy }
 	// `TICO_PREFS=body:neck` opens on a tab and a place, for looking at it.
 	@State private var tab = Self.start.first ?? "settings"
 	@State private var open: String? = Self.start.count > 1 ? Self.start[1] : nil
@@ -156,9 +193,9 @@ private struct PrefsView: View {
 			.overlay(alignment: .bottom) { Rectangle().fill(Color(tone: Tone.line)).frame(height: 1) }
 
 			if tab == "settings" {
-				SettingsPanel(model: model, copy: copy)
+				SettingsPanel(model: model)
 			} else {
-				Cas(art: art, model: model, copy: copy, open: $open, showing: $showing)
+				Cas(art: art, model: model, open: $open, showing: $showing)
 					.padding(.top, 12)
 			}
 		}
@@ -216,7 +253,7 @@ private struct Check: View {
 
 private struct SettingsPanel: View {
 	@Bindable var model: PrefsModel
-	let copy: PrefsCopy
+	var copy: PrefsCopy { model.copy }
 
 	var body: some View {
 		ScrollView {
@@ -316,7 +353,7 @@ private struct Flow: Layout {
 private struct Cas: View {
 	let art: Art
 	@Bindable var model: PrefsModel
-	let copy: PrefsCopy
+	var copy: PrefsCopy { model.copy }
 	@Binding var open: String?
 	@Binding var showing: String
 

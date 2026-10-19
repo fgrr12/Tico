@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var panel: PetPanel?
 	private var sheet: NSWindow?
 	private var prefs: NSWindow?
+	private var prefsModel: PrefsModel?
 	/// The cutaway, while it is open, and the click-outside watch that shuts it.
 	private let burrow = BurrowPanel()
 	private var burrowOpen = false
@@ -39,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
 	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
 	private var poll: Timer?
+	private var hover: Timer?
 	private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 	/// "Go home", or "Come out" while he is in.
 	private let homeItem = NSMenuItem(title: "Go home", action: #selector(goHome), keyEquivalent: "")
@@ -51,7 +53,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
-		if let art = try? Art.load(), let screen = NSScreen.main {
+		// The primary display (the one with the menu bar), as the Tauri build anchors to.
+		if let art = try? Art.load(), let screen = NSScreen.screens.first {
 			// What he remembers and how he is set up: tico.json and memory.json in
 			// this app's own folder, started from the Tauri build's the first time
 			// — never written back there, so the two can run side by side.
@@ -79,6 +82,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 					guard let self, let panel else { return }
 					self.think(art: art, panel: panel)
 				}
+			}
+			// Displays plugged in, unplugged or rearranged: back along the bottom
+			// of the primary one.
+			NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+				MainActor.assumeIsolated { self?.reanchor() }
 			}
 			musicSense.watch { [weak self] track in
 				guard let self, !self.lyra.active else { return }
@@ -189,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private func think(art: Art, panel: PetPanel) {
 		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: senses(panel))
 		panel.hitTest(cursor: NSEvent.mouseLocation)
+		watchCloser(panel)
 		// A key in the last second and a half, anywhere — never which key.
 		let typing = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown) < 1.5
 		panel.veil(cursor: NSEvent.mouseLocation, typing: typing)
@@ -243,6 +252,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		outside = nil
 	}
 
+	/// With the pointer near him (or the portal, or a bubble), whether it is over
+	/// him is checked twenty times a second: at the four ticks a second alone, a
+	/// quick click on him while he walks went through to the desktop, and
+	/// `cursor.rs` polls at 20Hz for the same reason. Only near: waking 20 times
+	/// a second all the time doubled what he costs standing still.
+	private func watchCloser(_ panel: PetPanel) {
+		let near = panel.near(cursor: NSEvent.mouseLocation, within: 220)
+		if near, hover == nil {
+			hover = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak panel] _ in
+				MainActor.assumeIsolated { panel?.hitTest(cursor: NSEvent.mouseLocation) }
+			}
+		} else if !near, let timer = hover {
+			timer.invalidate()
+			hover = nil
+		}
+	}
+
 	/// `TICO_SELFTEST=1`: handles him the way the mouse would — the same
 	/// callbacks, through the core and back — on a schedule a script can time
 	/// screenshots against (each step prints when it happens). A click at 2s,
@@ -286,7 +312,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		if let art, let panel { think(art: art, panel: panel) }
 	}
 
-	@objc private func show() { panel?.orderFrontRegardless() }
+	/// Along the bottom of the primary display again, whichever it now is —
+	/// on a display change, and on Show, which is how you get him back if he
+	/// was left somewhere strange.
+	private func reanchor() {
+		guard let panel, let primary = NSScreen.screens.first else { return }
+		screen = primary
+		panel.place(on: primary)
+		if burrowOpen { closeBurrow(panel) }
+	}
+
+	@objc private func show() {
+		reanchor()
+		panel?.orderFrontRegardless()
+	}
 	@objc private func hide() { panel?.orderOut(nil) }
 
 	/// Minutes of silence; -1 is until said otherwise, 0 lifts it.
@@ -299,10 +338,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 	@objc private func openPrefs() {
 		guard let art else { return }
-		if prefs == nil {
-			let language = brain.settings().language
-			let copy = PrefsCopy(json: copyJSON, language: language == "auto" ? systemLanguage : language)
-			prefs = PrefsWindow.make(art: art, brain: brain, copy: copy)
+		if let prefsModel {
+			prefsModel.refresh()
+		} else {
+			let model = PrefsModel(brain: brain, copyJSON: copyJSON, system: systemLanguage)
+			prefsModel = model
+			prefs = PrefsWindow.make(art: art, model: model)
 			NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: prefs, queue: .main) { _ in
 				MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
 			}
@@ -342,7 +383,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false, home: false, portal: nil
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false, home: false, wave: 0, portal: nil
 		)
 		if step != shown {
 			shown = step
