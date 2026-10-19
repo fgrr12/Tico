@@ -32,10 +32,9 @@ targets:
         embed: false
     settings:
       base:
-        # Not the Tauri app's `com.fgrr6.tico` yet: with the same id, `open`
-        # brings the running Tauri pet forward instead of launching this one.
-        # Takes that id the day it replaces it, as Lyra's native build did.
-        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.native
+        # The Tauri app's id: this build replaced it on macOS, as Lyra's did,
+        # and so uses its data folder and its permission grants' name.
+        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico
         PRODUCT_NAME: tico
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "0.1.0"
@@ -57,7 +56,7 @@ targets:
       - target: Tico
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.native.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.fgrr6.tico.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/tico.app/Contents/MacOS/tico"
         BUNDLE_LOADER: "$(TEST_HOST)"

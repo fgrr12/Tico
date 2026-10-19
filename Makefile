@@ -24,11 +24,10 @@ app: project
 	xcodebuild -project $(APP_DIR)/Tico.xcodeproj -scheme Tico -configuration $(CONFIG) \
 		-derivedDataPath $(DERIVED) build -quiet
 
-# Installs to ~/Applications, like Flint and Lyra. Does not touch the Tauri tico
-# in /Applications: this build draws nothing yet, and quitting the real pet on
-# every build would be a poor trade. Start doing it once this one replaces it.
+# Installs to ~/Applications, like Flint and Lyra, quitting whichever tico is
+# running first — the Tauri one too, should it still be about: they share an id.
 run: app
-	-pkill -f '$(HOME)/Applications/tico.app'
+	-pkill -x tico
 	rm -rf ~/Applications/tico.app
 	cp -R $(DERIVED)/Build/Products/$(CONFIG)/tico.app ~/Applications/
 	open ~/Applications/tico.app

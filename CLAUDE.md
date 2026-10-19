@@ -108,7 +108,7 @@ permission prompt without it being in the plan.
 
 ## Native builds (in progress)
 
-The Tauri app is being replaced platform by platform with native shells over a
+The Tauri app is being replaced platform by platform (macOS done) with native shells over a
 shared Rust core, Flint's layout: `core/` (`tico-core`, all logic, no UI, no OS
 calls, UniFFI proc-macros), `ffi/` (links it, no logic), `apps/macos/` (Swift,
 AppKit, Core Animation). The reason is measured: the WebView costs ~240 MB and
@@ -124,8 +124,9 @@ make art        # or `pnpm art`: re-export art/tico.json
 
 Prerequisites: Rust, Xcode, `brew install xcodegen`. Generated and gitignored:
 `target/`, `apps/macos/build/`, `Tico.xcodeproj`, `Tico/Bridge/`,
-`Signing.xcconfig`. The native app is `com.fgrr6.tico.native` until it replaces
-the Tauri one, so both can run side by side.
+`Signing.xcconfig`. On macOS the native app has replaced the Tauri one: it is
+`com.fgrr6.tico` (the Tauri id), installed in ~/Applications, and the Tauri
+build ships only for Windows and Linux. `make CONFIG=Release` for day to day.
 
 **The art is data, exported, never redrawn.** `scripts/export-art.mjs` walks what
 `parts.tsx` and `CompanionFace.tsx` return and writes `art/tico.json`: shared
@@ -208,10 +209,11 @@ after each walk). Memory counts days and streaks (`count_day` on launch and when
 the date in `Senses.today` turns over), pets, pick-ups and props worn, picks the
 favourite (4+ wearings), and the boot line ladders like Tauri's: first day,
 back after days, day milestones, streaks, else `boot`; chatter mixes in
-`memory.tier` by familiarity. The native app keeps its files in its own folder
-(Application Support/<bundle id>) and seeds them once from the Tauri build's,
-never writing there, so both can run at once; on taking the Tauri id it simply
-uses the original folder.
+`memory.tier` by familiarity. The files live in Application Support/<bundle
+id>, which with the Tauri id is the Tauri build's own folder (the seeding from
+it only applies under another id, e.g. a `TICO_DATA` run). When the native
+build took the id, its files replaced the Tauri ones there (the Tauri state was
+kept in `com.fgrr6.tico.tauri-backup`).
 
 The menu is the Tauri tray, item for item (Show, Hide, Quiet ▸, Preferences…,
 Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx` and `prefs.css`, drawn the same:
