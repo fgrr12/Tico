@@ -37,6 +37,15 @@ impl Copy {
         }
     }
 
+    /// A single string at a dotted path (a label, not a pool).
+    pub fn text(&self, path: &str) -> Option<String> {
+        let mut at = &self.root;
+        for key in path.split('.') {
+            at = at.get(key)?;
+        }
+        at.as_str().map(str::to_string)
+    }
+
     /// One line as text: the hour picks from an hour table, `args` fill `{0}`, `{1}`.
     pub fn render(line: &Value, hour: u8, args: &[&str]) -> Option<String> {
         match line {

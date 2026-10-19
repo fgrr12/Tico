@@ -19,7 +19,7 @@ use crate::data::{
     worn_from,
 };
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
-use crate::store::{Memory, Opening, Parts, Settings, Store};
+use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
 
 /// Falls asleep after this long with no cursor movement anywhere on screen.
 const SLEEP_AFTER: u64 = 90_000;
@@ -150,6 +150,9 @@ pub struct Speech {
     pub text: String,
     pub serial: u32,
     pub reveal_ms: u64,
+    /// A reminder carries a button: its id, and the button's label.
+    pub reminder: Option<String>,
+    pub button: Option<String>,
 }
 
 /// Where the eyes point, each −1…1.
@@ -276,6 +279,14 @@ struct State {
     clicks: (u32, u64),
     copy: Option<Copy>,
     speech: Option<(String, u64)>,
+    /// The reminder the bubble is showing, if it is one.
+    speech_reminder: Option<String>,
+    reminders: Vec<Reminder>,
+    reminded_today: HashSet<String>,
+    reminder_at: u64,
+    today: String,
+    /// The clock at the last tick, for things the shell reports between ticks.
+    last_tick: u64,
     speech_serial: u32,
     started: Option<u64>,
     booted: bool,
@@ -369,6 +380,12 @@ impl Brain {
                 clicks: (0, 0),
                 copy: None,
                 speech: None,
+                speech_reminder: None,
+                reminders: Vec::new(),
+                reminded_today: HashSet::new(),
+                reminder_at: 0,
+                today: String::new(),
+                last_tick: 0,
                 speech_serial: 0,
                 started: None,
                 booted: false,
@@ -440,9 +457,28 @@ impl Brain {
             Store::open(std::path::Path::new(&dir), seed.as_deref().map(std::path::Path::new));
         s.settings = store.settings();
         s.memory = store.memory();
+        s.reminders = store.reminders(&today);
         s.store = Some(store);
         s.count_day(&today);
         s.load_copy();
+    }
+
+    /// The reminder `id` is done: a monthly one moves on a month, any other is
+    /// finished. The bubble goes.
+    pub fn complete_reminder(&self, id: String) {
+        let mut s = self.state.lock().unwrap();
+        for r in s.reminders.iter_mut().filter(|r| r.id == id) {
+            r.complete();
+        }
+        if let Some(store) = &s.store {
+            store.save_reminders(&s.reminders);
+        }
+        if s.speech_reminder.as_deref() == Some(id.as_str()) {
+            s.speech = None;
+            s.speech_reminder = None;
+        }
+        let now = s.last_tick;
+        s.react(now, Mood::Happy, Some("hop"), 2_000);
     }
 
     /// The settings as they stand, for the shell (the body, the size).
@@ -522,6 +558,19 @@ impl Brain {
     pub fn tick(&self, now_ms: u64, senses: Senses) -> Frame {
         let mut s = self.state.lock().unwrap();
         let now = now_ms;
+        s.last_tick = now;
+        if s.started.is_none() {
+            // The floors that count from launch, as the Tauri build's refs start at
+            // `Date.now()`: talk, moments, strolls, and the first reminder check 9s
+            // in. With a monotonic clock that does not start at zero, leaving them
+            // at zero made all of them due on the very first tick.
+            s.chatter_at = now;
+            s.wander_at = now;
+            s.reminder_at = now;
+            if s.moment_at != u64::MAX {
+                s.moment_at = now;
+            }
+        }
         let started = *s.started.get_or_insert(now);
         // Idle time counts from launch at most: a pet that opens asleep because
         // you were away before it started has not been ignored by anyone.
@@ -568,6 +617,7 @@ impl Brain {
         }
         if s.speech.as_ref().is_some_and(|(_, until)| now >= *until) {
             s.speech = None;
+            s.speech_reminder = None;
         }
         if s.x.is_none() {
             // A little way in from the left, where the Tauri build starts him the
@@ -593,6 +643,7 @@ impl Brain {
             s.notice(now);
         }
         s.remark_on_app(now);
+        s.remind(now);
 
         if senses.idle_ms > SLEEP_AFTER {
             if !s.asleep && s.free() {
@@ -646,6 +697,11 @@ impl Brain {
                 text: text.clone(),
                 serial: s.speech_serial,
                 reveal_ms: s.reveal(),
+                reminder: s.speech_reminder.clone(),
+                button: s
+                    .speech_reminder
+                    .as_ref()
+                    .and_then(|_| s.copy.as_ref()?.text("reminderDone")),
             }),
         }
     }
@@ -932,6 +988,10 @@ impl State {
     }
 
     fn count_day(&mut self, today: &str) {
+        if self.today != today {
+            self.today = today.to_string();
+            self.reminded_today.clear();
+        }
         let away = self.memory.roll(today);
         self.save_memory();
         self.opening = Some(self.memory.opening(away));
@@ -1009,6 +1069,30 @@ impl State {
         }
     }
 
+    /// Once a day per reminder, in a gap rather than taking one: the same
+    /// `can_speak` as everything unprompted, so quiet and calls hold.
+    fn remind(&mut self, now: u64) {
+        if now.saturating_sub(self.reminder_at) < 9_000 || !self.can_speak(now) {
+            return;
+        }
+        self.reminder_at = now;
+        let today = self.today.clone();
+        let Some(next) = self
+            .reminders
+            .iter()
+            .find(|r| r.due_on(&today) && !self.reminded_today.contains(&r.id))
+            .cloned()
+        else {
+            return;
+        };
+        self.reminded_today.insert(next.id.clone());
+        self.react(now, Mood::Watching, Some("pop"), 3_000);
+        self.say(now, next.text, 20_000);
+        if self.speech.is_some() {
+            self.speech_reminder = Some(next.id);
+        }
+    }
+
     fn say(&mut self, now: u64, text: String, ms: u64) {
         // "Quiet for an hour" from the menu holds everything he would volunteer.
         // In a call he keeps his gestures and loses his voice: talking over a
@@ -1020,6 +1104,7 @@ impl State {
         }
         let until = now + ms + text.chars().count() as u64 * self.reveal();
         self.speech = Some((text, until));
+        self.speech_reminder = None;
         self.speech_serial = self.speech_serial.wrapping_add(1);
     }
 
@@ -2124,7 +2209,11 @@ mod tests {
                 last_effect = e.serial;
                 effects.push(e.name);
             }
-            assert!(f.x <= 1512.0 + 1.0 && (f.x >= edge - 1.0 || f.x <= 0.0 || f.walking), "x = {} in a call", f.x);
+            assert!(
+                f.x <= 1512.0 + 1.0 && (f.x >= edge - 1.0 || f.x <= 0.0 || f.walking),
+                "x = {} in a call",
+                f.x
+            );
         }
         assert!(!effects.is_empty(), "no gestures in twenty minutes of a call");
         for name in ["hop", "spin", "bounce", "pogo", "land"] {
@@ -2147,5 +2236,53 @@ mod tests {
         assert!(brain.tick(1_000, calling(true)).hidden);
         assert!(!brain.tick(2_000, calling(false)).hidden);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_due_reminder_is_said_once_a_day_with_a_button_and_done_moves_it_on() {
+        let dir = folder("remind", "{}", "{}");
+        std::fs::write(
+            dir.join("reminders.json"),
+            r#"[{"id":"iva","text":"El IVA vence el 15.","due":"2026-10-15","remind_from":"2026-10-01","repeat":"monthly"}]"#,
+        )
+        .unwrap();
+        let brain = Brain::still();
+        brain.open(dir.to_string_lossy().into(), None, "2026-10-18".into());
+        brain.set_copy(COPY.into(), "es".into());
+        let mut shown = Vec::new();
+        let mut last = 0;
+        for i in 0..(5 * 240) {
+            let f = brain
+                .tick(i * 250, Senses { front_app: Some("Finder".into()), ..dated("2026-10-18") });
+            if let Some(s) = f.speech
+                && s.serial != last
+            {
+                last = s.serial;
+                if s.reminder.is_some() {
+                    shown.push((s.text, s.button));
+                }
+            }
+        }
+        assert_eq!(shown.len(), 1, "once a day: {shown:?}");
+        assert_eq!(shown[0].0, "El IVA vence el 15.");
+        assert!(shown[0].1.is_some(), "no button label");
+        brain.complete_reminder("iva".into());
+        let saved: Vec<Reminder> =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("reminders.json")).unwrap())
+                .unwrap();
+        assert_eq!(saved[0].due, "2026-11-15");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_clock_that_does_not_start_at_zero_does_not_make_everything_due_at_once() {
+        // The shell's clock is uptime: hours in, never zero.
+        let brain = talker("en");
+        let t0 = 5 * 3_600_000;
+        let first = brain.tick(t0, quiet_senses(Some("Finder")));
+        assert!(first.speech.is_none(), "spoke on the first tick: {:?}", first.speech);
+        assert_eq!(first.move_serial, 0, "walked on the first tick");
+        let hello = brain.tick(t0 + 1_700, quiet_senses(Some("Finder"))).speech.unwrap().text;
+        assert!(lines("en", "boot").contains(&hello), "{hello}");
     }
 }

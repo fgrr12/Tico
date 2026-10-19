@@ -25,6 +25,8 @@ final class PetPanel: NSPanel {
 	var onPress: ((CGPoint) -> Void)?
 	var onDrag: ((CGPoint) -> Void)?
 	var onRelease: (() -> Void)?
+	/// The reminder whose button was pressed.
+	var onDone: ((String) -> Void)?
 	private var pressed = false
 
 	/// Travels: what moves along the strip, carrying him and what he says.
@@ -70,6 +72,13 @@ final class PetPanel: NSPanel {
 		let view = StripView(frame: NSRect(origin: .zero, size: size))
 		view.onDown = { [weak self] p in
 			guard let self else { return }
+			// The reminder's button takes the click; anywhere else is him.
+			if let button = self.buttonOnScreen, let id = self.bubble.reminder,
+				button.contains(NSPoint(x: p.x + self.frame.minX, y: p.y + self.frame.minY))
+			{
+				self.onDone?(id)
+				return
+			}
 			self.pressed = true
 			self.onPress?(CGPoint(x: p.x, y: p.y - Self.below))
 		}
@@ -142,10 +151,17 @@ final class PetPanel: NSPanel {
 		bubble.veil(typing || near)
 	}
 
+	/// The reminder button in screen coordinates, when there is one to press.
+	private var buttonOnScreen: CGRect? {
+		guard let button = bubble.buttonFrame else { return nil }
+		let w = (walker.presentation() ?? walker).frame
+		return button.offsetBy(dx: w.minX + frame.minX, dy: w.minY + frame.minY)
+	}
+
 	func hitTest(cursor: NSPoint) {
 		guard !pressed else { return }
 		let box = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
-		let over = box.contains(cursor)
+		let over = box.contains(cursor) || buttonOnScreen?.contains(cursor) == true
 		if ignoresMouseEvents == over { ignoresMouseEvents = !over }
 	}
 

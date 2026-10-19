@@ -40,9 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			// this app's own folder, started from the Tauri build's the first time
 			// — never written back there, so the two can run side by side.
 			let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-			let own = support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.fgrr6.tico")
+			// `TICO_DATA=<folder>` uses another folder, for trying things without
+			// touching your real tico.
+			let own = ProcessInfo.processInfo.environment["TICO_DATA"].map { URL(fileURLWithPath: $0) }
+				?? support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.fgrr6.tico")
 			let tauri = support.appendingPathComponent("com.fgrr6.tico")
-			brain.open(dir: own.path, seed: own == tauri ? nil : tauri.path, today: Sensing.today)
+			let seed = own == tauri || ProcessInfo.processInfo.environment["TICO_DATA"] != nil ? nil : tauri.path
+			brain.open(dir: own.path, seed: seed, today: Sensing.today)
 			// What he says, in the language macOS is set to: Spanish or English.
 			if let url = Bundle.main.url(forResource: "copy", withExtension: "json"), let json = try? String(contentsOf: url, encoding: .utf8) {
 				copyJSON = json
@@ -72,6 +76,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			panel.onDrag = { [weak self, weak panel] p in
 				guard let self, let panel else { return }
 				self.brain.drag(nowMs: Sensing.clock, px: p.x, py: p.y)
+				self.think(art: art, panel: panel)
+			}
+			panel.onDone = { [weak self, weak panel] id in
+				guard let self, let panel else { return }
+				self.brain.completeReminder(id: id)
 				self.think(art: art, panel: panel)
 			}
 			panel.onRelease = { [weak self, weak panel] in
@@ -123,6 +132,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		panel.veil(cursor: NSEvent.mouseLocation, typing: typing)
 		// Most ticks change nothing; those cost one comparison.
 		guard next != frame else { return }
+		// `TICO_LOG=1`: every change of mood, effect or speech, for debugging.
+		if ProcessInfo.processInfo.environment["TICO_LOG"] != nil {
+			print("tico \(Sensing.clock) \(next.mood) \(next.feeling) x=\(Int(next.x)) effect=\(next.effect?.name ?? "-") speech=\(next.speech.map { "\($0.reminder ?? "")|\($0.text)" } ?? "-")")
+			fflush(stdout)
+		}
 		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
 			stateItem.title = "\(next.mood) · \(next.feeling)\(next.singing ? " · singing" : "")"
 		}

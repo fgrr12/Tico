@@ -228,7 +228,18 @@ mutes him, and runs `peek_poll` — calm gestures only, never a travelling momen
 a wave every 14s, round the back to the other edge now and then — and walks
 him home when the call ends; hide sets `Frame.hidden`; ignore carries on.
 Typing (`keyDown` in the last 1.5s, never which key) or the cursor within 24pt
-veils the bubble to 12%, as `[data-veiled]` does. Its words are
+veils the bubble to 12%, as `[data-veiled]` does.
+
+Reminders: `reminders.json` (same file, seeded with the Tauri build's IVA
+reminder) in `store.rs`, due from `remind_from` (or a week before) to a month
+past due; the brain says one, once a day, in a gap (`can_speak`), and the
+bubble shows `.companion-done` under it — the one bubble the strip takes clicks
+on; `Brain::complete_reminder` moves a monthly one on a month. The shell's
+clock is uptime, never zero: anything the Tauri build starts at `Date.now()`
+(talk, moments, strolls, the first reminder check) is set on the first tick,
+or all of it would be due at once — `a_clock_that_does_not_start_at_zero…`
+guards it. `TICO_DATA=<folder>` runs on another data folder;
+`TICO_LOG=1` prints every change of mood, effect and speech. Its words are
 `src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
 through `Brain::update_settings`, which saves `tico.json`. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s

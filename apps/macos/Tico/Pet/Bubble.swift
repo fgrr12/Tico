@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import QuartzCore
 
 /// What he says, drawn the way `.companion-bubble` is: chrome background, a
@@ -14,6 +15,10 @@ final class Bubble {
 	private let box = CALayer()
 	private let tail = CALayer()
 	private let text = CATextLayer()
+	/// A reminder's "done", a pill under the text (`.companion-done`).
+	private let button = CALayer()
+	private let label = CATextLayer()
+	private static let buttonFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
 	private var typing: Timer?
 	private var serial: UInt32?
 
@@ -48,6 +53,11 @@ final class Bubble {
 		layer.addSublayer(tail)
 		layer.addSublayer(box)
 		box.addSublayer(text)
+		button.backgroundColor = Painter.color("#bb9af7")
+		label.contentsScale = text.contentsScale
+		label.alignmentMode = .center
+		button.addSublayer(label)
+		box.addSublayer(button)
 		layer.isHidden = true
 	}
 
@@ -61,12 +71,24 @@ final class Bubble {
 		guard speech.serial != serial else { return }
 		serial = speech.serial
 
+		// Measured by CoreText, which is what CATextLayer draws with: AppKit's
+		// own measurement disagrees with it by a line once the text wraps.
 		let full = attributed(speech.text)
-		let inner = full.boundingRect(
-			with: CGSize(width: Self.maxWidth - Self.padding.width * 2, height: 10_000),
-			options: [.usesLineFragmentOrigin, .usesFontLeading]
+		let setter = CTFramesetterCreateWithAttributedString(full)
+		let inner = CTFramesetterSuggestFrameSizeWithConstraints(
+			setter, CFRange(location: 0, length: 0), nil,
+			CGSize(width: Self.maxWidth - Self.padding.width * 2, height: 10_000), nil
 		)
-		let size = CGSize(width: ceil(inner.width) + Self.padding.width * 2, height: ceil(inner.height) + Self.padding.height * 2)
+		// Room for the button from the start, so nothing reflows when it appears.
+		let pill = speech.button.map { title -> CGSize in
+			let w = (title as NSString).size(withAttributes: [.font: Self.buttonFont]).width
+			return CGSize(width: ceil(w) + 0.55 * 16 * 2, height: ceil(Self.buttonFont.ascender - Self.buttonFont.descender) + 0.2 * 16 * 2)
+		}
+		let extra = pill.map { $0.height + 0.5 * 16 } ?? 0
+		let size = CGSize(
+			width: max(ceil(inner.width), pill?.width ?? 0) + Self.padding.width * 2,
+			height: ceil(inner.height) + Self.padding.height * 2 + extra
+		)
 
 		CATransaction.begin()
 		CATransaction.setDisableActions(true)
@@ -74,7 +96,20 @@ final class Bubble {
 		layer.frame = CGRect(x: x, y: width + Self.gap, width: size.width, height: size.height)
 		box.frame = layer.bounds
 		box.shadowPath = CGPath(roundedRect: box.bounds, cornerWidth: 12, cornerHeight: 12, transform: nil)
-		text.frame = box.bounds.insetBy(dx: Self.padding.width, dy: Self.padding.height)
+		text.frame = CGRect(
+			x: Self.padding.width, y: Self.padding.height + extra,
+			width: size.width - Self.padding.width * 2, height: size.height - Self.padding.height * 2 - extra
+		)
+		if let pill, let title = speech.button {
+			button.frame = CGRect(x: Self.padding.width, y: Self.padding.height, width: pill.width, height: pill.height)
+			button.cornerRadius = pill.height / 2
+			label.string = NSAttributedString(string: title, attributes: [
+				.font: Self.buttonFont, .foregroundColor: NSColor(cgColor: Painter.color("#1a1c23")) ?? .black,
+			])
+			label.frame = button.bounds.insetBy(dx: 0, dy: 0.2 * 16 - 1)
+		}
+		button.isHidden = true
+		reminder = speech.reminder
 		// 26px in from the side he is anchored to, half below the box.
 		tail.position = CGPoint(x: onLeft ? 26 + 4.5 : size.width - 26 - 4.5, y: 0)
 		text.string = attributed("")
@@ -107,7 +142,11 @@ final class Bubble {
 				CATransaction.setDisableActions(true)
 				self.text.string = self.attributed(String(characters.prefix(shown)))
 				CATransaction.commit()
-				if shown >= characters.count { self.typing?.invalidate() }
+				if shown >= characters.count {
+					self.typing?.invalidate()
+					// The button once the line is all there, as in the web build.
+					if self.reminder != nil { self.button.isHidden = false }
+				}
 			}
 		}
 	}
@@ -116,7 +155,8 @@ final class Bubble {
 	/// in the way: while you type, or reach for it with the cursor, it fades to
 	/// 12% (`.companion-bubble[data-veiled]`) and comes back when you stop.
 	func veil(_ on: Bool) {
-		let target: Float = on ? 0.12 : 1
+		// A button at 12% is a button you cannot find.
+		let target: Float = on && reminder == nil ? 0.12 : 1
 		guard box.opacity != target else { return }
 		let fade = CABasicAnimation(keyPath: "opacity")
 		fade.fromValue = box.presentation()?.opacity ?? box.opacity
@@ -132,9 +172,19 @@ final class Bubble {
 	/// The bubble's box in its superlayer's coordinates, when it is showing.
 	var frame: CGRect? { layer.isHidden ? nil : layer.frame }
 
+	/// The reminder being shown, if the bubble is one.
+	private(set) var reminder: String?
+
+	/// The button's box in the bubble's superlayer, when it can be pressed.
+	var buttonFrame: CGRect? {
+		guard !layer.isHidden, !button.isHidden, reminder != nil else { return nil }
+		return button.frame.offsetBy(dx: layer.frame.minX, dy: layer.frame.minY)
+	}
+
 	private func hide() {
 		guard serial != nil else { return }
 		serial = nil
+		reminder = nil
 		typing?.invalidate()
 		layer.isHidden = true
 	}
