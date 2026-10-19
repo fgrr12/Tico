@@ -55,7 +55,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		// One tico: a second launch (from Finder, a login item and a click, two
 		// builds of the same id) brings the running one forward and leaves.
-		if let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+		// Not as XCTest's host, which runs beside the real one on purpose.
+		if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+			let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
 			.first(where: { $0 != .current })
 		{
 			other.activate()
