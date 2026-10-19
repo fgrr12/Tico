@@ -20,8 +20,15 @@ enum Sensing {
 			stripWidth: Double(panel.frame.width),
 			stripHeight: Double(panel.reach),
 			cursorX: onStrip.map { Double($0.x) },
-			cursorY: onStrip.map { Double($0.y) }
+			cursorY: onStrip.map { Double($0.y) },
+			today: today
 		)
+	}
+
+	/// The local date, `YYYY-MM-DD`: how the memory counts days.
+	static var today: String {
+		let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+		return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
 	}
 
 	/// Monotonic milliseconds for the core, which only uses differences.

@@ -6,6 +6,7 @@
 //! - [`data`]: the pure functions of `src/data/companion.ts` (time, energy,
 //!   feelings, palette, apps, dances, familiarity, what he wears).
 //! - [`copy`]: what he says, in both languages, from `art/copy.json`.
+//! - [`store`]: `tico.json` and `memory.json`, as the Tauri build writes them.
 //! - [`brain`]: the poll that decides on its own — sleep, waking, feelings,
 //!   and which [`moments`] he has unprompted.
 
@@ -17,6 +18,7 @@ pub mod brain;
 pub mod copy;
 pub mod data;
 pub mod moments;
+pub mod store;
 
 #[derive(uniffi::Object)]
 pub struct TicoCore {}

@@ -14,10 +14,12 @@ use std::sync::{Arc, Mutex};
 
 use crate::copy::Copy;
 use crate::data::{
-    Colours, Feeling, PROPS, SOUVENIRS, Sensed, TERRORS, TimeOfDay, WornProp, dance_style,
-    energy_at, feeling_from, match_app, palette, time_of_day, worn_from,
+    Colours, Familiarity, Feeling, PROPS, SOUVENIRS, Sensed, TERRORS, TimeOfDay, WornProp,
+    dance_style, energy_at, familiarity_from, feeling_from, match_app, palette, time_of_day,
+    worn_from,
 };
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
+use crate::store::{Memory, Opening, Parts, Settings, Store};
 
 /// Falls asleep after this long with no cursor movement anywhere on screen.
 const SLEEP_AFTER: u64 = 90_000;
@@ -71,6 +73,9 @@ const SWITCH_LIMIT: usize = 6;
 const SWITCH_COOLDOWN: u64 = 900_000;
 /// The first thing he says, this long after launch.
 const BOOT_AFTER: u64 = 1_600;
+/// Days and streaks worth remarking on at launch.
+const DAY_MILESTONES: [u32; 4] = [7, 30, 100, 365];
+const STREAK_MILESTONES: [u32; 3] = [5, 15, 50];
 /// How long the taking-off of a prop takes before it is gone.
 const PROP_LEAVE: u64 = 400;
 /// Feelings he is not always in the mood to be petted in.
@@ -122,6 +127,8 @@ pub struct Senses {
     /// y up from his floor.
     pub cursor_x: Option<f64>,
     pub cursor_y: Option<f64>,
+    /// The local date, `YYYY-MM-DD`: a new one is a day known.
+    pub today: String,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -173,6 +180,8 @@ pub struct Frame {
     pub speech: Option<Speech>,
     /// What he has on, back to front; `leaving` is on its way off.
     pub worn: Vec<WornProp>,
+    /// The body he was given.
+    pub parts: Parts,
 }
 
 /// What happens when he gets where he was going.
@@ -278,6 +287,12 @@ struct State {
     prop_leaving: bool,
     /// The song last seen, to notice a new one.
     track: Option<(String, String)>,
+    store: Option<Store>,
+    settings: Settings,
+    memory: Memory,
+    opening: Option<Opening>,
+    /// The language macOS asked for, used when the settings say "auto".
+    copy_json: Option<(String, String)>,
     rng: u64,
 }
 
@@ -357,6 +372,11 @@ impl Brain {
                 prop_until: 0,
                 prop_leaving: false,
                 track: None,
+                store: None,
+                settings: Settings::default(),
+                memory: Memory::default(),
+                opening: None,
+                copy_json: None,
                 rng: seed.max(1),
             }),
         }
@@ -392,7 +412,27 @@ impl Brain {
     /// What he says, from `art/copy.json`, in `language` ("en" or "es";
     /// anything else is English). Without it he is silent.
     pub fn set_copy(&self, json: String, language: String) {
-        self.state.lock().unwrap().copy = Copy::parse(&json, &language);
+        let mut s = self.state.lock().unwrap();
+        s.copy_json = Some((json, language));
+        s.load_copy();
+    }
+
+    /// Reads `tico.json` and `memory.json` from `dir`, seeding them from
+    /// `seed` (the Tauri build's folder) the first time, and counts `today`.
+    pub fn open(&self, dir: String, seed: Option<String>, today: String) {
+        let mut s = self.state.lock().unwrap();
+        let store =
+            Store::open(std::path::Path::new(&dir), seed.as_deref().map(std::path::Path::new));
+        s.settings = store.settings();
+        s.memory = store.memory();
+        s.store = Some(store);
+        s.count_day(&today);
+        s.load_copy();
+    }
+
+    /// The settings as they stand, for the shell (the body, the size).
+    pub fn settings(&self) -> Settings {
+        self.state.lock().unwrap().settings.clone()
     }
 
     /// A press on him at (`px`, `py`) on the strip — y up from his floor —
@@ -423,6 +463,8 @@ impl Brain {
             }
             hold.moved = true;
             s.drags.push(now_ms);
+            s.memory.drags += 1;
+            s.save_memory();
             s.hover_since = None;
             s.react(now_ms, Mood::Held, None, 0);
             s.say_from(now_ms, "drag", 2_600, &[]);
@@ -458,6 +500,9 @@ impl Brain {
         // you were away before it started has not been ignored by anyone.
         let mut senses = senses;
         senses.idle_ms = senses.idle_ms.min(now - started);
+        if !senses.today.is_empty() && senses.today != s.memory.last_seen && s.store.is_some() {
+            s.count_day(&senses.today);
+        }
 
         // The cursor moved since the last tick: he wakes, glad you are back.
         if s.asleep && senses.idle_ms < s.last_idle {
@@ -488,7 +533,7 @@ impl Brain {
         let started = s.started.unwrap_or(now);
         if !s.booted && now.saturating_sub(started) >= BOOT_AFTER {
             s.booted = true;
-            s.say_from(now, "boot", 6_000, &[]);
+            s.greet(now);
         }
         if s.speech.as_ref().is_some_and(|(_, until)| now >= *until) {
             s.speech = None;
@@ -496,12 +541,18 @@ impl Brain {
         if s.x.is_none() {
             // A little way in from the left, where the Tauri build starts him the
             // first time too.
-            s.x = Some((s.max_x() * 0.15).max(0.0));
+            // Where he stood last time, as a fraction of the strip.
+            s.x = Some((s.max_x() * s.settings.x.clamp(0.0, 1.0)).max(0.0));
         }
         if let Some(m) = s.moving
             && now >= m.until
         {
             s.moving = None;
+            // Remembered for the next launch — but not halfway round the back.
+            if !s.crossing && s.store.is_some() {
+                s.settings.x = (s.here() / s.max_x()).clamp(0.0, 1.0);
+                s.save_settings();
+            }
             s.arrived(now, m.after);
         }
         s.expire(now);
@@ -552,7 +603,8 @@ impl Brain {
             walking: s.moving.is_some() && !s.flying,
             flying: s.flying,
             facing_right: s.facing_right,
-            worn: worn_from(HashMap::new(), s.prop.clone(), s.prop_leaving),
+            worn: worn_from(s.settings.pinned_props.clone(), s.prop.clone(), s.prop_leaving),
+            parts: s.settings.parts.clone(),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -673,24 +725,29 @@ impl State {
 
         // Talk: the idle lines, the hour's, and twice the feeling's — what he
         // feels is the more interesting subject.
-        if !self.busy(now) && now.saturating_sub(self.chatter_at) > CHATTER_EVERY {
+        if !self.busy(now) && now.saturating_sub(self.chatter_at) > self.rated(CHATTER_EVERY) {
             self.chatter_at = now;
             let feeling = format!("feelings.{}", feeling_key(self.feeling));
             let hours = format!("hours.{}", tod_key(time_of_day(hour)));
-            self.say_pool(now, &["idle", &hours, &feeling, &feeling], 8_000, &[]);
+            // One copy of the memory lines: how long he has known you colours the
+            // conversation, it is never the subject of it.
+            let known =
+                format!("memory.tier.{}", familiarity_key(familiarity_from(self.memory.days)));
+            self.say_pool(now, &["idle", &hours, &known, &feeling, &feeling], 8_000, &[]);
             return;
         }
 
         // A stroll, when you have left him be for a few seconds.
         if idle_ms > 8_000
-            && now.saturating_sub(self.wander_at) > (WANDER_EVERY as f64 / energy.max(0.25)) as u64
+            && now.saturating_sub(self.wander_at)
+                > (self.rated(WANDER_EVERY) as f64 / energy.max(0.25)) as u64
         {
             self.wander_at = now;
             self.wander(now);
             return;
         }
 
-        let floor = (MOMENT_EVERY as f64 / energy.max(0.25)) as u64;
+        let floor = (self.rated(MOMENT_EVERY) as f64 / energy.max(0.25)) as u64;
         if now.saturating_sub(self.moment_at) <= floor || !self.chance(0.4 + energy * 0.4) {
             return;
         }
@@ -699,13 +756,26 @@ impl State {
         // One in nine, so it is a surprise rather than a wardrobe. Headphones
         // only while something plays — the one prop with a reason.
         if self.prop.is_none() && self.chance(0.11) {
+            // The favourite only tilts the odds: always the same hat is a uniform.
+            let favourite = self.opening.as_ref().and_then(|o| o.favourite.clone());
             let kind = if self.music.is_some() && self.chance(0.6) {
-                "headphones"
+                "headphones".to_string()
+            } else if let Some(f) = favourite.clone().filter(|_| self.chance(0.35)) {
+                f
             } else {
-                PROPS[self.below(PROPS.len())]
+                PROPS[self.below(PROPS.len())].to_string()
             };
+            // Only what he chose counts towards the favourite, never a souvenir.
+            *self.memory.props.entry(kind.clone()).or_insert(0) += 1;
+            self.save_memory();
             let speak = self.chance(0.65);
-            self.wear(now, kind, speak);
+            if speak && favourite.as_deref() == Some(kind.as_str()) && self.chance(0.5) {
+                self.wear(now, &kind, false);
+                self.pending
+                    .push((now + 1_200, Step::Say { path: "memory.favourite".into(), ms: 5_000 }));
+            } else {
+                self.wear(now, &kind, speak);
+            }
             return;
         }
 
@@ -819,6 +889,60 @@ impl State {
         }
     }
 
+    /// A floor stretched by how chatty he has been asked to be.
+    fn rated(&self, floor: u64) -> u64 {
+        (floor as f64 * self.settings.rate()) as u64
+    }
+
+    fn count_day(&mut self, today: &str) {
+        let away = self.memory.roll(today);
+        self.save_memory();
+        self.opening = Some(self.memory.opening(away));
+    }
+
+    fn save_memory(&self) {
+        if let Some(store) = &self.store {
+            store.save_memory(&self.memory);
+        }
+    }
+
+    fn save_settings(&self) {
+        if let Some(store) = &self.store {
+            store.save_settings(&self.settings);
+        }
+    }
+
+    /// The copy in the settings' language, or macOS's when that is "auto".
+    fn load_copy(&mut self) {
+        let Some((json, system)) = &self.copy_json else { return };
+        let language = match self.settings.language.as_str() {
+            "en" | "es" => self.settings.language.clone(),
+            _ => system.clone(),
+        };
+        self.copy = Copy::parse(json, &language);
+    }
+
+    /// The first thing he says: the one place the memory is loud, and only
+    /// the most interesting fact about it — coming back after days beats a
+    /// round number, which beats a streak, which beats the generic line.
+    fn greet(&mut self, now: u64) {
+        let Some(o) = self.opening.clone() else {
+            self.say_from(now, "boot", 6_000, &[]);
+            return;
+        };
+        if o.first_day {
+            self.say_from(now, "memory.hello", 6_000, &[]);
+        } else if o.away > 1 {
+            self.say_from(now, "memory.back", 6_000, &[&o.away.to_string()]);
+        } else if DAY_MILESTONES.contains(&o.days) {
+            self.say_from(now, "memory.milestone", 6_000, &[&o.days.to_string()]);
+        } else if STREAK_MILESTONES.contains(&o.streak) {
+            self.say_from(now, "memory.streak", 6_000, &[&o.streak.to_string()]);
+        } else {
+            self.say_from(now, "boot", 6_000, &[]);
+        }
+    }
+
     fn busy(&self, now: u64) -> bool {
         self.speech.as_ref().is_some_and(|(_, until)| now < *until)
     }
@@ -849,6 +973,10 @@ impl State {
     }
 
     fn say(&mut self, now: u64, text: String, ms: u64) {
+        // "Quiet for an hour" from the menu holds everything he would volunteer.
+        if self.settings.quiet_until > unix_now() {
+            return;
+        }
         let until = now + ms + text.chars().count() as u64 * self.reveal();
         self.speech = Some((text, until));
         self.speech_serial = self.speech_serial.wrapping_add(1);
@@ -887,7 +1015,7 @@ impl State {
             return;
         }
         if self.switches.len() > SWITCH_LIMIT
-            && now.saturating_sub(self.switch_line_at) > SWITCH_COOLDOWN
+            && now.saturating_sub(self.switch_line_at) > self.rated(SWITCH_COOLDOWN)
         {
             self.switch_line_at = now;
             self.app_line_at = now;
@@ -895,11 +1023,17 @@ impl State {
             self.say_from(now, "switching", 5_000, &[]);
             return;
         }
-        if self.app_line_at != 0 && now.saturating_sub(self.app_line_at) < APP_LINE_EVERY {
+        if self.app_line_at != 0
+            && now.saturating_sub(self.app_line_at) < self.rated(APP_LINE_EVERY)
+        {
             return;
         }
         let key = match_app(&name).unwrap_or_else(|| format!("?{name}"));
-        if self.said_about.get(&key).is_some_and(|at| now.saturating_sub(*at) < APP_REPEAT_AFTER) {
+        if self
+            .said_about
+            .get(&key)
+            .is_some_and(|at| now.saturating_sub(*at) < self.rated(APP_REPEAT_AFTER))
+        {
             return;
         }
         let Some(copy) = &self.copy else { return };
@@ -974,6 +1108,8 @@ impl State {
                     self.attention = (self.attention + 0.35).min(1.0);
                     self.react(now, Mood::Love, Some("pop"), 3_200);
                     self.say_from(now, "pet", 3_600, &[]);
+                    self.memory.pets += 1;
+                    self.save_memory();
                 }
             }
         } else {
@@ -1223,6 +1359,21 @@ fn feeling_key(feeling: Feeling) -> &'static str {
     }
 }
 
+fn familiarity_key(f: Familiarity) -> &'static str {
+    match f {
+        Familiarity::New => "new",
+        Familiarity::Knowing => "knowing",
+        Familiarity::Familiar => "familiar",
+        Familiarity::Old => "old",
+    }
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
 fn tod_key(tod: TimeOfDay) -> &'static str {
     match tod {
         TimeOfDay::Dawn => "dawn",
@@ -1246,6 +1397,7 @@ mod tests {
             strip_height: 900.0,
             cursor_x: None,
             cursor_y: None,
+            today: String::new(),
         }
     }
 
@@ -1320,6 +1472,7 @@ mod tests {
                     strip_height: 900.0,
                     cursor_x: None,
                     cursor_y: None,
+                    today: String::new(),
                 },
             );
             if let Some(effect) = frame.effect
@@ -1386,6 +1539,7 @@ mod tests {
             strip_height: 900.0,
             cursor_x: None,
             cursor_y: None,
+            today: String::new(),
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -1415,7 +1569,8 @@ mod tests {
                         strip_width: 1512.0,
                         strip_height: 900.0,
                         cursor_x: None,
-                        cursor_y: None
+                        cursor_y: None,
+                        today: String::new()
                     }
                 )
                 .singing
@@ -1432,7 +1587,8 @@ mod tests {
                         strip_width: 1512.0,
                         strip_height: 900.0,
                         cursor_x: None,
-                        cursor_y: None
+                        cursor_y: None,
+                        today: String::new()
                     }
                 )
                 .singing
@@ -1455,6 +1611,7 @@ mod tests {
                 strip_height: 900.0,
                 cursor_x: Some(700.0),
                 cursor_y: None,
+                today: String::new(),
             },
         )
     }
@@ -1547,6 +1704,7 @@ mod tests {
                 strip_height: 900.0,
                 cursor_x: cursor.map(|c| c.0),
                 cursor_y: cursor.map(|c| c.1),
+                today: String::new(),
             },
         )
     }
@@ -1649,6 +1807,7 @@ mod tests {
             strip_height: 900.0,
             cursor_x: None,
             cursor_y: None,
+            today: String::new(),
         }
     }
 
@@ -1740,5 +1899,83 @@ mod tests {
             bare.state.lock().unwrap().prop = None;
         }
         assert!(!picked.iter().any(|e| e == "adjust"), "adjusted nothing");
+    }
+
+    fn folder(name: &str, tico: &str, memory: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("tico-brain-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("tico.json"), tico).unwrap();
+        std::fs::write(dir.join("memory.json"), memory).unwrap();
+        dir
+    }
+
+    fn dated(today: &str) -> Senses {
+        Senses { today: today.into(), ..quiet_senses(None) }
+    }
+
+    #[test]
+    fn two_weeks_away_he_says_so_and_stands_where_he_stood() {
+        let dir = folder(
+            "away",
+            r#"{"x":0.5,"pinned_props":{"head":"cap"},"parts":{"shell":"radio"}}"#,
+            r#"{"first_seen":"2026-09-01","last_seen":"2026-10-04","days":20,"streak":4}"#,
+        );
+        let brain = Brain::still();
+        brain.open(dir.to_string_lossy().into(), None, "2026-10-18".into());
+        brain.set_copy(COPY.into(), "en".into());
+        let first = brain.tick(0, dated("2026-10-18"));
+        assert_eq!(first.x, (1512.0 - PET_WIDTH) * 0.5);
+        assert_eq!(first.worn[0].kind, "cap");
+        assert_eq!(first.parts.shell, "radio");
+        let hello = brain.tick(1_700, dated("2026-10-18")).speech.unwrap().text;
+        assert!(hello.contains("14"), "{hello}");
+        let saved: Memory =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("memory.json")).unwrap())
+                .unwrap();
+        assert_eq!((saved.days, saved.streak, saved.last_seen.as_str()), (21, 1, "2026-10-18"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn quiet_means_less_talk_and_pets_are_remembered() {
+        let count = |chattiness: &str| {
+            let dir = folder(chattiness, &format!(r#"{{"chattiness":"{chattiness}"}}"#), "{}");
+            let brain = Brain::still();
+            brain.open(dir.to_string_lossy().into(), None, "2026-10-18".into());
+            brain.set_copy(COPY.into(), "en".into());
+            let (mut said, mut last) = (0, 0);
+            for i in 0..(20 * 240) {
+                if let Some(s) = brain
+                    .tick(
+                        i * 250,
+                        Senses { front_app: Some("Finder".into()), ..dated("2026-10-18") },
+                    )
+                    .speech
+                    && s.serial != last
+                {
+                    last = s.serial;
+                    said += 1;
+                }
+            }
+            let _ = std::fs::remove_dir_all(dir);
+            said
+        };
+        let (quiet, chatty) = (count("quiet"), count("chatty"));
+        assert!(quiet * 2 < chatty, "quiet {quiet} against chatty {chatty}");
+
+        let dir = folder("pets", "{}", "{}");
+        let brain = Brain::still();
+        brain.open(dir.to_string_lossy().into(), None, "2026-10-18".into());
+        let f = brain.tick(0, dated("2026-10-18"));
+        let (cx, cy) = (f.x + 46.0, 46.0);
+        for t in [100, 2_000] {
+            brain.tick(t, Senses { cursor_x: Some(cx), cursor_y: Some(cy), ..dated("2026-10-18") });
+        }
+        let saved: Memory =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("memory.json")).unwrap())
+                .unwrap();
+        assert_eq!(saved.pets, 1);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

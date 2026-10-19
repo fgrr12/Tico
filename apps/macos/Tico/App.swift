@@ -30,6 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
+			// What he remembers and how he is set up: tico.json and memory.json in
+			// this app's own folder, started from the Tauri build's the first time
+			// — never written back there, so the two can run side by side.
+			let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+			let own = support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.fgrr6.tico")
+			let tauri = support.appendingPathComponent("com.fgrr6.tico")
+			brain.open(dir: own.path, seed: own == tauri ? nil : tauri.path, today: Sensing.today)
 			// What he says, in the language macOS is set to: Spanish or English.
 			if let url = Bundle.main.url(forResource: "copy", withExtension: "json"), let json = try? String(contentsOf: url, encoding: .utf8) {
 				let spanish = Locale.preferredLanguages.first?.lowercased().hasPrefix("es") == true
@@ -97,7 +104,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		}
 		if let effect = next.effect, effect.serial != frame?.effect?.serial { stateItem.title = "effect: \(effect.name)" }
 		frame = next
-		panel.apply(next, art: art)
+		let p = next.parts
+		panel.apply(next, art: art, parts: ["shell": p.shell, "hands": p.hands, "feet": p.feet, "antenna": p.antenna])
 	}
 
 	/// `TICO_SELFTEST=1`: handles him the way the mouse would — the same
@@ -147,7 +155,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: []
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led")
 		)
 		if step != shown {
 			shown = step

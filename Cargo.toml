@@ -16,6 +16,7 @@ license = "MIT"
 tico-core = { path = "core" }
 uniffi = "0.32.2"
 serde_json = "1.0.154"
+serde = { version = "1.0.229", features = ["derive"] }
 
 [profile.release]
 lto = true

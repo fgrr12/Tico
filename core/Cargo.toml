@@ -10,3 +10,4 @@ name = "tico_core"
 [dependencies]
 uniffi.workspace = true
 serde_json.workspace = true
+serde.workspace = true

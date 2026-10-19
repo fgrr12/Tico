@@ -199,7 +199,20 @@ off 25–95s on (`propOff` sometimes); `adjust` and `admire` are only offered
 while he wears something; coming back from behind brings a souvenir 40% of the
 time. The core sends `worn` back to front (`wornFrom`); the shell wraps each in
 a `companion-worn` layer and plays `companion-wear`/`companion-unwear` from the
-CSS. A new song gets a `track` line 40% of the time. The shell ticks
+CSS. A new song gets a `track` line 40% of the time.
+
+**Settings and memory** (`core/src/store.rs`) are the Tauri build's `tico.json`
+and `memory.json`, same fields: the body (`parts`, drawn by the shell from
+`Frame.parts`), pinned props, chattiness (stretches every unprompted floor),
+language ("auto" follows macOS), `quiet_until`, and where he stood (`x`, saved
+after each walk). Memory counts days and streaks (`count_day` on launch and when
+the date in `Senses.today` turns over), pets, pick-ups and props worn, picks the
+favourite (4+ wearings), and the boot line ladders like Tauri's: first day,
+back after days, day milestones, streaks, else `boot`; chatter mixes in
+`memory.tier` by familiarity. The native app keeps its files in its own folder
+(Application Support/<bundle id>) and seeds them once from the Tauri build's,
+never writing there, so both can run at once; on taking the Tauri id it simply
+uses the original folder. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 
