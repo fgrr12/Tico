@@ -239,17 +239,20 @@ the export leaves both out, the native way in being the portal). `core/src/house
 half the time holding the bay's souvenir, a drop into the open portal going through it
 and leaving the worn prop on the rail (`memory.left`), the setting evicting
 him — and `Brain::burrow` derives the cutaway's scene when it is opened.
-The native build has no hatch: the way in is a portal that opens in the
-bottom-left corner (`PORTAL_X`) only while there is a reason — he is heading
-home (`Frame.portal`, purple), inside (amber), or just stepped out (it closes
-1.8s behind him) — and does not exist otherwise, so it costs nothing and
-cannot be clicked. A drop goes through it only while it is open. The menu has
+The native build has no hatch: the way in is a portal as big as he is, right
+in the bottom-left corner (`portal_x`), that exists only while there is a
+reason — he is heading home (`Frame.portal`, cyan), inside (violet), or just
+stepped out (it closes 1.8s behind him) — so it costs nothing and cannot be
+clicked otherwise. A drop goes through it only while it is open. The menu has
 "Go home" / "Come out" (`Brain::go_home`, `come_up`), which ignores
-`HOME_EVERY`. `Pet/Portal.swift` draws it as layers — a stone ring on a step, an
-energy disc with lightning (procedural bolts that turn and flicker), mist at
-its foot, all at `Motion.idleRate`, he shrinks into it, and clicking it raises
-`Pet/Burrow.swift`, the cutaway, its own panel, shut by any click outside
-(a global mouse monitor, no permission) or when the portal closes. He stands in his bay doing its
+`HOME_EVERY`. `Pet/Portal.swift` draws it as layers, no frame, all light:
+dashed strands whose `lineDashPhase` runs round (a swirl without turning the
+oval), a misty middle, sparks, a haze and a pool on the floor, at
+`Motion.idleRate`; he spins down into it and spins up out of it while it
+pulses. Clicking it raises `Pet/Burrow.swift`, the cutaway, its own panel,
+shut by any click outside (a global mouse monitor, no permission) or when the
+portal closes. The cutaway crops the top band (the Tauri shaft's) and shows
+the far side of the portal, small, at the end of the long bay. He stands in his bay doing its
 `ACTIVITY` (asleep in the cradle, watching the lamp); clicking him or "Subí"
 brings him up. The fan, the plant and the beacon move only while it is open,
 at `Motion.idleRate`. `TICO_BURROW=<s>` opens it that many seconds in;

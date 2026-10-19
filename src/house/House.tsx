@@ -292,7 +292,9 @@ export const ROOMS: Record<
 		w: ROOM.w * 2 + 6,
 		items: [
 			{ piece: 'Rug', at: [104, 0] },
-			{ piece: 'Fan', at: [150, -16] },
+			// Over the mat, leaving the bay's far end clear: the native build's
+			// portal stands there, where he arrives.
+			{ piece: 'Fan', at: [86, -18] },
 			{ piece: 'Crate', at: [8, 0], since: 'knowing' },
 			{ piece: 'Cable', at: [26, -21], since: 'knowing' },
 			{ piece: 'Crate', at: [28, 0], since: 'familiar' },

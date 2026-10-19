@@ -33,8 +33,9 @@ final class PetPanel: NSPanel {
 	var onPortal: (() -> Void)?
 	private var pressed = false
 
-	/// The way home, behind him in the corner, while there is one.
-	private let portal = PortalLayer()
+	/// The way home, behind him in the corner, while there is one: as big as
+	/// he is, so rebuilt with him.
+	private var portal = PortalLayer(width: 92 * 0.8)
 	private var indoors = false
 
 	/// The ladder, behind him: on the near side of the rungs, not in the ladder.
@@ -98,7 +99,7 @@ final class PetPanel: NSPanel {
 				return
 			}
 			// The portal, where he is not standing in front of it.
-			if self.portal.shown, self.portal.layer.frame.contains(p),
+			if self.portal.shown, self.portal.opening.contains(p),
 				self.indoors || !(self.walker.presentation() ?? self.walker).frame.contains(p)
 			{
 				self.onPortal?()
@@ -139,7 +140,7 @@ final class PetPanel: NSPanel {
 
 	/// The portal's top-left corner on screen, where the cutaway rises from.
 	var portalOnScreen: CGPoint {
-		CGPoint(x: frame.minX + portal.layer.frame.minX, y: frame.minY + portal.layer.frame.maxY)
+		CGPoint(x: frame.minX + portal.opening.minX, y: frame.minY + portal.opening.maxY)
 	}
 
 	/// Sizes everything inside him for a pet `width` points wide.
@@ -211,7 +212,7 @@ final class PetPanel: NSPanel {
 	func hitTest(cursor: NSPoint) {
 		guard !pressed else { return }
 		let box = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
-		let door = portal.shown ? portal.layer.frame.offsetBy(dx: frame.minX, dy: frame.minY) : CGRect.null
+		let door = portal.shown ? portal.opening.offsetBy(dx: frame.minX, dy: frame.minY) : CGRect.null
 		let over = (!indoors && box.contains(cursor)) || buttonOnScreen?.contains(cursor) == true || door.contains(cursor)
 		if ignoresMouseEvents == over { ignoresMouseEvents = !over }
 	}
@@ -232,6 +233,9 @@ final class PetPanel: NSPanel {
 			petWidth = CGFloat(frame.width)
 			lay(width: petWidth)
 			if let home { place(on: home) }
+			let resized = PortalLayer(width: petWidth * 0.8)
+			contentView?.layer?.replaceSublayer(portal.layer, with: resized.layer)
+			portal = resized
 			moveSerial = nil
 		}
 
@@ -259,18 +263,30 @@ final class PetPanel: NSPanel {
 
 		// Out of the way for a call, when that is what he was asked to do — or
 		// through the portal: he shrinks into it, and comes back out of it.
-		if let p = frame.portal { portal.place(x: CGFloat(p.x), floor: Self.below + 1) }
+		if let p = frame.portal { portal.place(x: CGFloat(p.x), floor: Self.below + 2 - portal.width * 0.125) }
 		portal.show(frame.portal)
 		if indoors != frame.home {
 			indoors = frame.home
-			let into = CABasicAnimation(keyPath: "transform.scale")
-			into.fromValue = indoors ? 1 : 0.2
-			into.toValue = indoors ? 0.05 : 1
-			into.duration = indoors ? 0.3 : 0.35
-			into.preferredFrameRateRange = Motion.liveRate
+			// Through it: in, he spins down into the middle and is gone; out, he
+			// spins up out of it. The portal flashes either way.
+			portal.pulse()
+			let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+			turn.fromValue = indoors ? 0 : Double.pi * 2
+			turn.toValue = indoors ? -Double.pi * 3 : 0
+			let size = CABasicAnimation(keyPath: "transform.scale")
+			size.fromValue = indoors ? 1 : 0.05
+			size.toValue = indoors ? 0.05 : 1
+			let fade = CABasicAnimation(keyPath: "opacity")
+			fade.fromValue = indoors ? 1 : 0
+			fade.toValue = indoors ? 0 : 1
+			let through = CAAnimationGroup()
+			through.animations = [turn, size, fade]
+			through.duration = indoors ? 0.6 : 0.55
+			through.timingFunction = CAMediaTimingFunction(name: indoors ? .easeIn : .easeOut)
+			through.preferredFrameRateRange = Motion.liveRate
 			if indoors {
-				into.fillMode = .forwards
-				into.isRemovedOnCompletion = false
+				through.fillMode = .forwards
+				through.isRemovedOnCompletion = false
 				CATransaction.begin()
 				CATransaction.setCompletionBlock { [weak self] in
 					MainActor.assumeIsolated {
@@ -279,11 +295,11 @@ final class PetPanel: NSPanel {
 						self.svg.removeAnimation(forKey: "portal")
 					}
 				}
-				svg.add(into, forKey: "portal")
+				svg.add(through, forKey: "portal")
 				CATransaction.commit()
 			} else {
 				svg.removeAnimation(forKey: "portal")
-				svg.add(into, forKey: "portal")
+				svg.add(through, forKey: "portal")
 			}
 		}
 		let away = frame.hidden || (frame.home && svg.animation(forKey: "portal") == nil)

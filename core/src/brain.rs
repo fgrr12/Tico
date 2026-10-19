@@ -22,9 +22,8 @@ use crate::house::{FURNITURE, brought_up, line_index, scene_at};
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
 
-/// The portal home opens in the bottom-left corner: its middle on the strip,
-/// and how near it a drop has to land to go in.
-pub const PORTAL_X: f64 = 60.0;
+/// How near the portal's middle a drop has to land to go in. The portal
+/// itself is as big as he is and stands right in the corner (`portal_x`).
 const PORTAL_REACH: f64 = 40.0;
 /// After he steps out it stays open this long, then closes behind him.
 const PORTAL_LINGERS: u64 = 1_800;
@@ -765,7 +764,7 @@ impl Brain {
         let middle = s.here() + s.pet() / 2.0;
         // Picked up on the way to the portal and put down elsewhere: he has
         // changed his mind, and it closes.
-        let into_portal = s.going_home && (middle - PORTAL_X).abs() < PORTAL_REACH;
+        let into_portal = s.going_home && (middle - s.portal_x()).abs() < PORTAL_REACH;
         if hold.moved && !into_portal {
             s.going_home = false;
         }
@@ -786,7 +785,7 @@ impl Brain {
             s.prop = None;
             s.prop_leaving = false;
             s.home_at = now_ms;
-            let x = PORTAL_X - s.pet() / 2.0;
+            let x = s.portal_x() - s.pet() / 2.0;
             s.walk(now_ms, x, 0.0, FALL_SPEED, After::Home);
         } else if s.lift > 4.0 {
             // Through the same fall as coming off a ladder, ledges and all.
@@ -956,7 +955,7 @@ impl Brain {
             hanging: s.hanging,
             home: s.home.is_some(),
             portal: (s.home.is_some() || s.going_home || now < s.portal_closes)
-                .then(|| Portal { x: PORTAL_X, inside: s.home.is_some() }),
+                .then(|| Portal { x: s.portal_x(), inside: s.home.is_some() }),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -1183,7 +1182,7 @@ impl State {
             Step::Say { path, ms } => self.say_from(now, &path, ms, &[]),
             Step::GoHome => {
                 if self.going_home {
-                    let x = PORTAL_X - self.pet() / 2.0;
+                    let x = self.portal_x() - self.pet() / 2.0;
                     self.walk(now, x, 0.0, WALK_SPEED * 1.1, After::Home);
                 }
             }
@@ -1664,6 +1663,11 @@ impl State {
         }
     }
 
+    /// The portal's middle: in the corner, just far enough in that he fits.
+    fn portal_x(&self) -> f64 {
+        self.pet() / 2.0 + 2.0
+    }
+
     /// How wide he is, by the settings' size.
     fn pet(&self) -> f64 {
         pet_width(&self.settings.size)
@@ -1847,7 +1851,7 @@ impl State {
             self.say_from(now, "house.leaving", 3_600, &[]);
         }
         // A few steps out of the doorway, so he does not stand in his own porch.
-        let x = PORTAL_X + 60.0 + self.below(160) as f64;
+        let x = self.portal_x() + self.pet() * 0.6 + self.below(160) as f64;
         self.walk(now, x, 0.0, WALK_SPEED, After::Nothing);
     }
 
@@ -2880,7 +2884,7 @@ mod tests {
         // Open behind him a moment, then gone.
         assert_eq!(frame.portal.map(|p| p.inside), Some(false));
         assert!(brain.tick(12_000, quiet_senses(None)).portal.is_none());
-        assert!(frame.x > PORTAL_X + 40.0);
+        assert!(frame.x > 60.0);
         assert_eq!(brain.burrow().line, lines("en", "house.empty")[0]);
     }
 

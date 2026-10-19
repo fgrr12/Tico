@@ -24,6 +24,11 @@ final class BurrowPanel: NSPanel {
 	/// Clicking him, or the button: he comes up.
 	var onCall: (() -> Void)?
 	private var him: CGRect = .zero
+	/// The far side of the portal, at the end of the long bay.
+	private var inner: PortalLayer?
+	/// The band the Tauri build's ladder shaft comes down through, cut off the
+	/// top: the native way in is the portal.
+	private static let crop: Double = 20
 	private var button: CGRect = .zero
 
 	init() {
@@ -50,7 +55,7 @@ final class BurrowPanel: NSPanel {
 	/// screen.
 	func show(_ burrow: Burrow, art: Art, frame: Frame, language: String, from: CGPoint, rising: Bool = true) {
 		let house = art.house
-		let stageHeight = Self.stageWidth * house.viewBox[3] / house.viewBox[2]
+		let stageHeight = Self.stageWidth * (house.viewBox[3] - Self.crop) / house.viewBox[2]
 		let present = burrow.present
 		let room = house.rooms[burrow.at]
 
@@ -87,7 +92,8 @@ final class BurrowPanel: NSPanel {
 		let painter = Painter(defs: house.defs, size: box)
 		let stage = CALayer()
 		stage.anchorPoint = .zero
-		stage.bounds = CGRect(origin: .zero, size: box)
+		// y-up, so a shorter box loses the top.
+		stage.bounds = CGRect(x: 0, y: 0, width: box.width, height: box.height - Self.crop)
 		stage.position = CGPoint(x: Self.pad, y: foot)
 		let scale = Self.stageWidth / box.width
 		stage.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
@@ -105,6 +111,16 @@ final class BurrowPanel: NSPanel {
 		stage.sublayers = painter.layers(nodes)
 		if let rug = house.rooms["rug"] { rail(burrow.left, art: art, x: rug.x + 10, y: rug.floor - 30, box: box, on: stage) }
 		ambient(in: stage)
+
+		// The other side of the portal: lit whenever the one on the strip is,
+		// in the same colour, and while he is down here.
+		if let rug = house.rooms["rug"] {
+			let door = PortalLayer(width: 15)
+			door.place(x: rug.x + rug.w - 10, floor: box.height - rug.floor - 1.5)
+			stage.addSublayer(door.layer)
+			door.show(frame.portal ?? (present ? Portal(x: 0, inside: true) : nil))
+			inner = door
+		}
 
 		// Him, at his spot in the bay: 10% of the stage, on the floor (the bottom
 		// 9 units of his 96 are empty below his feet), doing what the bay is for.
