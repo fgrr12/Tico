@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use crate::data::{
     Colours, Feeling, Sensed, TERRORS, dance_style, energy_at, feeling_from, match_app, palette,
 };
-use crate::moments::{MOMENTS, Step, by_feeling, dances, moment};
+use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 
 /// Falls asleep after this long with no cursor movement anywhere on screen.
 const SLEEP_AFTER: u64 = 90_000;
@@ -38,6 +38,14 @@ const THEN_AFTER: u64 = 1_900;
 const RESUME_WITHIN: u64 = 25_000;
 /// How often he loses the thread of what he was doing.
 const LOSES_INTEREST: f64 = 0.3;
+/// Walking pace, in points a second, before energy slows it.
+const WALK_SPEED: f64 = 74.0;
+const FALL_SPEED: f64 = 1_100.0;
+/// Floors for wandering off and for errands, stretched by low energy.
+const WANDER_EVERY: u64 = 30_000;
+const ERRAND_EVERY: u64 = 190_000;
+/// `--pet-width`: how much of the strip he takes up.
+pub const PET_WIDTH: f64 = 92.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum Mood {
@@ -76,6 +84,10 @@ pub struct Senses {
     pub front_app: Option<String>,
     /// Something playing, if anything.
     pub music: Option<Track>,
+    /// Width of the strip he walks, in points.
+    pub strip_width: f64,
+    /// The cursor's x on the strip, if it is over that screen.
+    pub cursor_x: Option<f64>,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -103,6 +115,45 @@ pub struct Frame {
     pub sitting: bool,
     pub look: Option<Look>,
     pub singing: bool,
+    /// Where he is going: the left edge of his box on the strip, and height off
+    /// the floor, in points. The shell moves him there over `move_ms`, and only
+    /// starts a move when `move_serial` changes; 0ms is a jump.
+    pub x: f64,
+    pub lift: f64,
+    pub move_ms: u64,
+    pub move_serial: u32,
+    pub walking: bool,
+    pub flying: bool,
+    /// Which way he last travelled; flying leans into it.
+    pub facing_right: bool,
+}
+
+/// What happens when he gets where he was going.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum After {
+    Nothing,
+    /// Back to `x`, after a short pause (pacing).
+    Back {
+        x: f64,
+        speed: f64,
+    },
+    /// Gone off an edge; reappear from the other one.
+    Reappear {
+        went_right: bool,
+    },
+    /// Up in the air at `x`: come down.
+    Land {
+        x: f64,
+    },
+    Landed,
+    /// The end of an errand: there was nothing there.
+    Arrive,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Move {
+    until: u64,
+    after: After,
 }
 
 struct App {
@@ -133,6 +184,21 @@ struct State {
     look: Option<(Look, u64)>,
     /// What is playing, for the dances.
     music: Option<Track>,
+    /// Left edge on the strip; `None` until the first tick says how wide it is.
+    x: Option<f64>,
+    lift: f64,
+    width: f64,
+    cursor_x: Option<f64>,
+    energy: f64,
+    moving: Option<Move>,
+    move_ms: u64,
+    move_serial: u32,
+    flying: bool,
+    facing_right: bool,
+    /// Briefly allowed all the way off the strip, going round the back.
+    crossing: bool,
+    wander_at: u64,
+    errand_at: u64,
     rng: u64,
 }
 
@@ -163,6 +229,19 @@ impl Brain {
                 sit_until: None,
                 look: None,
                 music: None,
+                x: None,
+                lift: 0.0,
+                width: 0.0,
+                cursor_x: None,
+                energy: 1.0,
+                moving: None,
+                move_ms: 0,
+                move_serial: 0,
+                flying: false,
+                facing_right: true,
+                crossing: false,
+                wander_at: 0,
+                errand_at: 0,
                 rng: seed.max(1),
             }),
         }
@@ -213,6 +292,20 @@ impl Brain {
         s.last_idle = senses.idle_ms;
 
         s.music = senses.music.clone();
+        s.width = senses.strip_width;
+        s.cursor_x = senses.cursor_x;
+        s.energy = energy_at(senses.hour);
+        if s.x.is_none() {
+            // A little way in from the left, where the Tauri build starts him the
+            // first time too.
+            s.x = Some((s.max_x() * 0.15).max(0.0));
+        }
+        if let Some(m) = s.moving
+            && now >= m.until
+        {
+            s.moving = None;
+            s.arrived(now, m.after);
+        }
         s.expire(now);
         s.run_due(now);
         track_app(&mut s, now, senses.front_app.as_deref());
@@ -231,7 +324,7 @@ impl Brain {
         if now >= s.next_poll {
             s.next_poll = now + POLL;
             if !s.asleep && senses.idle_ms <= SLEEP_AFTER && s.free() {
-                s.poll(now, senses.hour);
+                s.poll(now, senses.hour, senses.idle_ms);
             }
         }
 
@@ -247,6 +340,13 @@ impl Brain {
             sitting: s.sit_until.is_some(),
             look: s.look.map(|(look, _)| look),
             singing: senses.music.is_some() && s.mood != Mood::Sleep,
+            x: s.x.unwrap_or(0.0),
+            lift: s.lift,
+            move_ms: s.move_ms,
+            move_serial: s.move_serial,
+            walking: s.moving.is_some() && !s.flying,
+            flying: s.flying,
+            facing_right: s.facing_right,
         }
     }
 }
@@ -254,7 +354,10 @@ impl Brain {
 impl State {
     /// Nothing running and nothing about to: the only time he picks a moment.
     fn free(&self) -> bool {
-        self.mood == Mood::Idle && self.pending.is_empty() && self.then.is_none()
+        self.mood == Mood::Idle
+            && self.pending.is_empty()
+            && self.then.is_none()
+            && self.moving.is_none()
     }
 
     fn expire(&mut self, now: u64) {
@@ -326,7 +429,7 @@ impl State {
 
     /// The unprompted half of the poll: a resumed intention first, else maybe
     /// a moment — less often, and calmer, as the day runs down.
-    fn poll(&mut self, now: u64, hour: u8) {
+    fn poll(&mut self, now: u64, hour: u8, idle_ms: u64) {
         if let Some((next, until)) = self.chain.take() {
             self.moment_at = now;
             let next = if now < until && !self.chance(LOSES_INTEREST) {
@@ -339,6 +442,16 @@ impl State {
         }
 
         let energy = energy_at(hour);
+
+        // A stroll, when you have left him be for a few seconds.
+        if idle_ms > 8_000
+            && now.saturating_sub(self.wander_at) > (WANDER_EVERY as f64 / energy.max(0.25)) as u64
+        {
+            self.wander_at = now;
+            self.wander(now);
+            return;
+        }
+
         let floor = (MOMENT_EVERY as f64 / energy.max(0.25)) as u64;
         if now.saturating_sub(self.moment_at) <= floor || !self.chance(0.4 + energy * 0.4) {
             return;
@@ -390,6 +503,11 @@ impl State {
                 self.sit_until = Some(now + ms);
             }
             Step::Look { x, y, ms } => self.look = Some((Look { x, y }, now + ms)),
+            Step::Go(travel) => self.travel(now, travel),
+            Step::WalkTo { x, speed } => {
+                self.crossing = false;
+                self.walk(now, x, 0.0, speed, After::Nothing);
+            }
             Step::Dance { scale } => {
                 let style = self
                     .music
@@ -416,6 +534,177 @@ impl State {
             name: name.to_string(),
             serial,
         });
+    }
+
+    fn max_x(&self) -> f64 {
+        (self.width - PET_WIDTH).max(1.0)
+    }
+
+    fn here(&self) -> f64 {
+        self.x.unwrap_or(0.0)
+    }
+
+    /// Off the strip is allowed only while crossing, and then all the way.
+    fn clamp(&self, x: f64) -> f64 {
+        let over = if self.crossing { PET_WIDTH } else { 0.0 };
+        x.clamp(-over, self.max_x() + over)
+    }
+
+    /// Travel at `speed` points a second — slower when tired — with the
+    /// duration from the distance, the way the Tauri build's transition did.
+    fn walk(&mut self, now: u64, x: f64, lift: f64, speed: f64, after: After) {
+        let speed = speed * (0.65 + self.energy * 0.35);
+        let (from, to) = (self.here(), self.clamp(x));
+        let distance = ((to - from).powi(2) + (lift - self.lift).powi(2)).sqrt();
+        // Nowhere to go, but what comes after still happens: it is what ends
+        // flying and crossing, and swallowing it strands them on forever.
+        if distance < 3.0 {
+            self.arrived(now, after);
+            return;
+        }
+        let ms = ((distance / speed) * 1_000.0).clamp(260.0, 6_000.0) as u64;
+        self.x = Some(to);
+        self.lift = lift;
+        if to != from {
+            self.facing_right = to > from;
+        }
+        self.move_ms = ms;
+        self.move_serial = self.move_serial.wrapping_add(1);
+        self.moving = Some(Move {
+            until: now + ms,
+            after,
+        });
+        self.sit_until = None;
+        self.look = Some((
+            Look {
+                x: if to < from { -0.9 } else { 0.9 },
+                y: 0.0,
+            },
+            now + ms,
+        ));
+    }
+
+    /// Straight there, no walk: the far side of a crossing.
+    fn jump(&mut self, x: f64) {
+        self.x = Some(x);
+        self.move_ms = 0;
+        self.move_serial = self.move_serial.wrapping_add(1);
+    }
+
+    fn arrived(&mut self, now: u64, after: After) {
+        match after {
+            After::Nothing => {}
+            After::Back { x, speed } => self.pending.push((now + 400, Step::WalkTo { x, speed })),
+            After::Reappear { went_right } => {
+                self.jump(if went_right { -PET_WIDTH } else { self.width });
+                let inset = 50.0 + self.below(150) as f64;
+                let landing = if went_right {
+                    inset
+                } else {
+                    self.max_x() - inset
+                };
+                let wait = 700 + self.below(1_400) as u64;
+                self.pending.push((
+                    now + wait,
+                    Step::WalkTo {
+                        x: landing,
+                        speed: WALK_SPEED * 1.6,
+                    },
+                ));
+            }
+            After::Land { x } => self.walk(now, x, 0.0, FALL_SPEED, After::Landed),
+            After::Landed => {
+                self.flying = false;
+                self.react(now, Mood::Wow, Some("land"), 900);
+            }
+            After::Arrive => {
+                self.react(now, Mood::Watching, None, 2_000);
+                self.look = Some((Look { x: 0.0, y: 0.4 }, now + 1_600));
+            }
+        }
+    }
+
+    fn wander(&mut self, now: u64) {
+        let from = self.here();
+        let stride = 90.0 + self.below(220) as f64;
+        let reachable: Vec<f64> = [from - stride, from + stride]
+            .into_iter()
+            .map(|x| self.clamp(x))
+            .filter(|x| (x - from).abs() > 20.0)
+            .collect();
+        if !reachable.is_empty() {
+            let x = reachable[self.below(reachable.len())];
+            self.walk(now, x, 0.0, WALK_SPEED, After::Nothing);
+        }
+    }
+
+    fn travel(&mut self, now: u64, travel: Travel) {
+        let here = self.here();
+        let far = if here < self.max_x() / 2.0 {
+            self.max_x()
+        } else {
+            0.0
+        };
+        match travel {
+            Travel::Pace => {
+                let step = if self.chance(0.5) { -110.0 } else { 110.0 };
+                let speed = WALK_SPEED * 1.3;
+                self.walk(now, here + step, 0.0, speed, After::Back { x: here, speed });
+            }
+            Travel::Chase => {
+                if let Some(cursor) = self.cursor_x {
+                    let step = (cursor - PET_WIDTH / 2.0 - here).clamp(-140.0, 140.0);
+                    self.walk(now, here + step, 0.0, WALK_SPEED * 1.4, After::Nothing);
+                }
+            }
+            Travel::Edge => {
+                let edge = if here < self.max_x() / 2.0 {
+                    0.0
+                } else {
+                    self.max_x()
+                };
+                self.walk(now, edge, 0.0, WALK_SPEED * 1.15, After::Nothing);
+            }
+            Travel::Behind => {
+                let went_right = here >= self.width / 2.0;
+                self.crossing = true;
+                let off = if went_right { self.width } else { -PET_WIDTH };
+                self.walk(
+                    now,
+                    off,
+                    0.0,
+                    WALK_SPEED * 1.6,
+                    After::Reappear { went_right },
+                );
+            }
+            Travel::Errand => {
+                if now.saturating_sub(self.errand_at) < ERRAND_EVERY && self.errand_at != 0 {
+                    return;
+                }
+                self.errand_at = now;
+                let wanted = self.below(self.max_x().max(1.0) as usize) as f64;
+                // Far enough to be a journey; a step is not an errand.
+                let target = if (wanted - here).abs() < 200.0 {
+                    far
+                } else {
+                    wanted
+                };
+                self.walk(now, target, 0.0, WALK_SPEED, After::Arrive);
+            }
+            Travel::Rocket => {
+                self.flying = true;
+                self.react(now, Mood::Wow, None, 2_400);
+                self.walk(now, far, 60.0, 900.0, After::Land { x: far });
+            }
+            Travel::Flee => {
+                self.react(now, Mood::Scared, None, 2_600);
+                self.walk(now, far, 0.0, WALK_SPEED * 3.0, After::Nothing);
+            }
+            Travel::Skip => {
+                let step = if self.chance(0.5) { -90.0 } else { 90.0 };
+                self.walk(now, here + step, 0.0, WALK_SPEED * 1.6, After::Nothing);
+            }
+        }
     }
 
     /// xorshift64: dice for a pet, not for anything that matters.
@@ -470,6 +759,8 @@ mod tests {
             hour: 14,
             front_app: Some(app.into()),
             music: None,
+            strip_width: 1512.0,
+            cursor_x: None,
         }
     }
 
@@ -576,6 +867,8 @@ mod tests {
                     hour,
                     front_app: Some("Finder".into()),
                     music: music.clone(),
+                    strip_width: 1512.0,
+                    cursor_x: None,
                 },
             );
             if let Some(effect) = frame.effect
@@ -627,6 +920,7 @@ mod tests {
         let effects = live(&Brain::seeded(5), 10, Some(track), 30);
         // Festive, and `dance_style` makes this one a fast song: pogo and jig.
         let dances = [
+            "land",
             "pogo",
             "jig",
             "bounce",
@@ -656,6 +950,8 @@ mod tests {
             hour: 14,
             front_app: None,
             music: None,
+            strip_width: 1512.0,
+            cursor_x: None,
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -685,7 +981,9 @@ mod tests {
                         idle_ms: 0,
                         hour: 14,
                         front_app: None,
-                        music: track.clone()
+                        music: track.clone(),
+                        strip_width: 1512.0,
+                        cursor_x: None
                     }
                 )
                 .singing
@@ -698,10 +996,110 @@ mod tests {
                         idle_ms: 100_000,
                         hour: 14,
                         front_app: None,
-                        music: track
+                        music: track,
+                        strip_width: 1512.0,
+                        cursor_x: None
                     }
                 )
                 .singing
         );
+    }
+
+    fn walker(seed: u64) -> Brain {
+        Brain::seeded(seed)
+    }
+
+    fn at(brain: &Brain, now: u64) -> Frame {
+        brain.tick(
+            now,
+            Senses {
+                idle_ms: 10_000,
+                hour: 10,
+                front_app: None,
+                music: None,
+                strip_width: 1512.0,
+                cursor_x: Some(700.0),
+            },
+        )
+    }
+
+    #[test]
+    fn he_walks_on_his_own_and_stays_on_the_strip() {
+        let brain = walker(11);
+        let mut moves = 0;
+        let mut last = 0;
+        for i in 0..(20 * 240) {
+            let frame = at(&brain, i * 250);
+            if frame.move_serial != last {
+                last = frame.move_serial;
+                moves += 1;
+                // Off the strip only while going round the back, and then fully.
+                assert!(
+                    frame.x >= -PET_WIDTH && frame.x <= 1512.0,
+                    "x = {}",
+                    frame.x
+                );
+            }
+        }
+        assert!(moves >= 10, "only {moves} moves in 20 minutes");
+    }
+
+    #[test]
+    fn going_behind_comes_back_from_the_other_side() {
+        let brain = walker(1);
+        at(&brain, 0);
+        brain.state.lock().unwrap().x = Some(1300.0);
+        brain.state.lock().unwrap().travel(0, Travel::Behind);
+        let gone = at(&brain, 1);
+        assert_eq!(gone.x, 1512.0, "walked off the right edge");
+        // Arrives, jumps to the far side, and walks back in from the left.
+        let mut t = 1;
+        let mut seen_jump = false;
+        while t < 30_000 {
+            t += 250;
+            let f = at(&brain, t);
+            if f.move_ms == 0 && f.x == -PET_WIDTH {
+                seen_jump = true;
+            }
+            if seen_jump && f.x > 0.0 && !f.walking {
+                assert!(f.x < 300.0, "came back in at {}", f.x);
+                return;
+            }
+        }
+        panic!("never came back (jumped: {seen_jump})");
+    }
+
+    #[test]
+    fn a_rocket_flies_and_lands() {
+        let brain = Brain::still();
+        at(&brain, 0);
+        brain.state.lock().unwrap().travel(0, Travel::Rocket);
+        let up = at(&brain, 1);
+        assert!(up.flying && up.lift == 60.0);
+        let mut t = 1;
+        loop {
+            t += 250;
+            let f = at(&brain, t);
+            if !f.flying {
+                assert_eq!(f.lift, 0.0);
+                assert_eq!(f.effect.unwrap().name, "land");
+                return;
+            }
+            assert!(t < 10_000, "still flying");
+        }
+    }
+
+    #[test]
+    fn pacing_comes_back_to_where_it_started() {
+        let brain = Brain::still();
+        at(&brain, 0);
+        let start = at(&brain, 1).x;
+        brain.state.lock().unwrap().travel(1, Travel::Pace);
+        assert!((at(&brain, 2).x - start).abs() > 100.0);
+        let mut last = at(&brain, 2);
+        for t in (250..8_000).step_by(250) {
+            last = at(&brain, t);
+        }
+        assert!((last.x - start).abs() < 1.0);
     }
 }

@@ -5,13 +5,34 @@
 //! later. The brain decides when one happens and which; the steps are what the
 //! shell gets to see, as state in the `Frame`.
 //!
-//! Only the moments that stay put are here. The ones that cover ground (pace,
-//! chase, edge, house, behind, errand, rocket, climb, flee, skip) wait for the
-//! shell to walk; until then he picks from the rest, which is also what the
-//! Tauri build does while he peeks from the corner of a call.
+//! Two of the Tauri build's moments are not here yet: `house` (the burrow) and
+//! `climb` (a ladder and the ledges of your windows). Both draw things the
+//! native shell does not have; a feeling that lists them picks from the rest.
 
 use crate::brain::Mood;
 use crate::data::{DanceStyle, Feeling};
+
+/// The moments that cover ground. Each is a little itinerary the brain runs,
+/// because where he ends up depends on where he is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Travel {
+    /// A step aside and back.
+    Pace,
+    /// Towards the cursor, then a stare.
+    Chase,
+    /// To the nearer edge, then a lean.
+    Edge,
+    /// Off one edge and back from the other, having gone to look.
+    Behind,
+    /// Somewhere far, for a reason he would not give.
+    Errand,
+    /// All the way across, off the ground.
+    Rocket,
+    /// Away, fast.
+    Flee,
+    /// A hop-step aside.
+    Skip,
+}
 
 /// One thing a moment does, `at` milliseconds after it starts.
 #[derive(Debug, Clone, PartialEq)]
@@ -23,11 +44,25 @@ pub enum Step {
         ms: u64,
     },
     /// Sit down for `ms`, or a random 6–15s when `None`.
-    Sit { ms: Option<u64> },
+    Sit {
+        ms: Option<u64>,
+    },
     /// Look at (x, y), each −1…1, for `ms`.
-    Look { x: f64, y: f64, ms: u64 },
+    Look {
+        x: f64,
+        y: f64,
+        ms: u64,
+    },
     /// A dance chosen by what is playing, its length scaled by `scale`.
-    Dance { scale: f64 },
+    Dance {
+        scale: f64,
+    },
+    Go(Travel),
+    /// Walk to `x` (the second leg of a pace, the way back from behind).
+    WalkTo {
+        x: f64,
+        speed: f64,
+    },
 }
 
 pub struct Moment {
@@ -103,6 +138,14 @@ pub const MOMENTS: &[Moment] = &[
     // The hand gesture is not drawn natively yet; the happy face is.
     moment!("wave", 0.6, [0 => hold(Happy, 1_600)]),
     moment!("cower", 0.0, [0 => react(Scared, "shiver", 2_200), 0 => Sit { ms: Some(5_000) }]),
+    moment!("pace", 0.6, [0 => Go(Travel::Pace)]),
+    moment!("chase", 0.6, [0 => Go(Travel::Chase)], then "stare"),
+    moment!("edge", 0.3, [0 => Go(Travel::Edge)], then "lean"),
+    moment!("behind", 0.5, [0 => Go(Travel::Behind)]),
+    moment!("errand", 0.35, [0 => Go(Travel::Errand)]),
+    moment!("rocket", 0.75, [0 => Go(Travel::Rocket)]),
+    moment!("flee", 0.3, [0 => Go(Travel::Flee)]),
+    moment!("skip", 0.7, [0 => Go(Travel::Skip), 0 => react(Happy, "bounce", 1_300)]),
 ];
 
 pub fn moment(key: &str) -> Option<&'static Moment> {

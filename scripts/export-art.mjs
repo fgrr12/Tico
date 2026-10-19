@@ -333,7 +333,32 @@ function motionFrom(css, companion) {
 	}
 	const limbTransition = find('.companion-svg .companion-hand').transition
 
+	// Walking steps his feet; flying tilts him into the direction of travel and
+	// lights his feet. `side` here is facing, not which foot.
+	const stateRule = (state) => {
+		const out = []
+		for (const { selector, d } of rules) {
+			const m = selector.match(new RegExp(`^\\.companion\\[data-${state}="true"\\](\\[data-side="(\\w+)"\\])? \\.([\\w-]+)(\\[data-side="(\\w+)"\\])?$`))
+			if (!m) continue
+			const entry = { target: m[3], ...(m[2] && { facing: m[2] }), ...(m[5] && { side: m[5] }) }
+			if (d.animation) Object.assign(entry, animation(d.animation))
+			if (d['animation-delay']) {
+				const base = out.find((e) => e.target === entry.target && !e.side)
+				Object.assign(entry, { ...base, ...entry, delay: parseFloat(d['animation-delay']) })
+			}
+			if (d.transform) entry.transform = ops(d.transform)
+			if (d.fill) entry.fill = d.fill.replace(/var\(--([a-z-]+)\)/, (_, n) => palette[n])
+			if (d.stroke) entry.stroke = d.stroke.replace(/var\(--([a-z-]+)\)/, (_, n) => palette[n])
+			if (entry.name || entry.transform || entry.fill) out.push(entry)
+		}
+		return out
+	}
+	const palette = Object.fromEntries([...css.matchAll(/^\s*--([a-z-]+):\s*(#[0-9a-f]{3,8});/gim)].map((m) => [m[1], m[2]]))
+	const walking = stateRule('walking')
+	const flying = stateRule('flying')
+
 	const base = {
+		travel: find('.companion')['transition-timing-function'],
 		limbTransition: parseFloat(limbTransition.split(/\s+/)[1]),
 		origin: find('.companion-anim')['transform-origin'],
 		bob: animation(find('.companion-body').animation),
@@ -350,5 +375,5 @@ function motionFrom(css, companion) {
 	const missing = [...asked].filter((name) => !effects[name])
 	if (missing.length) throw new Error(`effects Companion.tsx plays but companion.css does not define: ${missing.join(', ')}`)
 
-	return { base, keyframes, effects, postures, pace, sit, singing, limbs }
+	return { base, keyframes, effects, postures, pace, sit, singing, limbs, walking, flying }
 }

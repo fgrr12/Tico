@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var frame: Frame?
 	private let musicSense = MusicSense()
 	private var music: Track?
+	private var screen: NSScreen?
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
 	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
 	private var poll: Timer?
@@ -29,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
-			let panel = PetPanel()
+			let panel = PetPanel(screen: screen)
+			self.screen = screen
 			think(art: art, panel: panel)
 			// Four times a second: the core checks its timers on every tick, so a
 			// 0.9s reaction ends on time, and takes decisions on its own 3.5s poll.
@@ -40,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 				}
 			}
 			musicSense.watch { [weak self] track in self?.music = track }
-			panel.stand(atX: 240, on: screen)
+			panel.place(on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel
 			if ProcessInfo.processInfo.environment["TICO_SHEET"] != nil { sheet = Sheet.open(art: art) }
@@ -62,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// Asks the core what he is like now and hands it to the panel, which only
 	/// does work for what changed.
 	private func think(art: Art, panel: PetPanel) {
-		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music))
+		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music, screen: screen ?? NSScreen.main!))
 		// Most ticks change nothing; those cost one comparison.
 		guard next != frame else { return }
 		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
@@ -98,7 +100,8 @@ final class Demo {
 		let step = Int((now - start!) / 2_500) % (effects.count + feelings.count + 2)
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
-			effect: nil, sitting: false, look: nil, singing: false
+			effect: nil, sitting: false, look: nil, singing: false,
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true
 		)
 		if step != shown {
 			shown = step

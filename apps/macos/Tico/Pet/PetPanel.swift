@@ -1,12 +1,13 @@
 import AppKit
 import QuartzCore
 
-/// The window he lives in: just big enough for him and whatever he is wearing,
-/// borderless, transparent, above the Dock, on every Space, and never active.
+/// The strip he lives on: a transparent window the width of the screen along
+/// its bottom edge, borderless, above the Dock, on every Space, never active.
 ///
-/// The Tauri build is a transparent window the width of the screen, because a
-/// WebView cannot move cheaply; here the window *is* the pet's position, and
-/// walking will move it.
+/// The width is so that walking is a layer animation — run by the render
+/// server, free for tico — rather than a window moved frame by frame from this
+/// process. The Tauri build measured that the strip's size costs nothing to
+/// composite; the transparent part is blended as nothing.
 ///
 /// Inside, the layers nest the way the DOM does, because each CSS rule targets
 /// one of them: `body` breathes (`.companion-body`), `anim` plays effects and
@@ -15,13 +16,11 @@ import QuartzCore
 final class PetPanel: NSPanel {
 	/// `--pet-width` in companion.css: the 96-unit drawing shown 92 points wide.
 	static let petWidth: CGFloat = 92
-	/// Room around the drawing for everything that leaves it: props reach ~30
-	/// units above the head, a hop rises 18px, and `spin` turns the whole body
-	/// about a point by his feet, sweeping a circle ~85pt across. The Tauri
-	/// build never needed this — its window is the screen. The margin is
-	/// transparent, which costs nothing to composite, and below the floor it
+	/// Room above and below the drawing for everything that leaves it: props
+	/// reach ~30 units over the head, the rocket lifts him 60, and `spin` turns
+	/// him about a point by his feet, sweeping ~85pt. Below the floor the strip
 	/// simply hangs off the bottom of the screen.
-	private static let margin = NSEdgeInsets(top: 90, left: 90, bottom: 90, right: 90)
+	private static let margin = (top: CGFloat(150), bottom: CGFloat(90))
 
 	private let body = CALayer()
 	private let anim = CALayer()
@@ -34,12 +33,12 @@ final class PetPanel: NSPanel {
 	private var breathing: String?
 	private var posture: String?
 	private var effectSerial: UInt32 = 0
+	private var moveSerial: UInt32?
+	private var walking = false
+	private var flying = false
 
-	init() {
-		let size = NSSize(
-			width: Self.petWidth + Self.margin.left + Self.margin.right,
-			height: Self.petWidth + Self.margin.top + Self.margin.bottom
-		)
+	init(screen: NSScreen) {
+		let size = NSSize(width: screen.frame.width, height: Self.petWidth + Self.margin.top + Self.margin.bottom)
 		super.init(
 			contentRect: NSRect(origin: .zero, size: size),
 			styleMask: [.borderless, .nonactivatingPanel],
@@ -62,7 +61,7 @@ final class PetPanel: NSPanel {
 		view.wantsLayer = true
 		contentView = view
 
-		let box = CGRect(x: Self.margin.left, y: Self.margin.bottom, width: Self.petWidth, height: Self.petWidth)
+		let box = CGRect(x: 0, y: Self.margin.bottom, width: Self.petWidth, height: Self.petWidth)
 		body.frame = box
 		anim.frame = CGRect(origin: .zero, size: box.size)
 		// `transform-origin: 50% 90%`, measured from the top.
@@ -82,11 +81,17 @@ final class PetPanel: NSPanel {
 	override var canBecomeKey: Bool { false }
 	override var canBecomeMain: Bool { false }
 
-	/// Stands him on the bottom edge of the screen, the way the Tauri build does:
-	/// over the Dock rather than above it.
-	func stand(atX x: CGFloat, on screen: NSScreen) {
+	/// Lays the strip along the bottom edge of the screen, the way the Tauri
+	/// build does: he stands over the Dock rather than above it.
+	func place(on screen: NSScreen) {
 		let shadowBelowFeet = (Painter.size - 90 - 4.5) * Self.petWidth / Painter.size
-		setFrameOrigin(NSPoint(x: screen.frame.minX + x, y: screen.frame.minY - Self.margin.bottom + shadowBelowFeet))
+		setFrame(
+			NSRect(
+				x: screen.frame.minX, y: screen.frame.minY - Self.margin.bottom + shadowBelowFeet,
+				width: screen.frame.width, height: Self.petWidth + Self.margin.top + Self.margin.bottom
+			),
+			display: false
+		)
 	}
 
 	/// Draws what the core decided. Called on every tick; each part only does
@@ -100,7 +105,32 @@ final class PetPanel: NSPanel {
 		let c = frame.colours
 		let colours = ["{face}": c.face, "{screen}": c.screen, "{led}": c.led]
 
+		// Travel: a new serial is a new move, eased over the walk's duration;
+		// 0ms is a jump (the far side of a crossing).
+		if frame.moveSerial != moveSerial {
+			let first = moveSerial == nil
+			moveSerial = frame.moveSerial
+			let to = CGPoint(x: frame.x + Self.petWidth / 2, y: Self.margin.bottom + frame.lift + Self.petWidth / 2)
+			let from = body.presentation()?.position ?? body.position
+			CATransaction.begin()
+			CATransaction.setDisableActions(true)
+			body.position = to
+			CATransaction.commit()
+			if frame.moveMs > 0, !first {
+				let a = CABasicAnimation(keyPath: "position")
+				a.fromValue = NSValue(point: from)
+				a.toValue = NSValue(point: to)
+				a.duration = Double(frame.moveMs) / 1000
+				a.timingFunction = CSSMotion.timing(motion.base.travel)
+				a.preferredFrameRateRange = Motion.liveRate
+				body.add(a, forKey: "travel")
+			}
+		}
+
 		// The drawing: rebuilt when the face, the colours or the singing change.
+		// Landing, or stopping a walk while singing, redraws to restore what
+		// flying recoloured and walking took over.
+		if (flying && !frame.flying) || (walking && !frame.walking && frame.singing) { drawn = nil }
 		let key = "\(mood)|\(frame.singing)|\(c.face)\(c.screen)\(c.led)|\(parts)"
 		if key != drawn {
 			drawn = key
@@ -110,14 +140,17 @@ final class PetPanel: NSPanel {
 
 		// Breathing: the bob, at the feeling's pace; sitting breathes instead;
 		// singing sways; asleep, nothing moves at all.
-		let breath = asleep ? "" : frame.singing ? "sing" : "\(feeling)|\(frame.sitting)"
+		let breath = asleep ? "" : frame.flying ? "fly" : frame.singing ? "sing" : "\(feeling)|\(frame.sitting)"
 		if breath != breathing {
 			breathing = breath
 			body.removeAnimation(forKey: "breathe")
 			if !asleep {
 				let sway = motion.singing.first { $0.target == "companion-body" }
 				let pace = motion.pace[feeling]
-				let animation = frame.singing
+				let thrust = motion.flying.first { $0.target == "companion-body" }?.spec
+				let animation = frame.flying
+					? thrust.flatMap { CSSMotion.animation($0, motion: motion, rate: Motion.liveRate) }
+					: frame.singing
 					? sway.flatMap { CSSMotion.animation($0, motion: motion, rate: Motion.liveRate) }
 					: CSSMotion.animation(
 						motion.base.bob, motion: motion, rate: Motion.idleRate,
@@ -129,10 +162,13 @@ final class PetPanel: NSPanel {
 
 		// Posture: the feeling's, else sitting's, eased in over the CSS transition.
 		// (In companion.css the feeling's rule comes later and wins over sitting.)
-		let stance = "\(feeling)|\(frame.sitting)"
+		let stance = "\(feeling)|\(frame.sitting)|\(frame.flying)|\(frame.facingRight)"
 		if stance != posture {
 			posture = stance
-			if let p = motion.postures[feeling] {
+			let lean = motion.flying.last { $0.target == "companion-anim" && ($0.facing == nil || frame.facingRight) }
+			if frame.flying, let lean, let tilt = lean.transform {
+				ease(anim, to: CSSMotion.transform(tilt), over: 0.25, timing: "ease")
+			} else if let p = motion.postures[feeling] {
 				ease(anim, to: CSSMotion.transform(p.transform), over: p.duration, timing: p.timing)
 			} else if frame.sitting {
 				ease(anim, to: CSSMotion.transform(motion.sit.transform), over: motion.sit.duration, timing: motion.sit.timing)
@@ -142,6 +178,36 @@ final class PetPanel: NSPanel {
 			let feet = frame.sitting ? CSSMotion.transform(motion.sit.feet) : CATransform3DIdentity
 			for foot in Motion.find("companion-foot", in: host) {
 				ease(foot, to: CATransform3DConcat(feet, limb(foot, mood: mood)), over: motion.sit.duration, timing: motion.sit.timing)
+			}
+		}
+
+		// Feet: stepping while he walks (which owns them over singing's tap),
+		// lit and flickering while he flies.
+		if frame.walking != walking {
+			walking = frame.walking
+			for foot in Motion.find("companion-foot", in: host) {
+				foot.removeAnimation(forKey: "walk")
+				if walking { foot.removeAnimation(forKey: "sing") }
+			}
+			if walking {
+				for spec in motion.walking {
+					guard let a = CSSMotion.animation(spec, motion: motion, rate: Motion.liveRate) else { continue }
+					for foot in Motion.find("companion-foot", in: host)
+					where spec.side.map({ (foot.name ?? "").contains("side-\($0)") }) ?? !(foot.name ?? "").contains("side-right") {
+						foot.add(a, forKey: "walk")
+					}
+				}
+			}
+		}
+		if frame.flying != flying {
+			flying = frame.flying
+			if flying, let flame = motion.flying.first(where: { $0.target == "companion-foot" }) {
+				for foot in Motion.find("companion-foot", in: host) {
+					recolour(foot, fill: flame.fill, stroke: flame.stroke)
+					if let a = flame.spec.flatMap({ CSSMotion.animation($0, motion: motion, rate: Motion.liveRate) }) {
+						foot.add(a, forKey: "flame")
+					}
+				}
 			}
 		}
 
@@ -226,6 +292,16 @@ final class PetPanel: NSPanel {
 		{
 			blinker = Blinker(open: open, closed: closed)
 		}
+	}
+
+	/// Flying paints his feet as flames: flat colours over the limb gradient.
+	private func recolour(_ layer: CALayer, fill: String?, stroke: String?) {
+		if let shape = layer as? CAShapeLayer {
+			if let fill { shape.fillColor = Painter.color(fill) }
+			if let stroke, shape.strokeColor != nil { shape.strokeColor = Painter.color(stroke) }
+		}
+		if layer is CAGradientLayer { layer.isHidden = true }
+		layer.sublayers?.forEach { recolour($0, fill: fill, stroke: stroke) }
 	}
 
 	/// The mood's pose for this hand or foot, or none.

@@ -168,7 +168,9 @@ Tauri build retires. `brain.rs` is the poll: the shell calls `Brain::tick` every
 memory (apps seen, switches). So far it sleeps after 90s still, wakes happy,
 feels, and has moments (`moments.rs`: the table, `BY_FEELING`, energy floors,
 `then` chains, losing interest, dances by `danceStyle`). The moments that cover
-ground wait for walking; talking and being handled come after. The shell ticks
+ground are in too (`Travel` in `moments.rs`: pace, chase, edge, behind,
+errand, rocket, flee, skip), plus the poll's wander; `house` and `climb` wait
+for the burrow and the window ledges. Talking and being handled come after. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 
@@ -181,9 +183,17 @@ rotation flip sign there), and it *samples* each animation at 60/s with CSS's
 own per-function interpolation and per-interval easing: Core Animation blends
 matrices, and a matrix blend from `rotate(0)` to `rotate(360deg)` does not move.
 `TICO_DEMO=1` plays every effect, posture, sitting and singing in turn and
-prints when each starts, for timing screenshots. The pet window has a 90pt
-transparent margin because `spin` sweeps that far around his feet.
-Measured with moments on (Debug): 25 MB, 0.18% CPU, WindowServer at noise.
+prints when each starts, for timing screenshots.
+
+**He walks a strip, like the Tauri build**: the panel is a transparent window
+the width of the screen, and the core's `Frame.x`/`lift`/`move_ms` are eased
+into the `body` layer's position by the render server (`.companion`'s travel
+curve), so walking costs tico nothing — moving a pet-sized window instead
+would be AppKit setting a frame every frame from this process. 150pt of strip
+above him and 90pt below, for props, the rocket and `spin`. Walking steps the
+feet and takes them over from singing; flying leans into `facing_right`,
+thrusts and recolours the feet as flames, and landing redraws.
+Measured with moments and walking (Debug): 26 MB, 0.2–0.3% CPU.
 
 `Pet/MusicSense.swift` is `music.rs` in-process: one compiled `NSAppleScript`
 per player, only for players already open, every 4s while playing and 15s

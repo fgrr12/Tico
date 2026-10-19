@@ -134,7 +134,32 @@ struct ArtMotion: Decodable, Sendable {
 		let transform: [Op]
 	}
 
+	/// A rule that holds while flying: an animation, a transform, or a recolour.
+	struct StateRule: Decodable, Sendable {
+		let target: String
+		/// "right" when it only applies facing right.
+		let facing: String?
+		let name: String?
+		let duration: Double?
+		let timing: String?
+		let iterations: Double?
+		let alternate: Bool?
+		let transform: [Op]?
+		let fill: String?
+		let stroke: String?
+
+		var spec: Spec? {
+			guard let name, let duration else { return nil }
+			return Spec(
+				name: name, duration: duration, timing: timing ?? "ease", delay: 0, iterations: iterations ?? 1,
+				alternate: alternate ?? false, target: target, side: nil, child: nil, also: nil
+			)
+		}
+	}
+
 	struct Base: Decodable, Sendable {
+		/// The timing of a walk, `.companion`'s transition.
+		let travel: String
 		let limbTransition: Double
 		let origin: String
 		let bob: Spec
@@ -153,4 +178,7 @@ struct ArtMotion: Decodable, Sendable {
 	let sit: Sit
 	let singing: [Spec]
 	let limbs: [Limb]
+	/// Feet stepping, the right one half a step behind.
+	let walking: [Spec]
+	let flying: [StateRule]
 }
