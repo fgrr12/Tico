@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private var sheet: NSWindow?
 	private let brain = Brain()
 	private var frame: Frame?
+	private let musicSense = MusicSense()
+	private var music: Track?
+	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
+	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
 	private var poll: Timer?
 	private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
@@ -27,13 +31,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		if let art = try? Art.load(), let screen = NSScreen.main {
 			let panel = PetPanel()
 			think(art: art, panel: panel)
-			// Every 3.5s, the period of the poll in Companion.tsx.
-			poll = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: true) { [weak self, weak panel] _ in
+			// Four times a second: the core checks its timers on every tick, so a
+			// 0.9s reaction ends on time, and takes decisions on its own 3.5s poll.
+			poll = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak panel] _ in
 				MainActor.assumeIsolated {
 					guard let self, let panel else { return }
 					self.think(art: art, panel: panel)
 				}
 			}
+			musicSense.watch { [weak self] track in self?.music = track }
 			panel.stand(atX: 240, on: screen)
 			panel.orderFrontRegardless()
 			self.panel = panel
@@ -53,14 +59,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		statusItem = item
 	}
 
-	/// Asks the core what he is like now, and redraws only when that changed.
+	/// Asks the core what he is like now and hands it to the panel, which only
+	/// does work for what changed.
 	private func think(art: Art, panel: PetPanel) {
-		let next = brain.tick(nowMs: Sensing.clock, senses: Sensing.now())
+		let next = demo.map { $0.frame(at: Sensing.clock, art: art) } ?? brain.tick(nowMs: Sensing.clock, senses: Sensing.now(music: music))
+		// Most ticks change nothing; those cost one comparison.
 		guard next != frame else { return }
+		if next.mood != frame?.mood || next.feeling != frame?.feeling || next.singing != frame?.singing {
+			stateItem.title = "\(next.mood) · \(next.feeling)\(next.singing ? " · singing" : "")"
+		}
+		if let effect = next.effect, effect.serial != frame?.effect?.serial { stateItem.title = "effect: \(effect.name)" }
 		frame = next
-		stateItem.title = "\(next.mood) · \(next.feeling)"
-		let c = next.colours
-		panel.show(art: art, mood: "\(next.mood)", colours: ["{face}": c.face, "{screen}": c.screen, "{led}": c.led])
+		panel.apply(next, art: art)
 	}
 
 	private func artSummary() -> String {
@@ -71,5 +81,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		} catch {
 			return "art failed to load: \(error.localizedDescription)"
 		}
+	}
+}
+
+/// Plays every effect, one every 2.5s, then each feeling's posture, sitting
+/// and singing — the moving counterpart of the sheet. The menu shows which.
+@MainActor
+final class Demo {
+	private var start: UInt64?
+	private var shown = -1
+
+	func frame(at now: UInt64, art: Art) -> Frame {
+		let effects = art.motion.effects.keys.sorted()
+		let feelings: [Feeling] = [.bored, .lonely, .pleased, .worried, .sleepy, .smug, .curious, .scared]
+		start = start ?? now
+		let step = Int((now - start!) / 2_500) % (effects.count + feelings.count + 2)
+		var frame = Frame(
+			mood: .idle, feeling: .content, colours: palette(feeling: .content),
+			effect: nil, sitting: false, look: nil, singing: false
+		)
+		if step != shown {
+			shown = step
+			// For a script timing screenshots: what started, and when (Unix seconds).
+			print("demo \(step) \(Date().timeIntervalSince1970)")
+			fflush(stdout)
+		}
+		if step < effects.count {
+			frame.effect = Effect(name: effects[step], serial: UInt32(step + 1))
+		} else if step < effects.count + feelings.count {
+			frame.feeling = feelings[step - effects.count]
+			frame.colours = palette(feeling: frame.feeling)
+		} else if step == effects.count + feelings.count {
+			frame.sitting = true
+		} else {
+			frame.singing = true
+		}
+		return frame
 	}
 }

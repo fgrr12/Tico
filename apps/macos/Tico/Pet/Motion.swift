@@ -1,14 +1,12 @@
 import AppKit
 import QuartzCore
 
-/// The always-on animations from companion.css, as Core Animation.
-///
-/// Each one is handed to the render server once and runs there: no timer in
-/// this process, no redraw, no CPU in tico. That is the difference from the
-/// WebView, whose own processes spent 8–16% of a core on the same animations,
-/// and why the LED pulse is smooth again here — the WebView's twelve steps were
-/// only ever a way to repaint less often. What is left to pay is WindowServer's
-/// compositing, which `idleRate` keeps near zero.
+/// Frame rates, and finding layers by class. The animations themselves come
+/// from companion.css through `CSSMotion`; each is handed to the render server
+/// once and runs there — no timer in this process, no redraw, no CPU in tico.
+/// That is the difference from the WebView, whose own processes spent 8–16% of
+/// a core on the same animations. What is left to pay is WindowServer's
+/// compositing, which the frame rates here keep near zero.
 @MainActor
 enum Motion {
 	/// The idle animations run at 15fps, and this is the number that matters
@@ -19,33 +17,10 @@ enum Motion {
 	/// (30fps: +5–10%). The bob moves 2.5px a second and the pulse is slow, so
 	/// 15 frames is smooth; walking will need its own, higher, rate.
 	static let idleRate = CAFrameRateRange(minimum: 10, maximum: 15, preferred: 15)
-	/// `companion-bob`: 5px up and back over 4s, the whole drawing.
-	static func bob(_ layer: CALayer) {
-		let bob = CABasicAnimation(keyPath: "transform.translation.y")
-		bob.fromValue = 0
-		bob.toValue = 5
-		bob.duration = 2
-		bob.autoreverses = true
-		bob.repeatCount = .infinity
-		bob.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-		bob.preferredFrameRateRange = idleRate
-		layer.add(bob, forKey: "bob")
-	}
-
-	/// `companion-pulse`: the LED dims to 35% and back every 2.4s.
-	static func pulse(_ root: CALayer) {
-		for led in find("companion-led", in: root) {
-			let pulse = CABasicAnimation(keyPath: "opacity")
-			pulse.fromValue = 1
-			pulse.toValue = 0.35
-			pulse.duration = 1.2
-			pulse.autoreverses = true
-			pulse.repeatCount = .infinity
-			pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-			pulse.preferredFrameRateRange = idleRate
-			led.add(pulse, forKey: "pulse")
-		}
-	}
+	/// Effects and singing move fast — a hop is 18px in 0.6s — and at 15fps
+	/// they stutter. They are short, or only run while music plays, so they get
+	/// 30: the rate that measured +5–10% in WindowServer, paid only while they run.
+	static let liveRate = CAFrameRateRange(minimum: 20, maximum: 30, preferred: 30)
 
 	/// Every layer whose class list contains `name`.
 	static func find(_ name: String, in layer: CALayer) -> [CALayer] {

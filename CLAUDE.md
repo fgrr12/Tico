@@ -165,5 +165,26 @@ matches JavaScript, emoji included), familiarity and `wornFrom` — with
 Tauri build retires. `brain.rs` is the poll: the shell calls `Brain::tick` every
 3.5s with `Senses` (cursor idle time, hour, front app name, music) and draws the
 `Frame` it returns (mood, feeling, colours); the core keeps the afternoon's
-memory (apps seen, switches). So far it sleeps after 90s still, wakes happy, and
-feels; moments, walking, talking and being handled go into the same `tick`.
+memory (apps seen, switches). So far it sleeps after 90s still, wakes happy,
+feels, and has moments (`moments.rs`: the table, `BY_FEELING`, energy floors,
+`then` chains, losing interest, dances by `danceStyle`). The moments that cover
+ground wait for walking; talking and being handled come after. The shell ticks
+every 250ms — timers are checked every call, decisions on the core's own 3.5s
+poll — and skips the panel entirely when the `Frame` did not change.
+
+**Motion is data too.** `export-art.mjs` also writes `motion` from
+companion.css: every `@keyframes`, which effect plays which, each feeling's
+posture and breathing pace, sitting, the singing rules and the mood limb poses —
+and it throws if `Companion.tsx` plays an effect the CSS does not define.
+`Pet/CSSMotion.swift` is the only place CSS becomes Core Animation (y and
+rotation flip sign there), and it *samples* each animation at 60/s with CSS's
+own per-function interpolation and per-interval easing: Core Animation blends
+matrices, and a matrix blend from `rotate(0)` to `rotate(360deg)` does not move.
+`TICO_DEMO=1` plays every effect, posture, sitting and singing in turn and
+prints when each starts, for timing screenshots. The pet window has a 90pt
+transparent margin because `spin` sweeps that far around his feet.
+Measured with moments on (Debug): 25 MB, 0.18% CPU, WindowServer at noise.
+
+`Pet/MusicSense.swift` is `music.rs` in-process: one compiled `NSAppleScript`
+per player, only for players already open, every 4s while playing and 15s
+otherwise. It needs the Apple Events grant, under the native app's own id.

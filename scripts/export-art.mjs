@@ -137,7 +137,8 @@ try {
 	const declarations = Object.fromEntries([...limb[1].matchAll(/([a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], colour(m[2].trim())]))
 	const classStyles = { 'companion-hand': declarations, 'companion-foot': declarations }
 
-	const art = { version: 1, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces }
+	const motion = motionFrom(css, readFileSync(`${root}src/companion/Companion.tsx`, 'utf8'))
+	const art = { version: 2, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces, motion }
 
 	// ── The proof ─────────────────────────────────────────────────────────────
 
@@ -202,10 +203,152 @@ try {
 		writeFileSync(`${root}art/tico.json`, `${JSON.stringify(art)}\n`)
 		const count = (o) => Object.values(o).reduce((n, v) => n + Object.keys(v).length, 0)
 		console.log(
-			`✓ art/tico.json: ${count(slots)} slot variants, ${Object.keys(props).length} props, ${MOODS.length} moods; ${compared} drawings match React`
+			`✓ art/tico.json: ${count(slots)} slot variants, ${Object.keys(props).length} props, ${MOODS.length} moods, ${Object.keys(motion.effects).length} effects; ${compared} drawings match React`
 		)
 	}
 } finally {
 	await server.close()
 }
 process.exit(failed ? 1 : 0)
+
+/**
+ * How he moves, out of companion.css: the keyframes, which effect plays which
+ * of them, the posture each feeling holds, sitting, and what singing animates.
+ * The same rule as the drawing — read from where it is written, never copied —
+ * and the same proof: every effect `Companion.tsx` asks for has to exist here,
+ * or this throws.
+ *
+ * Numbers are CSS's, units dropped: translate in px (which the shells treat as
+ * points), rotate and skew in degrees, y down, rotation clockwise. Converting to
+ * a platform's axes is the shell's job, in one place.
+ */
+function motionFrom(css, companion) {
+	const declarations = (body) => Object.fromEntries([...body.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]))
+	const ops = (transform) =>
+		[...transform.matchAll(/([a-zA-Z]+)\(([^)]*)\)/g)].map(([, fn, args]) => [fn, ...args.split(/[\s,]+/).filter(Boolean).map(parseFloat)])
+
+	const keyframes = {}
+	for (const [, name, body] of css.matchAll(/@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^}]*\})*)\s*\}/g)) {
+		const frames = []
+		for (const [, stops, block] of body.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+			const d = declarations(block)
+			for (const stop of stops.split(',')) {
+				const at = stop.trim() === 'from' ? 0 : stop.trim() === 'to' ? 1 : parseFloat(stop) / 100
+				const frame = { at }
+				if (d.transform) frame.transform = d.transform === 'none' ? [] : ops(d.transform)
+				if (d.opacity !== undefined) frame.opacity = parseFloat(d.opacity)
+				frames.push(frame)
+			}
+		}
+		keyframes[name] = frames.sort((a, b) => a.at - b.at)
+	}
+
+	/** `name duration timing [delay] [count|infinite] [alternate]`, in any order CSS allows. */
+	const animation = (shorthand) => {
+		const spec = { name: null, duration: 0, timing: 'ease', delay: 0, iterations: 1, alternate: false }
+		const timings = shorthand.match(/cubic-bezier\([^)]*\)|steps\([^)]*\)/)
+		if (timings) spec.timing = timings[0]
+		const rest = shorthand.replace(/cubic-bezier\([^)]*\)|steps\([^)]*\)/, ' ').split(/\s+/).filter(Boolean)
+		let seconds = 0
+		for (const token of rest) {
+			if (/^-?[\d.]+m?s$/.test(token)) {
+				const value = token.endsWith('ms') ? parseFloat(token) / 1000 : parseFloat(token)
+				if (seconds++ === 0) spec.duration = value
+				else spec.delay = value
+			} else if (['ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out'].includes(token)) spec.timing = token
+			else if (token === 'infinite') spec.iterations = -1
+			else if (/^[\d.]+$/.test(token)) spec.iterations = parseFloat(token)
+			else if (token === 'alternate') spec.alternate = true
+			else if (token === 'reverse') spec.reverse = true
+			else spec.name = token
+		}
+		if (!spec.name || !keyframes[spec.name]) throw new Error(`animation "${shorthand}" names no keyframes`)
+		return spec
+	}
+
+	// One entry per selector, so `a, b { … }` is found under either name.
+	const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap(([, selectors, body]) =>
+		selectors
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.split(',')
+			.map((selector) => ({ selector: selector.trim().replace(/\s+/g, ' '), d: declarations(body) }))
+	)
+
+	const effects = {}
+	for (const { selector, d } of rules) {
+		const m = selector.match(/^\.companion-anim\[data-anim="(\w+)"\]( \.([\w-]+))?$/)
+		if (!m || !d.animation) continue
+		if (m[3]) (effects[m[1]].also ??= []).push({ target: m[3], ...animation(d.animation) })
+		else effects[m[1]] = { ...effects[m[1]], ...animation(d.animation) }
+	}
+
+	const postures = {}
+	const pace = {}
+	for (const { selector, d } of rules) {
+		const m = selector.match(/^\.companion\[data-feeling="(\w+)"\] \.companion-(anim|body)$/)
+		if (!m) continue
+		if (m[2] === 'anim' && d.transform) {
+			const [duration, ...timing] = (d.transition ?? 'transform 0.6s ease').replace(/^transform\s+/, '').split(/\s+(?![^(]*\))/)
+			postures[m[1]] = { transform: ops(d.transform), duration: parseFloat(duration), timing: timing.join(' ') || 'ease' }
+		}
+		if (m[2] === 'body') pace[m[1]] = { ...(d['animation-name'] && { name: d['animation-name'] }), duration: parseFloat(d['animation-duration']) }
+	}
+
+	const find = (selector) => rules.find((r) => r.selector === selector)?.d ?? {}
+	const sitAnim = find('.companion[data-pose="sit"] .companion-anim')
+	const sit = {
+		transform: ops(sitAnim.transform),
+		duration: parseFloat(sitAnim.transition.split(/\s+/)[1]),
+		timing: sitAnim.transition.match(/cubic-bezier\([^)]*\)/)?.[0] ?? 'ease',
+		feet: ops(find('.companion[data-pose="sit"] .companion-foot').transform),
+		breathe: find('.companion[data-pose="sit"] .companion-body')['animation-name'],
+	}
+
+	// Singing: which class animates how, with the side or child index that
+	// tells a left hand from a right one.
+	const singing = []
+	for (const { selector, d } of rules) {
+		if (!d.animation && !d['animation-delay']) continue
+		const m =
+			selector.match(/^\.companion\[data-singing="true"\](:not\(\[data-walking="true"\]\))? ?\.([\w-]+)(\[data-side="(\w+)"\])?$/) ??
+			selector.match(/^()\.(companion-sing)()()$/) ??
+			selector.match(/^()\.(companion-notes) text:nth-child\((\d)\)()$/)
+		if (!m) continue
+		const entry = { target: m[2] }
+		if (m[4]) entry.side = m[4]
+		if (m[2] === 'companion-notes') entry.child = Number(m[3]) - 1
+		if (d.animation) Object.assign(entry, animation(d.animation))
+		if (d['animation-delay']) {
+			const base = singing.find((e) => e.target === entry.target && !e.side)
+			Object.assign(entry, { ...base, ...entry, delay: parseFloat(d['animation-delay']) })
+		}
+		singing.push(entry)
+	}
+
+	// Limbs that move with a mood: hands up when happy, over the ears when muted.
+	const limbs = []
+	for (const { selector, d } of rules) {
+		const m = selector.match(/^\.companion\[data-mood="(\w+)"\] \.companion-(hand|foot)(\[data-side="(\w+)"\])?$/)
+		if (m && d.transform) limbs.push({ mood: m[1], target: `companion-${m[2]}`, ...(m[4] && { side: m[4] }), transform: ops(d.transform) })
+	}
+	const limbTransition = find('.companion-svg .companion-hand').transition
+
+	const base = {
+		limbTransition: parseFloat(limbTransition.split(/\s+/)[1]),
+		origin: find('.companion-anim')['transform-origin'],
+		bob: animation(find('.companion-body').animation),
+		pulse: animation(find('.companion-led').animation),
+		look: ops(find('.companion-eyes').transform.replace(/calc\(var\(--look-(x|y), 0\) \* ([\d.]+)px\)/g, '$2')),
+	}
+
+	// The proof: every effect the component plays exists. `react('mood', 'x')`
+	// and the dance table are the two places names come from.
+	const asked = new Set([
+		...[...companion.matchAll(/react\('\w+', '(\w+)'/g)].map((m) => m[1]),
+		...[...companion.matchAll(/\['(\w+)', [\d_]+\]/g)].map((m) => m[1]),
+	])
+	const missing = [...asked].filter((name) => !effects[name])
+	if (missing.length) throw new Error(`effects Companion.tsx plays but companion.css does not define: ${missing.join(', ')}`)
+
+	return { base, keyframes, effects, postures, pace, sit, singing, limbs }
+}

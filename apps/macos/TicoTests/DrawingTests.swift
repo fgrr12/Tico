@@ -48,3 +48,39 @@ final class DrawingTests: XCTestCase {
 		XCTAssertTrue(commands.isSubset(of: Set("MmLlHhVvCcQqAaZz")), "unsupported: \(commands.subtracting("MmLlHhVvCcQqAaZz"))")
 	}
 }
+
+/// The CSS-to-Core-Animation conversion, where the arithmetic is.
+@MainActor
+final class MotionTests: XCTestCase {
+	func testTimingCurves() {
+		XCTAssertEqual(CSSMotion.ease(0.5, CSSMotion.bezier("linear")), 0.5, accuracy: 0.001)
+		XCTAssertEqual(CSSMotion.ease(0, CSSMotion.bezier("ease")), 0, accuracy: 0.001)
+		XCTAssertEqual(CSSMotion.ease(1, CSSMotion.bezier("ease")), 1, accuracy: 0.001)
+		// The springy curves overshoot, which is the point of them.
+		let spring = CSSMotion.bezier("cubic-bezier(0.34, 1.56, 0.64, 1)")
+		XCTAssertGreaterThan((0..<100).map { CSSMotion.ease(Double($0) / 100, spring) }.max()!, 1)
+	}
+
+	func testASpinTurnsThroughHalfWay() {
+		// A matrix blend sees the same matrix at 0° and 360° and never moves.
+		let half = CSSMotion.blend([.init(fn: "rotate", args: [0])], [.init(fn: "rotate", args: [360])], 0.5)
+		XCTAssertEqual(half.m11, -1, accuracy: 0.001)
+	}
+
+	func testAxesFlipOnceHere() {
+		// CSS y is down; a layer's is up. CSS turns clockwise; a layer, the other way.
+		XCTAssertEqual(CSSMotion.transform([.init(fn: "translateY", args: [-18])]).m42, 18)
+		XCTAssertLessThan(CSSMotion.transform([.init(fn: "rotate", args: [16])]).m12, 0)
+	}
+
+	func testAShorterListIsPaddedNotSwapped() {
+		// `translateY(0) scaleY(1)` → `translateY(-18) scaleY(1.08) scaleX(0.95)`.
+		let mid = CSSMotion.blend(
+			[.init(fn: "translateY", args: [0]), .init(fn: "scaleY", args: [1])],
+			[.init(fn: "translateY", args: [-18]), .init(fn: "scaleY", args: [1.08]), .init(fn: "scaleX", args: [0.95])],
+			0.5
+		)
+		XCTAssertEqual(mid.m42, 9, accuracy: 0.01)
+		XCTAssertEqual(mid.m11, 0.975, accuracy: 0.01)
+	}
+}

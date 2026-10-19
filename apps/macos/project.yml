@@ -41,6 +41,7 @@ targets:
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_CFBundleDisplayName: tico
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "tico asks Spotify and Music what is playing, so he can sing along and dance to it. He never controls them."
   TicoTests:
     type: bundle.unit-test
     platform: macOS

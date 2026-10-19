@@ -107,7 +107,9 @@ struct Painter {
 			mask.path = union
 			layer.mask = mask
 		}
-		layer.name = values["class"]
+		// The class, plus the side, so an animation can tell a left hand from a
+		// right one the way the CSS does with `[data-side]`.
+		layer.name = [values["class"], values["data-side"].map { "side-\($0)" }].compactMap { $0 }.joined(separator: " ")
 		return layer
 	}
 

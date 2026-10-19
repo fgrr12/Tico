@@ -18,6 +18,8 @@ struct Art: Decodable, Sendable {
 	let slots: [String: [String: ArtNode]]
 	let props: [String: ArtNode]
 	let faces: [String: Face]
+	/// How he moves, from companion.css.
+	let motion: ArtMotion
 
 	/// One mood, back to front, with each body part left as a `slot` node.
 	struct Face: Decodable, Sendable {
@@ -59,4 +61,96 @@ struct ArtNode: Decodable, Sendable {
 			}
 		}
 	}
+}
+
+/// `motion` in the art file: companion.css's keyframes and the rules that play
+/// them, in CSS's own terms (px, degrees, y down, clockwise). `CSSMotion`
+/// turns them into Core Animation.
+struct ArtMotion: Decodable, Sendable {
+	/// One `animation:` shorthand. `target`, `side` and `child` say which layer
+	/// it runs on, where that is not implied.
+	struct Spec: Decodable, Sendable {
+		let name: String
+		let duration: Double
+		let timing: String
+		let delay: Double
+		/// -1 is `infinite`.
+		let iterations: Double
+		let alternate: Bool
+		let target: String?
+		let side: String?
+		let child: Int?
+		let also: [Spec]?
+	}
+
+	struct Keyframe: Decodable, Sendable {
+		let at: Double
+		let transform: [Op]?
+		let opacity: Double?
+	}
+
+	/// `["translateY", -5]`, `["scale", 1.06, 0.9]`.
+	struct Op: Decodable, Sendable {
+		let fn: String
+		let args: [Double]
+
+		init(fn: String, args: [Double]) {
+			self.fn = fn
+			self.args = args
+		}
+
+		init(from decoder: Decoder) throws {
+			var container = try decoder.unkeyedContainer()
+			fn = try container.decode(String.self)
+			var args: [Double] = []
+			while !container.isAtEnd { args.append(try container.decode(Double.self)) }
+			self.args = args
+		}
+	}
+
+	struct Posture: Decodable, Sendable {
+		let transform: [Op]
+		let duration: Double
+		let timing: String
+	}
+
+	struct Pace: Decodable, Sendable {
+		let name: String?
+		let duration: Double
+	}
+
+	struct Sit: Decodable, Sendable {
+		let transform: [Op]
+		let duration: Double
+		let timing: String
+		let feet: [Op]
+		let breathe: String
+	}
+
+	struct Limb: Decodable, Sendable {
+		let mood: String
+		let target: String
+		let side: String?
+		let transform: [Op]
+	}
+
+	struct Base: Decodable, Sendable {
+		let limbTransition: Double
+		let origin: String
+		let bob: Spec
+		let pulse: Spec
+		let look: [Op]
+	}
+
+	let base: Base
+	let keyframes: [String: [Keyframe]]
+	/// By the effect name the core plays.
+	let effects: [String: Spec]
+	/// By feeling.
+	let postures: [String: Posture]
+	/// The breathing's speed (and for `rattled`, its shape) by feeling.
+	let pace: [String: Pace]
+	let sit: Sit
+	let singing: [Spec]
+	let limbs: [Limb]
 }
