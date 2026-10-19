@@ -232,8 +232,8 @@ classes — a class rule beats a presentation attribute), so `export-art.mjs`
 exports it piece by piece under `house` in `art/tico.json` (earth, each bay
 lit and unlit, the shaft, furniture by familiarity tier, `hangs`,
 `wears`, `ACTIVITY`) and checks every bay against React; its lines go under
-`house` in `art/copy.json` (the Tauri build keeps `Hatch`; the export leaves it
-out). `core/src/house.rs` is `house.ts` (`scene_at`,
+`house` in `art/copy.json` (the Tauri build keeps `Hatch` and the ladder shaft;
+the export leaves both out, the native way in being the portal). `core/src/house.rs` is `house.ts` (`scene_at`,
 `brought_up`); the brain does the visits — the `house` moment (behind
 `HOME_EVERY`), the walk to the portal, 45–300s down, coming out pleased and
 half the time holding the bay's souvenir, a drop into the open portal going through it
@@ -245,8 +245,9 @@ home (`Frame.portal`, purple), inside (amber), or just stepped out (it closes
 1.8s behind him) — and does not exist otherwise, so it costs nothing and
 cannot be clicked. A drop goes through it only while it is open. The menu has
 "Go home" / "Come out" (`Brain::go_home`, `come_up`), which ignores
-`HOME_EVERY`. `Pet/Portal.swift` draws it as layers (the rim's dash turns at
-`Motion.idleRate`), he shrinks into it, and clicking it raises
+`HOME_EVERY`. `Pet/Portal.swift` draws it as layers — a stone ring on a step, an
+energy disc with lightning (procedural bolts that turn and flicker), mist at
+its foot, all at `Motion.idleRate`, he shrinks into it, and clicking it raises
 `Pet/Burrow.swift`, the cutaway, its own panel, shut by any click outside
 (a global mouse monitor, no permission) or when the portal closes. He stands in his bay doing its
 `ACTIVITY` (asleep in the cradle, watching the lamp); clicking him or "Subí"

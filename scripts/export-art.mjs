@@ -155,7 +155,6 @@ try {
 		viewBox: [0, 0, 200, 132],
 		defs: one(createElement(H.BurrowDefs)).children,
 		earth: one(createElement(H.Earth)),
-		shaft: one(createElement(H.Shaft)),
 		rooms: Object.fromEntries(
 			kinds.map((kind) => {
 				const room = H.ROOMS[kind]

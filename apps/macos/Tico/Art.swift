@@ -45,7 +45,6 @@ struct House: Decodable, Sendable {
 	let viewBox: [Double]
 	let defs: [ArtNode]
 	let earth: ArtNode
-	let shaft: ArtNode
 	let rooms: [String: Room]
 	/// Where each place's worn things hang from in his drawing (for the rail),
 	/// and which place each prop is worn on.

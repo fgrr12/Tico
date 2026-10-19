@@ -259,7 +259,7 @@ final class PetPanel: NSPanel {
 
 		// Out of the way for a call, when that is what he was asked to do — or
 		// through the portal: he shrinks into it, and comes back out of it.
-		if let p = frame.portal { portal.place(x: CGFloat(p.x), floor: Self.below - 2) }
+		if let p = frame.portal { portal.place(x: CGFloat(p.x), floor: Self.below + 1) }
 		portal.show(frame.portal)
 		if indoors != frame.home {
 			indoors = frame.home

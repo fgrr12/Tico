@@ -81,7 +81,7 @@ final class BurrowPanel: NSPanel {
 		card.masksToBounds = true
 		root.addSublayer(card)
 
-		// The stage: earth, the bays (his lit), the shaft, what he knows you
+		// The stage: earth, the bays (his lit), what he knows you
 		// well enough to have, and what you posted down to him.
 		let box = CGSize(width: house.viewBox[2], height: house.viewBox[3])
 		let painter = Painter(defs: house.defs, size: box)
@@ -97,7 +97,6 @@ final class BurrowPanel: NSPanel {
 		for kind in house.rooms.keys.sorted() {
 			if let r = house.rooms[kind] { nodes.append(present && kind == burrow.at ? r.lit : r.normal) }
 		}
-		nodes.append(house.shaft)
 		for kind in house.rooms.keys.sorted() {
 			for item in house.rooms[kind]?.items ?? [] where (house.tiers.firstIndex(of: item.since) ?? 0) <= tier {
 				nodes.append(item.node)
