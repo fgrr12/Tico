@@ -215,9 +215,12 @@ never writing there, so both can run at once; on taking the Tauri id it simply
 uses the original folder.
 
 The menu is the Tauri tray, item for item (Show, Hide, Quiet ▸, Preferences…,
-Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx`: a "Tico" tab where you press a
-place on him and pick a part or a pinned prop from drawings (`PetPreview`, the
-pet's own `Painter`), and a settings tab — chattiness, language, start at login.
+Quit). `Prefs/PrefsWindow.swift` is `Prefs.tsx` and `prefs.css`, drawn the same:
+the pane, the mono type, pill tabs, rows of name + hint beside chips, purple
+checkboxes; the "Tico" tab with him on a radial glow, a handle on each of the
+six places, the part/worn pills, and the options fanned round the ring as
+close-ups (`CROPS`, `PetPreview` with a crop) — green when chosen, dashed amber
+for "nothing". `TICO_PREFS=body:neck[:part]` opens it on a tab and place.
 Size, the burrow and window titles are left out until the native build does
 them; offering a switch that does nothing would be worse.
 

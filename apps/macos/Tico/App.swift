@@ -95,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			self.panel = panel
 			if ProcessInfo.processInfo.environment["TICO_SHEET"] != nil { sheet = Sheet.open(art: art) }
 			if ProcessInfo.processInfo.environment["TICO_SELFTEST"] != nil { selfTest(panel) }
+			if ProcessInfo.processInfo.environment["TICO_PREFS"] != nil {
+				DispatchQueue.main.async { [weak self] in self?.openPrefs() }
+			}
 			// `TICO_DO=climb` (any moment's key): does it 2s in, to look at.
 			if let key = ProcessInfo.processInfo.environment["TICO_DO"] {
 				DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in

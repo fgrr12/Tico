@@ -326,11 +326,11 @@ struct Painter {
 		value.firstMatch(of: /url\(#([\w-]+)\)/).map { String($0.1) }
 	}
 
-	static func nsColor(_ hex: String) -> NSColor {
+	nonisolated static func nsColor(_ hex: String) -> NSColor {
 		NSColor(cgColor: color(hex)) ?? .black
 	}
 
-	static func color(_ hex: String, alpha: CGFloat = 1) -> CGColor {
+	nonisolated static func color(_ hex: String, alpha: CGFloat = 1) -> CGColor {
 		var s = hex.trimmingCharacters(in: .whitespaces)
 		guard s.hasPrefix("#") else { return CGColor(gray: 0, alpha: alpha) }
 		s.removeFirst()
