@@ -22,9 +22,12 @@ use crate::house::{FURNITURE, brought_up, line_index, scene_at};
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 use crate::store::{Memory, Opening, Parts, Reminder, Settings, Store};
 
-/// Where the hatch is, its left edge on the strip, and how wide.
-pub const HOUSE_X: f64 = 24.0;
-pub const HATCH_WIDTH: f64 = 120.0;
+/// The portal home opens in the bottom-left corner: its middle on the strip,
+/// and how near it a drop has to land to go in.
+pub const PORTAL_X: f64 = 60.0;
+const PORTAL_REACH: f64 = 40.0;
+/// After he steps out it stays open this long, then closes behind him.
+const PORTAL_LINGERS: u64 = 1_800;
 /// Home is rare, behind its own floor: it takes him off the screen.
 const HOME_EVERY: u64 = 420_000;
 /// "As long as he likes": a pet always back in ninety seconds has a lunch break.
@@ -265,10 +268,18 @@ pub struct Frame {
     pub falling: bool,
     pub heat: f64,
     pub hanging: bool,
-    /// Down the burrow: off the strip, the hatch open and lit.
+    /// Down the burrow: off the strip.
     pub home: bool,
-    /// Whether there is a burrow at all (the "house" setting): the hatch.
-    pub house: bool,
+    /// The way in, only while there is one: when he is heading home, inside,
+    /// or just stepped out. Clickable, to look in.
+    pub portal: Option<Portal>,
+}
+
+/// The portal in the corner: where its middle is, and whether he is in.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct Portal {
+    pub x: f64,
+    pub inside: bool,
 }
 
 /// What the cutaway shows, worked out once when it is opened.
@@ -429,6 +440,9 @@ struct State {
     home: Option<u64>,
     home_reason: Option<Feeling>,
     home_until: u64,
+    /// On his way to the portal (it is open, waiting for him).
+    going_home: bool,
+    portal_closes: u64,
     home_at: u64,
     rng: u64,
 }
@@ -535,6 +549,8 @@ impl Brain {
                 home: None,
                 home_reason: None,
                 home_until: 0,
+                going_home: false,
+                portal_closes: 0,
                 home_at: 0,
                 rng: seed.max(1),
             }),
@@ -623,6 +639,27 @@ impl Brain {
         if s.home.is_some() {
             s.come_out(now);
         }
+    }
+
+    /// "Go home" from the menu: now, whatever he was doing, and whenever he
+    /// was last down there.
+    pub fn go_home(&self) {
+        let mut s = self.state.lock().unwrap();
+        let now = s.last_tick;
+        if s.home.is_some() || s.going_home || !s.settings.house || s.hold.is_some() {
+            return;
+        }
+        if s.asleep {
+            s.wake(now);
+        }
+        s.moving = None;
+        s.pending.clear();
+        s.then = None;
+        s.ladder = None;
+        s.hanging = false;
+        s.falling = false;
+        s.lift = 0.0;
+        s.head_home(now);
     }
 
     /// The scene for the cutaway, derived at the moment of looking.
@@ -726,16 +763,22 @@ impl Brain {
         let mut s = self.state.lock().unwrap();
         let Some(hold) = s.hold.take() else { return };
         let middle = s.here() + s.pet() / 2.0;
+        // Picked up on the way to the portal and put down elsewhere: he has
+        // changed his mind, and it closes.
+        let into_portal = s.going_home && (middle - PORTAL_X).abs() < PORTAL_REACH;
+        if hold.moved && !into_portal {
+            s.going_home = false;
+        }
         if !hold.moved {
             s.click(now_ms);
-        } else if s.settings.house
-            && s.home.is_none()
-            && middle > HOUSE_X
-            && middle < HOUSE_X + HATCH_WIDTH
-        {
-            // Dropped over the hatch, he goes down it — and whatever he had on
-            // comes off on the way and ends up on the rail: the one way anything
-            // of yours gets into the burrow.
+            // A click on the way stops the walk; it carries on.
+            if s.going_home {
+                s.pending.push((now_ms + 600, Step::GoHome));
+            }
+        } else if into_portal {
+            // Dropped into the open portal, he goes through — and whatever he
+            // had on comes off on the way and ends up on the rail: the one way
+            // anything of yours gets into the burrow.
             if let Some(prop) = s.prop.take().filter(|_| !s.prop_leaving) {
                 s.memory.left_behind(&prop);
                 s.save_memory();
@@ -743,7 +786,8 @@ impl Brain {
             s.prop = None;
             s.prop_leaving = false;
             s.home_at = now_ms;
-            s.walk(now_ms, HOUSE_X + 30.0, 0.0, FALL_SPEED, After::Home);
+            let x = PORTAL_X - s.pet() / 2.0;
+            s.walk(now_ms, x, 0.0, FALL_SPEED, After::Home);
         } else if s.lift > 4.0 {
             // Through the same fall as coming off a ladder, ledges and all.
             s.react(now_ms, Mood::Held, None, 0);
@@ -911,7 +955,8 @@ impl Brain {
             heat: s.heat,
             hanging: s.hanging,
             home: s.home.is_some(),
-            house: s.settings.house,
+            portal: (s.home.is_some() || s.going_home || now < s.portal_closes)
+                .then(|| Portal { x: PORTAL_X, inside: s.home.is_some() }),
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -1136,7 +1181,12 @@ impl State {
                 self.walk(now, x, 0.0, speed, After::Nothing);
             }
             Step::Say { path, ms } => self.say_from(now, &path, ms, &[]),
-            Step::GoHome => self.walk(now, HOUSE_X + 30.0, 0.0, WALK_SPEED * 1.1, After::Home),
+            Step::GoHome => {
+                if self.going_home {
+                    let x = PORTAL_X - self.pet() / 2.0;
+                    self.walk(now, x, 0.0, WALK_SPEED * 1.1, After::Home);
+                }
+            }
             Step::Fuss => {
                 if let Some(prop) = self.prop.clone()
                     && self.chance(0.6)
@@ -1571,6 +1621,7 @@ impl State {
     fn call_changed(&mut self, now: u64) {
         if self.peeking() {
             self.home_x.get_or_insert(self.here());
+            self.going_home = false;
             self.speech = None;
             self.pending.clear();
             self.then = None;
@@ -1748,10 +1799,22 @@ impl State {
         }
     }
 
+    /// The portal opens in the corner, he says so (sometimes), and a beat
+    /// later sets off for it.
+    fn head_home(&mut self, now: u64) {
+        self.home_at = now;
+        self.going_home = true;
+        if self.chance(0.55) {
+            self.say_from(now, "house.arriving", 3_000, &[]);
+        }
+        self.pending.push((now + 1_200, Step::GoHome));
+    }
+
     /// In: off the strip until a time he picks, the bay counted on the way in
     /// (so a session that ends down there still counted the visit).
     fn settle_in(&mut self, now: u64) {
         self.home = Some(now);
+        self.going_home = false;
         self.home_reason = Some(self.feeling);
         self.home_until = now + HOME_FOR.0 + self.below((HOME_FOR.1 - HOME_FOR.0) as usize) as u64;
         self.speech = None;
@@ -1773,6 +1836,7 @@ impl State {
     fn come_out(&mut self, now: u64) {
         let Some(since) = self.home.take() else { return };
         self.home_at = now;
+        self.portal_closes = now + PORTAL_LINGERS;
         self.react(now, Mood::Happy, Some("pop"), 1_600);
         if self.prop.is_none() && self.chance(0.5) {
             let chair = self.opening.as_ref().and_then(|o| o.chair.clone());
@@ -1783,7 +1847,7 @@ impl State {
             self.say_from(now, "house.leaving", 3_600, &[]);
         }
         // A few steps out of the doorway, so he does not stand in his own porch.
-        let x = HOUSE_X + 120.0 + self.below(160) as f64;
+        let x = PORTAL_X + 60.0 + self.below(160) as f64;
         self.walk(now, x, 0.0, WALK_SPEED, After::Nothing);
     }
 
@@ -1854,11 +1918,7 @@ impl State {
                 if !self.settings.house || self.ladder.is_some() || recent {
                     return;
                 }
-                self.home_at = now;
-                if self.chance(0.55) {
-                    self.say_from(now, "house.arriving", 3_000, &[]);
-                }
-                self.pending.push((now + 1_200, Step::GoHome));
+                self.head_home(now);
             }
             Travel::Climb => {
                 if self.ladder.is_some() || self.falling || self.hanging {
@@ -2786,18 +2846,28 @@ mod tests {
     }
 
     #[test]
-    fn dropped_over_the_hatch_he_goes_down_and_leaves_his_hat_on_the_rail() {
+    fn dropped_into_the_open_portal_he_goes_through_and_leaves_his_hat_on_the_rail() {
         let brain = talker("en");
         brain.tick(0, quiet_senses(None));
-        brain.state.lock().unwrap().prop = Some("cap".into());
+        // No portal, no way in: a drop in the corner is just a drop.
         brain.press(100, 500.0, 0.0, 500.0, 0.0);
-        brain.drag(150, 50.0, 40.0);
+        brain.drag(150, 50.0, 0.0);
         brain.release(200);
-        let mut frame = brain.tick(250, quiet_senses(None));
+        assert!(brain.tick(2_000, quiet_senses(None)).portal.is_none());
+        assert!(!brain.tick(4_000, quiet_senses(None)).home);
+        brain.go_home();
+        assert_eq!(brain.tick(4_250, quiet_senses(None)).portal.map(|p| p.inside), Some(false));
+        brain.state.lock().unwrap().wear(4_250, "cap", false);
+        let x = brain.tick(4_255, quiet_senses(None)).x;
+        brain.press(4_260, x + 40.0, 0.0, x, 0.0);
+        brain.drag(4_280, 60.0, 40.0);
+        brain.release(4_300);
+        let mut frame = brain.tick(4_350, quiet_senses(None));
         for t in 1..20 {
-            frame = brain.tick(250 + t * 250, quiet_senses(None));
+            frame = brain.tick(4_350 + t * 250, quiet_senses(None));
         }
         assert!(frame.home);
+        assert_eq!(frame.portal.map(|p| p.inside), Some(true));
         assert!(frame.worn.iter().all(|w| w.kind != "cap"));
         assert_eq!(brain.burrow().left, vec!["cap".to_string()]);
         let burrow = brain.burrow();
@@ -2805,9 +2875,12 @@ mod tests {
         assert!(lines("en", &format!("house.at.{}", burrow.at)).contains(&burrow.line));
         // Clicked in the cutaway, he comes up and walks out of the doorway.
         brain.come_up();
-        let frame = brain.tick(6_000, quiet_senses(None));
+        let frame = brain.tick(10_000, quiet_senses(None));
         assert!(!frame.home);
-        assert!(frame.x > HOUSE_X + 100.0);
+        // Open behind him a moment, then gone.
+        assert_eq!(frame.portal.map(|p| p.inside), Some(false));
+        assert!(brain.tick(12_000, quiet_senses(None)).portal.is_none());
+        assert!(frame.x > PORTAL_X + 40.0);
         assert_eq!(brain.burrow().line, lines("en", "house.empty")[0]);
     }
 

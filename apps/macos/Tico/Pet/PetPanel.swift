@@ -29,16 +29,12 @@ final class PetPanel: NSPanel {
 	var onRelease: (() -> Void)?
 	/// The reminder whose button was pressed.
 	var onDone: ((String) -> Void)?
-	/// The hatch was clicked.
-	var onHatch: (() -> Void)?
+	/// The portal was clicked.
+	var onPortal: (() -> Void)?
 	private var pressed = false
 
-	/// The burrow's way in, behind him on the floor, and whether it stands open
-	/// (he is down there, or you lifted it to look).
-	private let hatch = CALayer()
-	private var hatchOpen = false
-	/// The cutaway is open: the hatch stands open whether or not he is in.
-	var looking = false { didSet { if looking != oldValue { swing() } } }
+	/// The way home, behind him in the corner, while there is one.
+	private let portal = PortalLayer()
 	private var indoors = false
 
 	/// The ladder, behind him: on the near side of the rungs, not in the ladder.
@@ -101,9 +97,11 @@ final class PetPanel: NSPanel {
 				self.onDone?(id)
 				return
 			}
-			// The hatch, where he is not standing on it.
-			if !self.hatch.isHidden, self.hatch.frame.contains(p), !(self.walker.presentation() ?? self.walker).frame.contains(p) || self.indoors {
-				self.onHatch?()
+			// The portal, where he is not standing in front of it.
+			if self.portal.shown, self.portal.layer.frame.contains(p),
+				self.indoors || !(self.walker.presentation() ?? self.walker).frame.contains(p)
+			{
+				self.onPortal?()
 				return
 			}
 			self.pressed = true
@@ -131,7 +129,7 @@ final class PetPanel: NSPanel {
 		setUpHeat()
 		walker.addSublayer(body)
 		walker.addSublayer(bubble.layer)
-		view.layer?.addSublayer(hatch)
+		view.layer?.addSublayer(portal.layer)
 		view.layer?.addSublayer(ladder)
 		view.layer?.addSublayer(walker)
 	}
@@ -139,47 +137,9 @@ final class PetPanel: NSPanel {
 	override var canBecomeKey: Bool { false }
 	override var canBecomeMain: Bool { false }
 
-	/// Draws the hatch once: 120×52 at `HOUSE_X`, its near edge (svg y 50) on
-	/// his floor, as the Tauri strip stands both on its bottom edge — lower and
-	/// the boards fall off the bottom of the screen.
-	private func drawHatch(_ house: House) {
-		let box = CGSize(width: house.hatchBox[2], height: house.hatchBox[3])
-		let painter = Painter(defs: house.hatch.filter { $0.tag == "defs" }.flatMap { $0.children ?? [] }, size: box)
-		hatch.frame = CGRect(x: Double(houseX), y: Self.below - 4, width: box.width, height: box.height)
-		hatch.sublayers = painter.layers(house.hatch)
-		// The lid turns on its far edge, (60, 26) in the drawing.
-		for lid in Motion.find("tico-hatch-lid", in: hatch) {
-			lid.anchorPoint = CGPoint(x: 60 / box.width, y: (box.height - 26) / box.height)
-			lid.position = CGPoint(x: 60, y: box.height - 26)
-		}
-	}
-
-	/// Open: the lid swings up and over toward you (`scaleY(-0.88) skewX(7deg)`,
-	/// the skew's sign flipped for y-up), letting the burrow's light out.
-	private func swing() {
-		let open = indoors || looking
-		guard open != hatchOpen else { return }
-		hatchOpen = open
-		let turned = CGAffineTransform(a: 1, b: 0, c: -tan(7 * .pi / 180), d: 1, tx: 0, ty: 0).concatenating(CGAffineTransform(scaleX: 1, y: -0.88))
-		for lid in Motion.find("tico-hatch-lid", in: hatch) {
-			let to = open ? CATransform3DMakeAffineTransform(turned) : CATransform3DIdentity
-			let a = CABasicAnimation(keyPath: "transform")
-			a.fromValue = lid.presentation()?.transform ?? lid.transform
-			a.toValue = to
-			a.duration = 0.45
-			a.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.35, 0.6, 1)
-			a.preferredFrameRateRange = Motion.liveRate
-			CATransaction.begin()
-			CATransaction.setDisableActions(true)
-			lid.transform = to
-			CATransaction.commit()
-			lid.add(a, forKey: "swing")
-		}
-	}
-
-	/// The hatch's top-left corner on screen, where the cutaway rises from.
-	var hatchOnScreen: CGPoint {
-		CGPoint(x: frame.minX + hatch.frame.minX, y: frame.minY + hatch.frame.maxY)
+	/// The portal's top-left corner on screen, where the cutaway rises from.
+	var portalOnScreen: CGPoint {
+		CGPoint(x: frame.minX + portal.layer.frame.minX, y: frame.minY + portal.layer.frame.maxY)
 	}
 
 	/// Sizes everything inside him for a pet `width` points wide.
@@ -251,7 +211,7 @@ final class PetPanel: NSPanel {
 	func hitTest(cursor: NSPoint) {
 		guard !pressed else { return }
 		let box = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
-		let door = hatch.isHidden ? CGRect.null : hatch.frame.offsetBy(dx: frame.minX, dy: frame.minY)
+		let door = portal.shown ? portal.layer.frame.offsetBy(dx: frame.minX, dy: frame.minY) : CGRect.null
 		let over = (!indoors && box.contains(cursor)) || buttonOnScreen?.contains(cursor) == true || door.contains(cursor)
 		if ignoresMouseEvents == over { ignoresMouseEvents = !over }
 	}
@@ -298,15 +258,36 @@ final class PetPanel: NSPanel {
 		}
 
 		// Out of the way for a call, when that is what he was asked to do — or
-		// down the burrow, with the hatch standing open over him.
-		if hatch.sublayers == nil { drawHatch(art.house) }
-		if hatch.isHidden == frame.house { hatch.isHidden = !frame.house }
-		let away = frame.hidden || frame.home
-		if walker.isHidden != away { walker.isHidden = away }
+		// through the portal: he shrinks into it, and comes back out of it.
+		if let p = frame.portal { portal.place(x: CGFloat(p.x), floor: Self.below - 2) }
+		portal.show(frame.portal)
 		if indoors != frame.home {
 			indoors = frame.home
-			swing()
+			let into = CABasicAnimation(keyPath: "transform.scale")
+			into.fromValue = indoors ? 1 : 0.2
+			into.toValue = indoors ? 0.05 : 1
+			into.duration = indoors ? 0.3 : 0.35
+			into.preferredFrameRateRange = Motion.liveRate
+			if indoors {
+				into.fillMode = .forwards
+				into.isRemovedOnCompletion = false
+				CATransaction.begin()
+				CATransaction.setCompletionBlock { [weak self] in
+					MainActor.assumeIsolated {
+						guard let self, self.indoors else { return }
+						self.walker.isHidden = true
+						self.svg.removeAnimation(forKey: "portal")
+					}
+				}
+				svg.add(into, forKey: "portal")
+				CATransaction.commit()
+			} else {
+				svg.removeAnimation(forKey: "portal")
+				svg.add(into, forKey: "portal")
+			}
 		}
+		let away = frame.hidden || (frame.home && svg.animation(forKey: "portal") == nil)
+		if walker.isHidden != away { walker.isHidden = away }
 
 		// What he is saying, on whichever side of him keeps it on screen.
 		bubble.show(frame.speech, width: petWidth, onLeft: frame.x + petWidth / 2 < self.frame.width / 2)
@@ -731,10 +712,6 @@ final class PetPanel: NSPanel {
 
 /// One whole pet, back to front: the mood's drawing with the four body slots
 /// filled in.
-/// `HOUSE_X` in the core: where the hatch's left edge is on the strip.
-/// Change both.
-let houseX = 24.0
-
 @MainActor
 enum Pet {
 	nonisolated static let defaultParts = ["shell": "terminal", "hands": "mitts", "feet": "pills", "antenna": "led"]

@@ -153,11 +153,9 @@ try {
 	const kinds = Object.keys(H.ROOMS)
 	const house = {
 		viewBox: [0, 0, 200, 132],
-		hatchBox: [0, 0, 120, 52],
 		defs: one(createElement(H.BurrowDefs)).children,
 		earth: one(createElement(H.Earth)),
 		shaft: one(createElement(H.Shaft)),
-		hatch: walk(createElement(H.HatchArt)),
 		rooms: Object.fromEntries(
 			kinds.map((kind) => {
 				const room = H.ROOMS[kind]

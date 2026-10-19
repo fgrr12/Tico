@@ -20,7 +20,7 @@ struct Art: Decodable, Sendable {
 	let faces: [String: Face]
 	/// How he moves, from companion.css.
 	let motion: ArtMotion
-	/// The burrow: the hatch on the strip and the cutaway under it, from House.tsx.
+	/// The burrow's cutaway, from House.tsx.
 	let house: House
 
 	/// One mood, back to front, with each body part left as a `slot` node.
@@ -40,14 +40,12 @@ struct Art: Decodable, Sendable {
 }
 
 /// The burrow, in pieces so a bay can be lit, furniture left out until he
-/// knows you, and the fan turned. Drawn in a 200×132 box (the hatch 120×52).
+/// knows you, and the fan turned. Drawn in a 200×132 box.
 struct House: Decodable, Sendable {
 	let viewBox: [Double]
-	let hatchBox: [Double]
 	let defs: [ArtNode]
 	let earth: ArtNode
 	let shaft: ArtNode
-	let hatch: [ArtNode]
 	let rooms: [String: Room]
 	/// Where each place's worn things hang from in his drawing (for the rail),
 	/// and which place each prop is worn on.

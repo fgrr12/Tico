@@ -1,8 +1,8 @@
 import AppKit
 import QuartzCore
 
-/// The cutaway under the hatch: `BurrowMap` in House.tsx, drawn from the same
-/// pieces (`art.house`), rising out of the hatch when you click it.
+/// The burrow, seen through the portal: `BurrowMap` in House.tsx, drawn from the same
+/// pieces (`art.house`), rising out of the portal when you click it.
 ///
 /// Its own small panel rather than part of the strip, because the strip is
 /// click-through except over him and this takes clicks all over. It exists only
@@ -46,9 +46,9 @@ final class BurrowPanel: NSPanel {
 
 	override var canBecomeKey: Bool { false }
 
-	/// Draws `burrow` and rises out of the hatch, whose top-left is `hatch` on
+	/// Draws `burrow` and rises out of the portal, whose top-left is `from` on
 	/// screen.
-	func show(_ burrow: Burrow, art: Art, frame: Frame, language: String, hatch: CGPoint, rising: Bool = true) {
+	func show(_ burrow: Burrow, art: Art, frame: Frame, language: String, from: CGPoint, rising: Bool = true) {
 		let house = art.house
 		let stageHeight = Self.stageWidth * house.viewBox[3] / house.viewBox[2]
 		let present = burrow.present
@@ -68,7 +68,7 @@ final class BurrowPanel: NSPanel {
 		let foot = 7 + labelHeight + lineHeight + 9
 		let size = CGSize(width: Self.width, height: Self.pad + stageHeight + foot)
 
-		setFrame(NSRect(x: hatch.x, y: hatch.y + 30, width: size.width, height: size.height), display: false)
+		setFrame(NSRect(x: from.x, y: from.y + 8, width: size.width, height: size.height), display: false)
 		guard let root = contentView?.layer else { return }
 		root.sublayers = nil
 
@@ -167,7 +167,7 @@ final class BurrowPanel: NSPanel {
 			button = .zero
 		}
 
-		// Out of the hatch, not over it: the corner nearest the trapdoor stays
+		// Out of the portal, not over it: the corner nearest it stays
 		// put (`tico-map-open`).
 		card.anchorPoint = CGPoint(x: 0.12, y: 0)
 		card.position = CGPoint(x: size.width * 0.12, y: 0)

@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private let demo = ProcessInfo.processInfo.environment["TICO_DEMO"] != nil ? Demo() : nil
 	private var poll: Timer?
 	private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+	/// "Go home", or "Come out" while he is in.
+	private let homeItem = NSMenuItem(title: "Go home", action: #selector(goHome), keyEquivalent: "")
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
@@ -94,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 				self.brain.release(nowMs: Sensing.clock)
 				self.think(art: art, panel: panel)
 			}
-			panel.onHatch = { [weak self, weak panel] in
+			panel.onPortal = { [weak self, weak panel] in
 				guard let self, let panel else { return }
 				if self.burrowOpen { self.closeBurrow(panel) } else { self.openBurrow(art: art, panel: panel) }
 			}
@@ -142,6 +144,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		let menu = NSMenu()
 		menu.addItem(withTitle: "Show", action: #selector(show), keyEquivalent: "").target = self
 		menu.addItem(withTitle: "Hide", action: #selector(hide), keyEquivalent: "").target = self
+		homeItem.target = self
+		menu.addItem(homeItem)
 		menu.addItem(.separator())
 		let quiet = NSMenu()
 		for (title, minutes) in [("30 minutes", 30), ("1 hour", 60), ("Until I say otherwise", -1), ("Off", 0)] {
@@ -158,6 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		menu.addItem(stateItem)
 		menu.addItem(.separator())
 		menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+		menu.delegate = self
 		item.menu = menu
 		statusItem = item
 	}
@@ -181,8 +186,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			stateItem.title = "\(next.mood) · \(next.feeling)\(next.singing ? " · singing" : "")"
 		}
 		if let effect = next.effect, effect.serial != frame?.effect?.serial { stateItem.title = "effect: \(effect.name)" }
-		// He went in or came out while you were looking: the scene again, in place.
-		if burrowOpen, next.home != frame?.home { openBurrow(art: art, panel: panel, rising: false) }
+		// He went in or came out while you were looking: the scene again, in
+		// place — and when the portal closes, so does the view through it.
+		if burrowOpen, next.portal == nil {
+			closeBurrow(panel)
+		} else if burrowOpen, next.home != frame?.home {
+			openBurrow(art: art, panel: panel, rising: false)
+		}
 		frame = next
 		let p = next.parts
 		panel.apply(next, art: art, parts: ["shell": p.shell, "hands": p.hands, "feet": p.feet, "antenna": p.antenna])
@@ -195,10 +205,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		let language = brain.settings().language
 		burrow.show(
 			brain.burrow(), art: art, frame: frame, language: language == "auto" ? systemLanguage : language,
-			hatch: panel.hatchOnScreen, rising: rising
+			from: panel.portalOnScreen, rising: rising
 		)
 		burrowOpen = true
-		panel.looking = true
 		// A click anywhere else shuts it; clicks on our own windows never get here.
 		if outside == nil {
 			outside = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self, weak panel] _ in
@@ -213,7 +222,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	private func closeBurrow(_ panel: PetPanel) {
 		burrow.hide()
 		burrowOpen = false
-		panel.looking = false
 		if let outside { NSEvent.removeMonitor(outside) }
 		outside = nil
 	}
@@ -254,6 +262,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 	private var systemLanguage: String {
 		Locale.preferredLanguages.first?.lowercased().hasPrefix("es") == true ? "es" : "en"
+	}
+
+	@objc private func goHome() {
+		if frame?.home == true { brain.comeUp() } else { brain.goHome() }
+		if let art, let panel { think(art: art, panel: panel) }
 	}
 
 	@objc private func show() { panel?.orderFrontRegardless() }
@@ -305,7 +318,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false, home: false, house: true
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false, home: false, portal: nil
 		)
 		if step != shown {
 			shown = step
@@ -324,5 +337,13 @@ final class Demo {
 			frame.singing = true
 		}
 		return frame
+	}
+}
+
+extension AppDelegate: NSMenuDelegate {
+	/// The home item says what it will do, and is only there with the burrow on.
+	func menuWillOpen(_ menu: NSMenu) {
+		homeItem.title = frame?.home == true ? "Come out" : "Go home"
+		homeItem.isHidden = !brain.settings().house
 	}
 }

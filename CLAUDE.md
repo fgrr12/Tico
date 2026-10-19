@@ -230,19 +230,25 @@ white block.
 The burrow: `House.tsx` draws with explicit fills from `TONES` (no colour
 classes — a class rule beats a presentation attribute), so `export-art.mjs`
 exports it piece by piece under `house` in `art/tico.json` (earth, each bay
-lit and unlit, the shaft, furniture by familiarity tier, the hatch, `hangs`,
+lit and unlit, the shaft, furniture by familiarity tier, `hangs`,
 `wears`, `ACTIVITY`) and checks every bay against React; its lines go under
-`house` in `art/copy.json`. `core/src/house.rs` is `house.ts` (`scene_at`,
+`house` in `art/copy.json` (the Tauri build keeps `Hatch`; the export leaves it
+out). `core/src/house.rs` is `house.ts` (`scene_at`,
 `brought_up`); the brain does the visits — the `house` moment (behind
-`HOME_EVERY`), the walk to `HOUSE_X`, 45–300s down, coming out pleased and
-half the time holding the bay's souvenir, a drop over the hatch going down it
+`HOME_EVERY`), the walk to the portal, 45–300s down, coming out pleased and
+half the time holding the bay's souvenir, a drop into the open portal going through it
 and leaving the worn prop on the rail (`memory.left`), the setting evicting
 him — and `Brain::burrow` derives the cutaway's scene when it is opened.
-`HOUSE_X` is duplicated as `houseX` in `PetPanel.swift`: change both. The
-shell draws the hatch on the strip (it takes clicks; its lid swings open with
-the burrow's light while he is in or you look) and `Pet/Burrow.swift` is the
-cutaway, its own panel rising from the hatch, shut by any click outside
-(a global mouse monitor, no permission). He stands in his bay doing its
+The native build has no hatch: the way in is a portal that opens in the
+bottom-left corner (`PORTAL_X`) only while there is a reason — he is heading
+home (`Frame.portal`, purple), inside (amber), or just stepped out (it closes
+1.8s behind him) — and does not exist otherwise, so it costs nothing and
+cannot be clicked. A drop goes through it only while it is open. The menu has
+"Go home" / "Come out" (`Brain::go_home`, `come_up`), which ignores
+`HOME_EVERY`. `Pet/Portal.swift` draws it as layers (the rim's dash turns at
+`Motion.idleRate`), he shrinks into it, and clicking it raises
+`Pet/Burrow.swift`, the cutaway, its own panel, shut by any click outside
+(a global mouse monitor, no permission) or when the portal closes. He stands in his bay doing its
 `ACTIVITY` (asleep in the cradle, watching the lamp); clicking him or "Subí"
 brings him up. The fan, the plant and the beacon move only while it is open,
 at `Motion.idleRate`. `TICO_BURROW=<s>` opens it that many seconds in;
