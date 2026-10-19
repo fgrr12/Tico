@@ -406,6 +406,13 @@ function motionFrom(css, companion) {
 			if (!m) continue
 			const entry = { target: m[3], ...(m[2] && { facing: m[2] }), ...(m[5] && { side: m[5] }) }
 			if (d.animation) Object.assign(entry, animation(d.animation))
+			// Longhands keep the rest of the element's own animation (the breath's
+			// timing and repeat) and swap only what they name.
+			if (d['animation-name'] && !d.animation) {
+				const own = animation(find(`.${m[3]}`).animation ?? find('.companion-body').animation)
+				Object.assign(entry, own, { name: d['animation-name'], ...(d['animation-duration'] && { duration: parseFloat(d['animation-duration']) }) })
+			}
+			if (d['transform-origin']) entry.origin = d['transform-origin']
 			if (d['animation-delay']) {
 				const base = out.find((e) => e.target === entry.target && !e.side)
 				Object.assign(entry, { ...base, ...entry, delay: parseFloat(d['animation-delay']) })
@@ -413,13 +420,19 @@ function motionFrom(css, companion) {
 			if (d.transform) entry.transform = ops(d.transform)
 			if (d.fill) entry.fill = d.fill.replace(/var\(--([a-z-]+)\)/, (_, n) => palette[n])
 			if (d.stroke) entry.stroke = d.stroke.replace(/var\(--([a-z-]+)\)/, (_, n) => palette[n])
-			if (entry.name || entry.transform || entry.fill) out.push(entry)
+			if (entry.name || entry.transform || entry.fill || entry.origin) out.push(entry)
 		}
 		return out
 	}
 	const palette = Object.fromEntries([...css.matchAll(/^\s*--([a-z-]+):\s*(#[0-9a-f]{3,8});/gim)].map((m) => [m[1], m[2]]))
 	const walking = stateRule('walking')
 	const flying = stateRule('flying')
+	const climbing = stateRule('climbing')
+	const hanging = stateRule('hanging')
+	const ladder = {
+		up: animation(find('.companion-ladder').animation),
+		down: animation(find('.companion-ladder[data-falling]').animation),
+	}
 
 	const base = {
 		wear: animation(find('.companion-worn').animation),
@@ -441,5 +454,5 @@ function motionFrom(css, companion) {
 	const missing = [...asked].filter((name) => !effects[name])
 	if (missing.length) throw new Error(`effects Companion.tsx plays but companion.css does not define: ${missing.join(', ')}`)
 
-	return { base, keyframes, effects, postures, pace, sit, singing, limbs, walking, flying }
+	return { base, keyframes, effects, postures, pace, sit, singing, limbs, walking, flying, climbing, hanging, ladder }
 }

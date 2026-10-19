@@ -5,9 +5,9 @@
 //! later. The brain decides when one happens and which; the steps are what the
 //! shell gets to see, as state in the `Frame`.
 //!
-//! Two of the Tauri build's moments are not here yet: `house` (the burrow) and
-//! `climb` (a ladder and the ledges of your windows). Both draw things the
-//! native shell does not have; a feeling that lists them picks from the rest.
+//! One of the Tauri build's moments is not here yet: `house` (the burrow),
+//! which draws a whole cutaway the native shell does not have; a feeling that
+//! lists it picks from the rest.
 
 use crate::brain::Mood;
 use crate::data::{DanceStyle, Feeling};
@@ -32,6 +32,8 @@ pub enum Travel {
     Flee,
     /// A hop-step aside.
     Skip,
+    /// Up a ladder for a look, which sometimes goes out from under him.
+    Climb,
 }
 
 /// One thing a moment does, `at` milliseconds after it starts.
@@ -76,6 +78,14 @@ pub enum Step {
     Fuss,
     /// Remark on the song that just started.
     Track,
+    /// The climb's second leg: up the ladder.
+    ClimbUp,
+    /// Done looking: down again, or the ladder slips.
+    ClimbDone,
+    /// The ladder is gone: from `lift`, down.
+    Drop {
+        lift: f64,
+    },
 }
 
 pub struct Moment {
@@ -168,6 +178,7 @@ pub const MOMENTS: &[Moment] = &[
     moment!("rocket", 0.75, [0 => Go(Travel::Rocket)]),
     moment!("flee", 0.3, [0 => Go(Travel::Flee)]),
     moment!("skip", 0.7, [0 => Go(Travel::Skip), 0 => react(Happy, "bounce", 1_300)]),
+    moment!("climb", 0.5, [0 => Go(Travel::Climb)]),
 ];
 
 pub fn moment(key: &str) -> Option<&'static Moment> {

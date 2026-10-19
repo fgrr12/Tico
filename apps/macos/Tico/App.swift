@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 	/// Read once a second rather than on every tick: two CoreAudio calls.
 	private var inCall = false
 	private var title: String?
+	private var ledges: [Ledge] = []
 	private var micCheckedAt: UInt64 = 0
 	private var screen: NSScreen?
 	/// `TICO_DEMO=1`: every effect in turn instead of the core, to look at.
@@ -94,6 +95,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			self.panel = panel
 			if ProcessInfo.processInfo.environment["TICO_SHEET"] != nil { sheet = Sheet.open(art: art) }
 			if ProcessInfo.processInfo.environment["TICO_SELFTEST"] != nil { selfTest(panel) }
+			// `TICO_DO=climb` (any moment's key): does it 2s in, to look at.
+			if let key = ProcessInfo.processInfo.environment["TICO_DO"] {
+				DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+					self?.brain.perform(key: key)
+					print("do \(key) \(Date().timeIntervalSince1970)")
+					fflush(stdout)
+				}
+			}
 		}
 
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -175,8 +184,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 			// Another app's main thread answers every Accessibility request, so
 			// once a second, and only when asked for.
 			title = brain.settings().readTitles ? WindowTitle.front() : nil
+			// Your windows' tops, for catching him; fresh before any fall he takes.
+			ledges = Ledges.around(panel: panel)
 		}
-		return Sensing.now(music: music, inCall: inCall, title: title, panel: panel, screen: screen ?? NSScreen.main!)
+		return Sensing.now(music: music, inCall: inCall, title: title, ledges: ledges, panel: panel, screen: screen ?? NSScreen.main!)
 	}
 
 	private var systemLanguage: String {
@@ -232,7 +243,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil, worn: [], parts: Parts(shell: "terminal", hands: "mitts", feet: "pills", antenna: "led"), hidden: false, width: 92, ladder: nil, falling: false, heat: 0, hanging: false
 		)
 		if step != shown {
 			shown = step

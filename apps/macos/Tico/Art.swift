@@ -77,6 +77,8 @@ struct ArtMotion: Decodable, Sendable {
 		/// -1 is `infinite`.
 		let iterations: Double
 		let alternate: Bool
+		/// `animation-direction: reverse`.
+		var reverse: Bool? = nil
 		let target: String?
 		let side: String?
 		let child: Int?
@@ -87,6 +89,12 @@ struct ArtMotion: Decodable, Sendable {
 		let at: Double
 		let transform: [Op]?
 		let opacity: Double?
+
+		init(at: Double, transform: [Op]?, opacity: Double?) {
+			self.at = at
+			self.transform = transform
+			self.opacity = opacity
+		}
 	}
 
 	/// `["translateY", -5]`, `["scale", 1.06, 0.9]`.
@@ -147,12 +155,16 @@ struct ArtMotion: Decodable, Sendable {
 		let transform: [Op]?
 		let fill: String?
 		let stroke: String?
+		let side: String?
+		let reverse: Bool?
+		/// `transform-origin`, while the rule holds.
+		let origin: String?
 
 		var spec: Spec? {
 			guard let name, let duration else { return nil }
 			return Spec(
 				name: name, duration: duration, timing: timing ?? "ease", delay: 0, iterations: iterations ?? 1,
-				alternate: alternate ?? false, target: target, side: nil, child: nil, also: nil
+				alternate: alternate ?? false, reverse: reverse, target: target, side: side, child: nil, also: nil
 			)
 		}
 	}
@@ -184,4 +196,14 @@ struct ArtMotion: Decodable, Sendable {
 	/// Feet stepping, the right one half a step behind.
 	let walking: [Spec]
 	let flying: [StateRule]
+	/// Up a ladder: the body rocks, the hands take turns.
+	let climbing: [StateRule]
+	/// Off a ledge: swinging from the top, hands up.
+	let hanging: [StateRule]
+	let ladder: Ladder
+
+	struct Ladder: Decodable, Sendable {
+		let up: Spec
+		let down: Spec
+	}
 }

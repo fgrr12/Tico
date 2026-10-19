@@ -31,6 +31,11 @@ final class PetPanel: NSPanel {
 	var onDone: ((String) -> Void)?
 	private var pressed = false
 
+	/// The ladder, behind him: on the near side of the rungs, not in the ladder.
+	private let ladder = CALayer()
+	private var ladderShown: Ladder?
+	private var climbing = false
+	private var hanging = false
 	/// Travels: what moves along the strip, carrying him and what he says.
 	private let walker = CALayer()
 	private let bubble = Bubble()
@@ -102,6 +107,7 @@ final class PetPanel: NSPanel {
 		body.addSublayer(anim)
 		walker.addSublayer(body)
 		walker.addSublayer(bubble.layer)
+		view.layer?.addSublayer(ladder)
 		view.layer?.addSublayer(walker)
 	}
 
@@ -138,6 +144,9 @@ final class PetPanel: NSPanel {
 
 	/// How high above his floor the strip reaches.
 	var reach: CGFloat { frame.height - Self.below }
+
+	/// His floor, as a screen y.
+	var floorY: CGFloat { frame.minY + Self.below }
 
 	/// A screen point in strip points, y up from his floor.
 	func strip(_ point: NSPoint) -> CGPoint {
@@ -328,6 +337,62 @@ final class PetPanel: NSPanel {
 			}
 		}
 
+		// The ladder: up from his feet when he sets it, toppling when it slips.
+		if frame.ladder != ladderShown {
+			let before = ladderShown
+			ladderShown = frame.ladder
+			if let l = frame.ladder, before == nil || before?.x != l.x || before?.height != l.height {
+				drawLadder(x: CGFloat(l.x), height: CGFloat(l.height))
+				if let a = CSSMotion.animation(motion.ladder.up, motion: motion, rate: Motion.liveRate) { ladder.add(a, forKey: "ladder") }
+			}
+			if let l = frame.ladder, l.falling, before?.falling != true,
+				let a = CSSMotion.animation(motion.ladder.down, motion: motion, rate: Motion.liveRate)
+			{
+				a.fillMode = .forwards
+				a.isRemovedOnCompletion = false
+				ladder.add(a, forKey: "ladder")
+			}
+			if frame.ladder == nil { ladder.isHidden = true }
+		}
+
+		// Climbing: the body rocks and the hands take turns.
+		let up = frame.ladder.map { !$0.falling } ?? false
+		if up != climbing {
+			climbing = up
+			for rule in motion.climbing {
+				let layers = rule.target == "companion-body" ? [body] : Motion.find(rule.target, in: host)
+					.filter { layer in rule.side.map { (layer.name ?? "").contains("side-\($0)") } ?? true }
+				for layer in layers {
+					layer.removeAnimation(forKey: "climb")
+					if up, let a = rule.spec.flatMap({ CSSMotion.animation($0, motion: motion, rate: Motion.liveRate) }) {
+						layer.add(a, forKey: "climb")
+					}
+				}
+			}
+		}
+
+		// Hanging off a ledge: swinging from near his top (`transform-origin:
+		// 50% 12%`), hands up on the edge.
+		if frame.hanging != hanging {
+			hanging = frame.hanging
+			let w = petWidth
+			CATransaction.begin()
+			CATransaction.setDisableActions(true)
+			anim.anchorPoint = CGPoint(x: 0.5, y: hanging ? 0.88 : 0.1)
+			anim.position = CGPoint(x: w / 2, y: w * (hanging ? 0.88 : 0.1))
+			CATransaction.commit()
+			anim.removeAnimation(forKey: "hang")
+			if hanging, let swing = motion.hanging.first(where: { $0.name != nil })?.spec,
+				let a = CSSMotion.animation(swing, motion: motion, rate: Motion.liveRate)
+			{
+				anim.add(a, forKey: "hang")
+			}
+			let reach = motion.hanging.first { $0.target == "companion-hand" && $0.transform != nil }?.transform ?? []
+			for hand in Motion.find("companion-hand", in: host) {
+				ease(hand, to: hanging ? CSSMotion.transform(reach) : limb(hand, mood: mood), over: motion.base.limbTransition, timing: "ease")
+			}
+		}
+
 		// An effect, once per serial.
 		if let effect = frame.effect, effect.serial != effectSerial {
 			effectSerial = effect.serial
@@ -414,6 +479,36 @@ final class PetPanel: NSPanel {
 		{
 			blinker = Blinker(open: open, closed: closed)
 		}
+	}
+
+	/// `.companion-ladder`: 34pt wide, 4pt rails, a 3pt rung every 16pt, from
+	/// his floor to 46pt past where he will stand, at his left edge.
+	private func drawLadder(x: CGFloat, height: CGFloat) {
+		let tall = height + 46
+		CATransaction.begin()
+		CATransaction.setDisableActions(true)
+		ladder.removeAllAnimations()
+		ladder.isHidden = false
+		ladder.anchorPoint = CGPoint(x: 0.5, y: 0)
+		ladder.bounds = CGRect(x: 0, y: 0, width: 34, height: tall)
+		ladder.position = CGPoint(x: x + 17, y: Self.below)
+		let rails = CAShapeLayer()
+		let railPath = CGMutablePath()
+		railPath.addRect(CGRect(x: 0, y: 0, width: 4, height: tall))
+		railPath.addRect(CGRect(x: 30, y: 0, width: 4, height: tall))
+		rails.path = railPath
+		rails.fillColor = Painter.color("#7a6242")
+		let rungs = CAShapeLayer()
+		let rungPath = CGMutablePath()
+		var y = tall - 3
+		while y > 0 {
+			rungPath.addRect(CGRect(x: 4, y: y, width: 26, height: 3))
+			y -= 16
+		}
+		rungs.path = rungPath
+		rungs.fillColor = Painter.color("#8d7150")
+		ladder.sublayers = [rungs, rails]
+		CATransaction.commit()
 	}
 
 	/// Flying paints his feet as flames: flat colours over the limb gradient.

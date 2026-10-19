@@ -80,7 +80,11 @@ enum CSSMotion {
 		_ spec: ArtMotion.Spec, motion: ArtMotion, rate: CAFrameRateRange,
 		name: String? = nil, duration: Double? = nil, base: CATransform3D = CATransform3DIdentity
 	) -> CAAnimation? {
-		guard let frames = motion.keyframes[name ?? spec.name], !frames.isEmpty else { return nil }
+		guard var frames = motion.keyframes[name ?? spec.name], !frames.isEmpty else { return nil }
+		// `reverse` plays the keyframes backwards.
+		if spec.reverse == true {
+			frames = frames.reversed().map { ArtMotion.Keyframe(at: 1 - $0.at, transform: $0.transform, opacity: $0.opacity) }
+		}
 		let curve = bezier(spec.timing)
 		let seconds = duration ?? spec.duration
 		let samples = max(2, Int(seconds * 60))

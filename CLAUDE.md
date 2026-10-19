@@ -170,7 +170,7 @@ feels, and has moments (`moments.rs`: the table, `BY_FEELING`, energy floors,
 `then` chains, losing interest, dances by `danceStyle`). The moments that cover
 ground are in too (`Travel` in `moments.rs`: pace, chase, edge, behind,
 errand, rocket, flee, skip), plus the poll's wander; `house` and `climb` wait
-for the burrow and the window ledges. Handling is in the core too: the shell
+for the burrow. Handling is in the core too: the shell
 reports `press`/`drag`/`release` and the cursor as a sense (`cursor_x/y`), and
 the core decides — a click pleases him, four make him dizzy, a drag picks him
 up (`held`), a drop in mid-air falls and lands, 1.6s hovering on him is petting
@@ -249,7 +249,16 @@ read once a second only with "Read window titles" on and Accessibility granted
 a box that does nothing; the core drops anything on the `SENSITIVE` blocklist
 or over 200 characters (`readable`), and a file it finds (`document_in`) gets a
 `fileByExt`/`file` line at most every 7 minutes; a new title re-arms the app
-remark, as the Tauri effect re-ran on `activeApp`. Its words are
+remark, as the Tauri effect re-ran on `activeApp`.
+
+Climbing: `Travel::Climb` stands a ladder (`Frame.ladder`, 240–620pt), climbs
+it, looks, and 40% of the time it slips; every fall — off a ladder or dropped
+in mid-air — goes through `fall`, which picks the first window ledge under him
+before it starts (`Senses.ledges`, from `Pet/Ledges.swift`: window *bounds*,
+no permission, `ledges.rs`'s filter, refreshed once a second), hangs there
+(`Frame.hanging`, swinging from 50% 12%) and drops again. `TICO_DO=<moment>`
+performs a moment 2s after launch (`Brain::perform`), for looking at one. Not
+drawn yet: the fall's heat trail and glow (CSS pseudo-elements with a blur). Its words are
 `src/prefs/copy.ts`, exported under `prefs` in `art/copy.json`. Changes go
 through `Brain::update_settings`, which saves `tico.json`. The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s

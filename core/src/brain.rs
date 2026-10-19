@@ -107,6 +107,13 @@ const DAY_MILESTONES: [u32; 4] = [7, 30, 100, 365];
 const STREAK_MILESTONES: [u32; 3] = [5, 15, 50];
 /// How often, at most, he crosses to the other edge while peeking.
 const CROSS_EVERY: u64 = 95_000;
+/// Climbing: how fast, how high a ladder goes, how often it slips.
+const CLIMB_SPEED: f64 = 46.0;
+const LADDER_MIN: f64 = 240.0;
+const LADDER_MAX: f64 = 620.0;
+const LADDER_SLIPS: f64 = 0.4;
+/// A ledge has to be at least this far below where he fell from to catch him.
+const LEDGE_GAP: f64 = 40.0;
 /// How long the taking-off of a prop takes before it is gone.
 const PROP_LEAVE: u64 = 400;
 /// Feelings he is not always in the mood to be petted in.
@@ -139,6 +146,23 @@ pub struct Track {
     pub bpm: u32,
 }
 
+/// The top edge of one of your windows he could catch on the way down, in
+/// strip points: `x` and `width` along it, `lift` above his floor.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct Ledge {
+    pub x: f64,
+    pub width: f64,
+    pub lift: f64,
+}
+
+/// A ladder standing at `x`, `height` tall; `falling` is going out from under him.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct Ladder {
+    pub x: f64,
+    pub height: f64,
+    pub falling: bool,
+}
+
 /// What the shell sensed since the last tick.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct Senses {
@@ -165,6 +189,8 @@ pub struct Senses {
     pub today: String,
     /// A microphone is live somewhere: treated as "you are in a call".
     pub in_call: bool,
+    /// Your windows' top edges, highest first, refreshed now and then.
+    pub ledges: Vec<Ledge>,
 }
 
 /// An effect to play once; a new `serial` means play it again, even when the
@@ -225,6 +251,11 @@ pub struct Frame {
     pub hidden: bool,
     /// How wide he is drawn, in points (`--pet-width`).
     pub width: f64,
+    pub ladder: Option<Ladder>,
+    /// On the way down (`heat`, 0–1, is how far), or hanging off a ledge.
+    pub falling: bool,
+    pub heat: f64,
+    pub hanging: bool,
 }
 
 /// What happens when he gets where he was going.
@@ -249,6 +280,14 @@ enum After {
     Arrive,
     /// Back from behind the screen, with something to say about it.
     Behind,
+    /// At the top of the ladder.
+    Top,
+    /// Down the ladder again.
+    Climbed,
+    /// The end of a fall: caught on a ledge at that lift, or on the floor.
+    Fell {
+        ledge: Option<f64>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -352,6 +391,11 @@ struct State {
     home_x: Option<f64>,
     cross_at: u64,
     wave_at: u64,
+    ledges: Vec<Ledge>,
+    ladder: Option<Ladder>,
+    falling: bool,
+    heat: f64,
+    hanging: bool,
     rng: u64,
 }
 
@@ -449,6 +493,11 @@ impl Brain {
                 home_x: None,
                 cross_at: 0,
                 wave_at: 0,
+                ledges: Vec::new(),
+                ladder: None,
+                falling: false,
+                heat: 0.0,
+                hanging: false,
                 rng: seed.max(1),
             }),
         }
@@ -503,6 +552,14 @@ impl Brain {
         s.load_copy();
     }
 
+    /// Starts the moment `key` now, whatever he was doing — for trying one out
+    /// (`TICO_DO` in the shell) rather than waiting for the dice.
+    pub fn perform(&self, key: String) {
+        let mut s = self.state.lock().unwrap();
+        let now = s.last_tick;
+        s.start(now, &key);
+    }
+
     /// The reminder `id` is done: a monthly one moves on a month, any other is
     /// finished. The bubble goes.
     pub fn complete_reminder(&self, id: String) {
@@ -549,6 +606,10 @@ impl Brain {
         s.moving = None;
         s.pending.clear();
         s.sit_until = None;
+        // Whatever he was doing up there is over: you have him in your hand.
+        s.ladder = None;
+        s.hanging = false;
+        s.falling = false;
         s.x = Some(x);
         s.lift = lift;
         s.hold = Some(Hold { px, py, x, lift, moved: false });
@@ -586,9 +647,10 @@ impl Brain {
         if !hold.moved {
             s.click(now_ms);
         } else if s.lift > 4.0 {
-            let x = s.here();
+            // Through the same fall as coming off a ladder, ledges and all.
             s.react(now_ms, Mood::Held, None, 0);
-            s.walk(now_ms, x, 0.0, FALL_SPEED, After::Landed);
+            let lift = s.lift;
+            s.fall(now_ms, lift);
         } else {
             s.react(now_ms, Mood::Wow, Some("land"), 900);
         }
@@ -639,6 +701,9 @@ impl Brain {
         s.cursor_x = senses.cursor_x;
         s.cursor_y = senses.cursor_y;
         s.height = senses.strip_height;
+        if !senses.ledges.is_empty() || s.ledges.is_empty() {
+            s.ledges = senses.ledges.clone();
+        }
         if senses.in_call != s.in_call {
             s.in_call = senses.in_call;
             s.call_changed(now);
@@ -740,6 +805,10 @@ impl Brain {
             parts: s.settings.parts.clone(),
             hidden: s.in_call && s.settings.in_call == "hide",
             width: s.pet(),
+            ladder: s.ladder,
+            falling: s.falling,
+            heat: s.heat,
+            hanging: s.hanging,
             speech: s.speech.as_ref().map(|(text, _)| Speech {
                 text: text.clone(),
                 serial: s.speech_serial,
@@ -978,6 +1047,29 @@ impl State {
                     self.say_from(now, "track", 6_000, &[&t.artist, &t.song]);
                 }
             }
+            Step::ClimbUp => {
+                if let Some(ladder) = self.ladder {
+                    self.walk(now, ladder.x, ladder.height, CLIMB_SPEED, After::Top);
+                }
+            }
+            Step::ClimbDone => {
+                let Some(ladder) = self.ladder else { return };
+                if self.chance(LADDER_SLIPS) {
+                    self.ladder = Some(Ladder { falling: true, ..ladder });
+                    self.react(now, Mood::Scared, Some("startle"), 900);
+                    if self.chance(0.6) {
+                        self.say_from(now, "ladderSlips", 3_600, &[]);
+                    }
+                    self.pending.push((now + 420, Step::Drop { lift: ladder.height }));
+                } else {
+                    self.walk(now, ladder.x, 0.0, CLIMB_SPEED, After::Climbed);
+                }
+            }
+            Step::Drop { lift } => {
+                self.ladder = None;
+                self.hanging = false;
+                self.fall(now, lift);
+            }
             Step::ComeBack { x } => {
                 self.crossing = false;
                 self.walk(now, x, 0.0, WALK_SPEED * 1.6, After::Behind);
@@ -1085,6 +1177,29 @@ impl State {
         } else {
             self.say_from(now, "boot", 6_000, &[]);
         }
+    }
+
+    /// Coming down from `from`, catching the first ledge he overlaps on the
+    /// way — chosen before the fall starts, never tested frame by frame. Each
+    /// ledge must be `LEDGE_GAP` below the last, so the lift only goes down and
+    /// the floor is the floor.
+    fn fall(&mut self, now: u64, from: f64) {
+        let (x, width) = (self.here(), self.pet());
+        let caught = self
+            .ledges
+            .iter()
+            .find(|l| {
+                l.lift < from - LEDGE_GAP
+                    && x + width * 0.65 > l.x
+                    && x + width * 0.35 < l.x + l.width
+            })
+            .copied();
+        let target = caught.map_or(0.0, |l| (l.lift - width * 0.8).max(0.0));
+        // Short of the real ceiling (HEAT_FULL 0.7): needing the whole screen
+        // to look hot would mean it never does.
+        self.heat = ((from - target) / (self.max_lift() * 0.7).max(1.0)).min(1.0);
+        self.falling = true;
+        self.walk(now, x, target, FALL_SPEED, After::Fell { ledge: caught.map(|l| l.lift) });
     }
 
     fn busy(&self, now: u64) -> bool {
@@ -1490,6 +1605,35 @@ impl State {
                     self.say_from(now, "behind", 5_000, &[]);
                 }
             }
+            After::Top => {
+                self.react(now, Mood::Watching, None, 2_200);
+                self.look = Some((Look { x: 0.0, y: -0.8 }, now + 2_000));
+                if self.chance(0.5) {
+                    self.say_from(now, "climb", 4_000, &[]);
+                }
+                self.pending.push((now + 2_400, Step::ClimbDone));
+            }
+            After::Climbed => self.ladder = None,
+            After::Fell { ledge } => {
+                self.falling = false;
+                match ledge {
+                    None => {
+                        self.react(now, Mood::Wow, Some("land"), 900);
+                        if self.heat > 0.55 && self.chance(0.7) {
+                            self.say_from(now, "hardLanding", 4_000, &[]);
+                        }
+                    }
+                    Some(lift) => {
+                        self.hanging = true;
+                        self.react(now, Mood::Wow, None, 1_600);
+                        if self.chance(0.7) {
+                            self.say_from(now, "grab", 3_800, &[]);
+                        }
+                        let hold = 1_800 + self.below(2_200) as u64;
+                        self.pending.push((now + hold, Step::Drop { lift }));
+                    }
+                }
+            }
             After::Arrive => {
                 self.react(now, Mood::Watching, None, 2_000);
                 self.look = Some((Look { x: 0.0, y: 0.4 }, now + 1_600));
@@ -1558,6 +1702,19 @@ impl State {
             Travel::Flee => {
                 self.react(now, Mood::Scared, None, 2_600);
                 self.walk(now, far, 0.0, WALK_SPEED * 3.0, After::Nothing);
+            }
+            Travel::Climb => {
+                if self.ladder.is_some() || self.falling || self.hanging {
+                    return;
+                }
+                let top = (self.max_lift() - 20.0)
+                    .min(LADDER_MIN + self.below((LADDER_MAX - LADDER_MIN) as usize) as f64);
+                if top < LADDER_MIN * 0.6 {
+                    return;
+                }
+                self.ladder = Some(Ladder { x: here, height: top, falling: false });
+                self.react(now, Mood::Happy, Some("pop"), 1_200);
+                self.pending.push((now + 700, Step::ClimbUp));
             }
             Travel::Skip => {
                 let step = if self.chance(0.5) { -90.0 } else { 90.0 };
@@ -1678,6 +1835,7 @@ mod tests {
             cursor_y: None,
             today: String::new(),
             in_call: false,
+            ledges: Vec::new(),
         }
     }
 
@@ -1755,6 +1913,7 @@ mod tests {
                     cursor_y: None,
                     today: String::new(),
                     in_call: false,
+                    ledges: Vec::new(),
                 },
             );
             if let Some(effect) = frame.effect
@@ -1824,6 +1983,7 @@ mod tests {
             cursor_y: None,
             today: String::new(),
             in_call: false,
+            ledges: Vec::new(),
         };
         brain.tick(0, s());
         brain.state.lock().unwrap().start(0, "yawn");
@@ -1856,7 +2016,8 @@ mod tests {
                         cursor_x: None,
                         cursor_y: None,
                         today: String::new(),
-                        in_call: false
+                        in_call: false,
+                        ledges: Vec::new()
                     }
                 )
                 .singing
@@ -1876,7 +2037,8 @@ mod tests {
                         cursor_x: None,
                         cursor_y: None,
                         today: String::new(),
-                        in_call: false
+                        in_call: false,
+                        ledges: Vec::new()
                     }
                 )
                 .singing
@@ -1902,6 +2064,7 @@ mod tests {
                 cursor_y: None,
                 today: String::new(),
                 in_call: false,
+                ledges: Vec::new(),
             },
         )
     }
@@ -1997,6 +2160,7 @@ mod tests {
                 cursor_y: cursor.map(|c| c.1),
                 today: String::new(),
                 in_call: false,
+                ledges: Vec::new(),
             },
         )
     }
@@ -2102,6 +2266,7 @@ mod tests {
             cursor_y: None,
             today: String::new(),
             in_call: false,
+            ledges: Vec::new(),
         }
     }
 
@@ -2402,5 +2567,64 @@ mod tests {
         brain.tick(20_000, editing("Code"));
         let said = brain.tick(22_000, editing("Code")).speech.expect("a line about the file");
         assert!(said.text.contains("brain.rs"), "{}", said.text);
+    }
+
+    fn with_ledges(ledges: Vec<Ledge>) -> Senses {
+        Senses { ledges, ..quiet_senses(None) }
+    }
+
+    #[test]
+    fn a_ladder_goes_up_and_comes_down_or_slips() {
+        let (mut slipped, mut climbed_down) = (0, 0);
+        for seed in 1..30 {
+            let brain = Brain::seeded(seed);
+            brain.state.lock().unwrap().moment_at = u64::MAX;
+            brain.tick(0, with_ledges(vec![]));
+            brain.state.lock().unwrap().travel(0, Travel::Climb);
+            let ladder = brain.tick(1, with_ledges(vec![])).ladder.expect("a ladder");
+            assert!((LADDER_MIN..=LADDER_MAX).contains(&ladder.height));
+            let (mut top, mut saw_fall) = (0.0f64, false);
+            for i in 1..200u64 {
+                let f = brain.tick(i * 250, with_ledges(vec![]));
+                top = top.max(f.lift);
+                saw_fall |= f.ladder.is_some_and(|l| l.falling);
+                if f.ladder.is_none() && f.lift == 0.0 && !f.falling && !f.walking && i > 4 {
+                    break;
+                }
+            }
+            assert!((top - ladder.height).abs() < 1.0, "climbed to {top} of {}", ladder.height);
+            if saw_fall { slipped += 1 } else { climbed_down += 1 }
+        }
+        assert!(slipped > 0 && climbed_down > 0, "slipped {slipped}, climbed down {climbed_down}");
+    }
+
+    #[test]
+    fn dropped_over_a_window_he_catches_its_edge_hangs_and_drops_again() {
+        let brain = Brain::still();
+        let f = brain.tick(0, with_ledges(vec![]));
+        let window = Ledge { x: f.x - 50.0, width: 400.0, lift: 300.0 };
+        // The shell refreshes the ledges ahead of any fall.
+        brain.tick(5, with_ledges(vec![window]));
+        brain.press(10, f.x + 40.0, 40.0, f.x, 0.0);
+        brain.drag(20, f.x + 40.0, 540.0);
+        brain.release(30);
+        let falling = brain.tick(40, with_ledges(vec![window]));
+        assert!(falling.falling);
+        assert!(
+            (falling.lift - (300.0 - PET_WIDTH * 0.8)).abs() < 1.0,
+            "falls to the ledge, not the floor: {}",
+            falling.lift
+        );
+        let mut hung = false;
+        let mut t = 40;
+        while t < 10_000 {
+            t += 100;
+            let f = brain.tick(t, with_ledges(vec![window]));
+            hung |= f.hanging;
+            if hung && f.lift == 0.0 && !f.falling {
+                return;
+            }
+        }
+        panic!("hung: {hung}, never reached the floor");
     }
 }
