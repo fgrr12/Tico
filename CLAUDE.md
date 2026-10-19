@@ -175,7 +175,23 @@ reports `press`/`drag`/`release` and the cursor as a sense (`cursor_x/y`), and
 the core decides — a click pleases him, four make him dizzy, a drag picks him
 up (`held`), a drop in mid-air falls and lands, 1.6s hovering on him is petting
 (declined, sometimes, when prickly), and a cursor within 220pt is watched with
-his eyes. Attention and recent drags feed the feeling ladder. Talking next. The shell ticks
+his eyes. Attention and recent drags feed the feeling ladder.
+
+**He talks from the same copy files.** `export-art.mjs` also writes
+`art/copy.json` from `src/data/copy/{en,es}.ts`. Strings go as they are; a
+function cannot be JSON, so it is *run*: hour lines for all 24 hours
+(`{"hours": […]}` — `spoken(hour)` has real logic), anything else twice with
+two sentinels per parameter (`{"t": "{1} minutes in {0}"}`), and the export
+throws if the two runs disagree, i.e. if a line branches on its argument.
+`core/src/copy.rs` picks and fills lines; the brain decides when — the boot
+line, clicks, petting (or the feeling's own line when prickly), pick-ups,
+dizziness, waking or "you're back", dwell, chatter every 50s (idle + the
+hour's + twice the feeling's), app remarks (switching, fears, the app's lines
+by time of day, unknown apps), the rocket and coming back from behind — with
+`can_speak` and the bubble's own time as the Tauri build has them. Idle time
+counts from launch at most, as Tauri's `activityAt` does. The shell's
+`Pet/Bubble.swift` draws `.companion-bubble` and types the line in at the
+feeling's `reveal_ms`. Language follows macOS (Spanish or English). The shell ticks
 every 250ms — timers are checked every call, decisions on the core's own 3.5s
 poll — and skips the panel entirely when the `Frame` did not change.
 

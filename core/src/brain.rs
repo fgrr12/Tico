@@ -9,11 +9,13 @@
 //! decisions — whether to do something, and what — are taken on the 3.5s poll,
 //! as in the Tauri build. Walking, talking and being handled come next.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use crate::copy::Copy;
 use crate::data::{
-    Colours, Feeling, Sensed, TERRORS, dance_style, energy_at, feeling_from, match_app, palette,
+    Colours, Feeling, Sensed, TERRORS, TimeOfDay, dance_style, energy_at, feeling_from, match_app,
+    palette, time_of_day,
 };
 use crate::moments::{MOMENTS, Step, Travel, by_feeling, dances, moment};
 
@@ -52,14 +54,26 @@ const NOTICE_WITHIN: f64 = 220.0;
 const PET_AFTER: u64 = 1_600;
 /// Movement before a press becomes a drag rather than a click.
 const DRAG_THRESHOLD: f64 = 5.0;
+/// Milliseconds a character takes to appear, before the feeling changes it:
+/// delivery is most of what tone is.
+const SAY_REVEAL: u64 = 16;
+/// The floor between unprompted remarks.
+const CHATTER_EVERY: u64 = 50_000;
+/// Gone longer than this and waking up is "you're back", not "I'm awake".
+const AWAY_AFTER: u64 = 120_000;
+/// Minutes in one app worth remarking on, once each.
+const DWELL_AT: [u64; 2] = [45, 120];
+/// How long after an app comes to the front he says something about it.
+const NOTICE_AFTER: u64 = 1_800;
+const APP_LINE_EVERY: u64 = 180_000;
+const APP_REPEAT_AFTER: u64 = 900_000;
+const SWITCH_LIMIT: usize = 6;
+const SWITCH_COOLDOWN: u64 = 900_000;
+/// The first thing he says, this long after launch.
+const BOOT_AFTER: u64 = 1_600;
 /// Feelings he is not always in the mood to be petted in.
-const PRICKLY: [Feeling; 5] = [
-    Feeling::Rattled,
-    Feeling::Scared,
-    Feeling::Worried,
-    Feeling::Restless,
-    Feeling::Sleepy,
-];
+const PRICKLY: [Feeling; 5] =
+    [Feeling::Rattled, Feeling::Scared, Feeling::Worried, Feeling::Restless, Feeling::Sleepy];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum Mood {
@@ -116,6 +130,15 @@ pub struct Effect {
     pub serial: u32,
 }
 
+/// Something said: a new `serial` is a new bubble. `reveal_ms` is how long
+/// each character takes to appear.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct Speech {
+    pub text: String,
+    pub serial: u32,
+    pub reveal_ms: u64,
+}
+
 /// Where the eyes point, each −1…1.
 #[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
 pub struct Look {
@@ -144,6 +167,8 @@ pub struct Frame {
     pub flying: bool,
     /// Which way he last travelled; flying leans into it.
     pub facing_right: bool,
+    /// What he is saying, while the bubble is up.
+    pub speech: Option<Speech>,
 }
 
 /// What happens when he gets where he was going.
@@ -166,6 +191,8 @@ enum After {
     Landed,
     /// The end of an errand: there was nothing there.
     Arrive,
+    /// Back from behind the screen, with something to say about it.
+    Behind,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -228,6 +255,19 @@ struct State {
     watching: bool,
     hold: Option<Hold>,
     clicks: (u32, u64),
+    copy: Option<Copy>,
+    speech: Option<(String, u64)>,
+    speech_serial: u32,
+    started: Option<u64>,
+    booted: bool,
+    hour: u8,
+    chatter_at: u64,
+    app_line_at: u64,
+    switch_line_at: u64,
+    said_about: HashMap<String, u64>,
+    dwell_done: HashSet<u64>,
+    /// The app in front has not been remarked on yet.
+    unnoticed: bool,
     rng: u64,
 }
 
@@ -291,6 +331,18 @@ impl Brain {
                 watching: false,
                 hold: None,
                 clicks: (0, 0),
+                copy: None,
+                speech: None,
+                speech_serial: 0,
+                started: None,
+                booted: false,
+                hour: 12,
+                chatter_at: 0,
+                app_line_at: 0,
+                switch_line_at: 0,
+                said_about: HashMap::new(),
+                dwell_done: HashSet::new(),
+                unnoticed: false,
                 rng: seed.max(1),
             }),
         }
@@ -323,25 +375,26 @@ impl Brain {
         Arc::new(Self::default())
     }
 
+    /// What he says, from `art/copy.json`, in `language` ("en" or "es";
+    /// anything else is English). Without it he is silent.
+    pub fn set_copy(&self, json: String, language: String) {
+        self.state.lock().unwrap().copy = Copy::parse(&json, &language);
+    }
+
     /// A press on him at (`px`, `py`) on the strip — y up from his floor —
     /// while he is visibly at (`x`, `lift`): whatever he was doing stops.
     pub fn press(&self, now_ms: u64, px: f64, py: f64, x: f64, lift: f64) {
         let mut s = self.state.lock().unwrap();
         if s.asleep {
             s.wake(now_ms);
+            s.say_from(now_ms, "wake", 3_000, &[]);
         }
         s.moving = None;
         s.pending.clear();
         s.sit_until = None;
         s.x = Some(x);
         s.lift = lift;
-        s.hold = Some(Hold {
-            px,
-            py,
-            x,
-            lift,
-            moved: false,
-        });
+        s.hold = Some(Hold { px, py, x, lift, moved: false });
     }
 
     /// The press moved to (`px`, `py`). Past a few points it is a drag: he is
@@ -358,12 +411,10 @@ impl Brain {
             s.drags.push(now_ms);
             s.hover_since = None;
             s.react(now_ms, Mood::Held, None, 0);
+            s.say_from(now_ms, "drag", 2_600, &[]);
         }
         s.hold = Some(hold);
-        let (x, lift) = (
-            s.clamp(hold.x + dx),
-            (hold.lift + dy).clamp(0.0, s.max_lift()),
-        );
+        let (x, lift) = (s.clamp(hold.x + dx), (hold.lift + dy).clamp(0.0, s.max_lift()));
         s.lift = lift;
         s.jump(x);
     }
@@ -388,10 +439,17 @@ impl Brain {
     pub fn tick(&self, now_ms: u64, senses: Senses) -> Frame {
         let mut s = self.state.lock().unwrap();
         let now = now_ms;
+        let started = *s.started.get_or_insert(now);
+        // Idle time counts from launch at most: a pet that opens asleep because
+        // you were away before it started has not been ignored by anyone.
+        let mut senses = senses;
+        senses.idle_ms = senses.idle_ms.min(now - started);
 
         // The cursor moved since the last tick: he wakes, glad you are back.
         if s.asleep && senses.idle_ms < s.last_idle {
+            let away = s.last_idle;
             s.wake(now);
+            s.say_from(now, if away > AWAY_AFTER { "back" } else { "wake" }, 3_000, &[]);
         }
         s.last_idle = senses.idle_ms;
 
@@ -406,6 +464,15 @@ impl Brain {
         s.attention_at = now;
         s.drags.retain(|at| now.saturating_sub(*at) < 120_000);
         s.energy = energy_at(senses.hour);
+        s.hour = senses.hour;
+        let started = s.started.unwrap_or(now);
+        if !s.booted && now.saturating_sub(started) >= BOOT_AFTER {
+            s.booted = true;
+            s.say_from(now, "boot", 6_000, &[]);
+        }
+        if s.speech.as_ref().is_some_and(|(_, until)| now >= *until) {
+            s.speech = None;
+        }
         if s.x.is_none() {
             // A little way in from the left, where the Tauri build starts him the
             // first time too.
@@ -423,6 +490,7 @@ impl Brain {
         if !s.asleep && s.hold.is_none() {
             s.notice(now);
         }
+        s.remark_on_app(now);
 
         if senses.idle_ms > SLEEP_AFTER {
             if !s.asleep && s.free() {
@@ -464,6 +532,11 @@ impl Brain {
             walking: s.moving.is_some() && !s.flying,
             flying: s.flying,
             facing_right: s.facing_right,
+            speech: s.speech.as_ref().map(|(text, _)| Speech {
+                text: text.clone(),
+                serial: s.speech_serial,
+                reveal_ms: s.reveal(),
+            }),
         }
     }
 }
@@ -504,11 +577,7 @@ impl State {
             self.then = None;
             if self.free() {
                 // Sometimes he just does not finish it.
-                let next = if self.chance(LOSES_INTEREST * 0.5) {
-                    "shake"
-                } else {
-                    next
-                };
+                let next = if self.chance(LOSES_INTEREST * 0.5) { "shake" } else { next };
                 self.start(now, next);
             } else {
                 self.chain = Some((next, now + RESUME_WITHIN));
@@ -518,10 +587,7 @@ impl State {
 
     fn feel(&mut self, now: u64, senses: &Senses) {
         let app_key = self.app.as_ref().and_then(|a| match_app(&a.name));
-        let fresh = self
-            .app
-            .as_ref()
-            .is_some_and(|a| now.saturating_sub(a.since) < NEW_FOR);
+        let fresh = self.app.as_ref().is_some_and(|a| now.saturating_sub(a.since) < NEW_FOR);
         self.feeling = feeling_from(&Sensed {
             neglect: senses.idle_ms as f64 / 60_000.0,
             attention: self.attention,
@@ -531,11 +597,7 @@ impl State {
                 .map_or(0.0, |a| now.saturating_sub(a.since) as f64 / 3_600_000.0),
             switches: self.switches.len() as u32,
             drags: self.drags.len() as u32,
-            new_app: fresh
-                && self
-                    .app
-                    .as_ref()
-                    .is_some_and(|a| !self.seen.contains(&a.name)),
+            new_app: fresh && self.app.as_ref().is_some_and(|a| !self.seen.contains(&a.name)),
             feared: fresh && app_key.as_deref().is_some_and(|k| TERRORS.contains(&k)),
             music: senses.music.is_some(),
             app_key,
@@ -549,16 +611,41 @@ impl State {
     fn poll(&mut self, now: u64, hour: u8, idle_ms: u64) {
         if let Some((next, until)) = self.chain.take() {
             self.moment_at = now;
-            let next = if now < until && !self.chance(LOSES_INTEREST) {
-                next
-            } else {
-                "shake"
-            };
+            let next = if now < until && !self.chance(LOSES_INTEREST) { next } else { "shake" };
             self.start(now, next);
             return;
         }
 
         let energy = energy_at(hour);
+
+        // Having been somewhere a long time is worth more than a stock line.
+        if !self.busy(now)
+            && let Some(app) = &self.app
+        {
+            let minutes = now.saturating_sub(app.since) / 60_000;
+            let name = app.name.clone();
+            let reached: Vec<u64> = DWELL_AT
+                .into_iter()
+                .filter(|m| minutes >= *m && !self.dwell_done.contains(m))
+                .collect();
+            if !reached.is_empty() {
+                self.dwell_done.extend(reached);
+                self.app_line_at = now;
+                self.react(now, Mood::Watching, None, 1_800);
+                self.say_from(now, "dwell", 7_000, &[&name, &minutes.to_string()]);
+                return;
+            }
+        }
+
+        // Talk: the idle lines, the hour's, and twice the feeling's — what he
+        // feels is the more interesting subject.
+        if !self.busy(now) && now.saturating_sub(self.chatter_at) > CHATTER_EVERY {
+            self.chatter_at = now;
+            let feeling = format!("feelings.{}", feeling_key(self.feeling));
+            let hours = format!("hours.{}", tod_key(time_of_day(hour)));
+            self.say_pool(now, &["idle", &hours, &feeling, &feeling], 8_000, &[]);
+            return;
+        }
 
         // A stroll, when you have left him be for a few seconds.
         if idle_ms > 8_000
@@ -575,25 +662,13 @@ impl State {
         }
         self.moment_at = now;
 
-        let possible: Vec<_> = MOMENTS
-            .iter()
-            .filter(|m| m.min <= energy)
-            .map(|m| m.key)
-            .collect();
+        let possible: Vec<_> = MOMENTS.iter().filter(|m| m.min <= energy).map(|m| m.key).collect();
         let willing: Vec<_> = match by_feeling(self.feeling) {
-            Some(keys) => possible
-                .iter()
-                .copied()
-                .filter(|k| keys.contains(k))
-                .collect(),
+            Some(keys) => possible.iter().copied().filter(|k| keys.contains(k)).collect(),
             None => possible.clone(),
         };
         // A feeling that leaves nothing possible falls back to everything.
-        let pool = if willing.is_empty() {
-            possible
-        } else {
-            willing
-        };
+        let pool = if willing.is_empty() { possible } else { willing };
         let key = pool[self.below(pool.len())];
         self.start(now, key);
     }
@@ -625,6 +700,10 @@ impl State {
                 self.crossing = false;
                 self.walk(now, x, 0.0, speed, After::Nothing);
             }
+            Step::ComeBack { x } => {
+                self.crossing = false;
+                self.walk(now, x, 0.0, WALK_SPEED * 1.6, After::Behind);
+            }
             Step::Dance { scale } => {
                 let style = self
                     .music
@@ -647,10 +726,7 @@ impl State {
 
     fn play(&mut self, name: &str) {
         let serial = self.effect.as_ref().map_or(1, |e| e.serial.wrapping_add(1));
-        self.effect = Some(Effect {
-            name: name.to_string(),
-            serial,
-        });
+        self.effect = Some(Effect { name: name.to_string(), serial });
     }
 
     fn wake(&mut self, now: u64) {
@@ -661,6 +737,117 @@ impl State {
         self.mood = Mood::Happy;
         self.react_until = Some(now + WAKE_FOR);
         self.play("stretch");
+    }
+
+    fn busy(&self, now: u64) -> bool {
+        self.speech.as_ref().is_some_and(|(_, until)| now < *until)
+    }
+
+    /// Unprompted talk waits for him to be standing about with nothing to do.
+    fn can_speak(&self, now: u64) -> bool {
+        !self.asleep
+            && !self.busy(now)
+            && self.hold.is_none()
+            && self.moving.is_none()
+            && self.mood == Mood::Idle
+    }
+
+    /// The feeling's delivery, in milliseconds a character.
+    fn reveal(&self) -> u64 {
+        use Feeling::*;
+        match self.feeling {
+            Sleepy => 30,
+            Lonely => 24,
+            Bored => 22,
+            Worried => 19,
+            Scared | Rattled => 9,
+            Festive => 11,
+            Pleased => 12,
+            Smug => 14,
+            _ => SAY_REVEAL,
+        }
+    }
+
+    fn say(&mut self, now: u64, text: String, ms: u64) {
+        let until = now + ms + text.chars().count() as u64 * self.reveal();
+        self.speech = Some((text, until));
+        self.speech_serial = self.speech_serial.wrapping_add(1);
+    }
+
+    fn say_from(&mut self, now: u64, path: &str, ms: u64, args: &[&str]) {
+        self.say_pool(now, &[path], ms, args);
+    }
+
+    /// One line from all of `paths` together; a path listed twice weighs double.
+    fn say_pool(&mut self, now: u64, paths: &[&str], ms: u64, args: &[&str]) {
+        let Some(copy) = &self.copy else { return };
+        let lines: Vec<serde_json::Value> =
+            paths.iter().flat_map(|p| copy.pool(p)).cloned().collect();
+        if lines.is_empty() {
+            return;
+        }
+        let line = lines[self.below(lines.len())].clone();
+        if let Some(text) = Copy::render(&line, self.hour, args) {
+            self.say(now, text, ms);
+        }
+    }
+
+    /// A beat after an app comes to the front: bouncing between apps is the
+    /// more interesting thing to say; otherwise the app itself — frightened,
+    /// if it is one he fears — at most every three minutes, and never the same
+    /// one twice in a quarter of an hour.
+    fn remark_on_app(&mut self, now: u64) {
+        let Some(app) = &self.app else { return };
+        if !self.unnoticed || now.saturating_sub(app.since) < NOTICE_AFTER {
+            return;
+        }
+        self.unnoticed = false;
+        let name = app.name.clone();
+        if !self.can_speak(now) {
+            return;
+        }
+        if self.switches.len() > SWITCH_LIMIT
+            && now.saturating_sub(self.switch_line_at) > SWITCH_COOLDOWN
+        {
+            self.switch_line_at = now;
+            self.app_line_at = now;
+            self.react(now, Mood::Wow, Some("pop"), 1_600);
+            self.say_from(now, "switching", 5_000, &[]);
+            return;
+        }
+        if self.app_line_at != 0 && now.saturating_sub(self.app_line_at) < APP_LINE_EVERY {
+            return;
+        }
+        let key = match_app(&name).unwrap_or_else(|| format!("?{name}"));
+        if self.said_about.get(&key).is_some_and(|at| now.saturating_sub(*at) < APP_REPEAT_AFTER) {
+            return;
+        }
+        let Some(copy) = &self.copy else { return };
+        let fear = format!("fears.{key}");
+        let timed = format!("apps.{key}.{}", tod_key(time_of_day(self.hour)));
+        let any = format!("apps.{key}.any");
+        let (fears, has_timed, has_any) = (
+            !copy.pool(&fear).is_empty(),
+            !copy.pool(&timed).is_empty(),
+            !copy.pool(&any).is_empty(),
+        );
+        self.said_about.insert(key, now);
+        self.app_line_at = now;
+        if fears {
+            self.react(now, Mood::Scared, Some("shiver"), 3_000);
+            self.say_from(now, &fear, 6_000, &[]);
+            return;
+        }
+        self.react(now, Mood::Watching, None, 1_800);
+        self.look = Some((Look { x: 0.0, y: -1.0 }, now + 1_600));
+        // The hour's lines, usually but not always: a joke heard nightly is wallpaper.
+        if has_timed && self.chance(0.7) {
+            self.say_from(now, &timed, 6_000, &[]);
+        } else if has_any {
+            self.say_from(now, &any, 6_000, &[]);
+        } else {
+            self.say_from(now, "unknownApp", 6_000, &[&name]);
+        }
     }
 
     fn max_lift(&self) -> f64 {
@@ -700,9 +887,13 @@ impl State {
                 if PRICKLY.contains(&self.feeling) && self.chance(0.6) {
                     self.react(now, Mood::Idle, Some("shake"), 1_100);
                     self.look = Some((Look { x: 0.0, y: 0.5 }, now + 1_400));
+                    // His own lines for the feeling are the right words for being touched in it.
+                    let path = format!("feelings.{}", feeling_key(self.feeling));
+                    self.say_from(now, &path, 3_600, &[]);
                 } else {
                     self.attention = (self.attention + 0.35).min(1.0);
                     self.react(now, Mood::Love, Some("pop"), 3_200);
+                    self.say_from(now, "pet", 3_600, &[]);
                 }
             }
         } else {
@@ -723,19 +914,17 @@ impl State {
 
     fn click(&mut self, now: u64) {
         let (count, at) = self.clicks;
-        let count = if now.saturating_sub(at) < 900 {
-            count + 1
-        } else {
-            1
-        };
+        let count = if now.saturating_sub(at) < 900 { count + 1 } else { 1 };
         if count >= 4 {
             self.clicks = (0, now);
             self.react(now, Mood::Dizzy, Some("spin"), 2_600);
+            self.say_from(now, "dizzy", 3_400, &[]);
             return;
         }
         self.clicks = (count, now);
         self.attention = (self.attention + 0.35).min(1.0);
         self.react(now, Mood::Happy, Some("pop"), 2_000);
+        self.say_from(now, "click", 4_200, &[]);
     }
 
     fn max_x(&self) -> f64 {
@@ -772,18 +961,9 @@ impl State {
         }
         self.move_ms = ms;
         self.move_serial = self.move_serial.wrapping_add(1);
-        self.moving = Some(Move {
-            until: now + ms,
-            after,
-        });
+        self.moving = Some(Move { until: now + ms, after });
         self.sit_until = None;
-        self.look = Some((
-            Look {
-                x: if to < from { -0.9 } else { 0.9 },
-                y: 0.0,
-            },
-            now + ms,
-        ));
+        self.look = Some((Look { x: if to < from { -0.9 } else { 0.9 }, y: 0.0 }, now + ms));
     }
 
     /// Straight there, no walk: the far side of a crossing.
@@ -800,24 +980,24 @@ impl State {
             After::Reappear { went_right } => {
                 self.jump(if went_right { -PET_WIDTH } else { self.width });
                 let inset = 50.0 + self.below(150) as f64;
-                let landing = if went_right {
-                    inset
-                } else {
-                    self.max_x() - inset
-                };
+                let landing = if went_right { inset } else { self.max_x() - inset };
                 let wait = 700 + self.below(1_400) as u64;
-                self.pending.push((
-                    now + wait,
-                    Step::WalkTo {
-                        x: landing,
-                        speed: WALK_SPEED * 1.6,
-                    },
-                ));
+                self.pending.push((now + wait, Step::ComeBack { x: landing }));
             }
             After::Land { x } => self.walk(now, x, 0.0, FALL_SPEED, After::Landed),
             After::Landed => {
+                let was_flying = self.flying;
                 self.flying = false;
                 self.react(now, Mood::Wow, Some("land"), 900);
+                // The landing is the funnier half, so it talks more often.
+                if was_flying && self.chance(0.7) {
+                    self.say_from(now, "rocketDown", 5_000, &[]);
+                }
+            }
+            After::Behind => {
+                if self.chance(0.55) {
+                    self.say_from(now, "behind", 5_000, &[]);
+                }
             }
             After::Arrive => {
                 self.react(now, Mood::Watching, None, 2_000);
@@ -842,11 +1022,7 @@ impl State {
 
     fn travel(&mut self, now: u64, travel: Travel) {
         let here = self.here();
-        let far = if here < self.max_x() / 2.0 {
-            self.max_x()
-        } else {
-            0.0
-        };
+        let far = if here < self.max_x() / 2.0 { self.max_x() } else { 0.0 };
         match travel {
             Travel::Pace => {
                 let step = if self.chance(0.5) { -110.0 } else { 110.0 };
@@ -860,24 +1036,14 @@ impl State {
                 }
             }
             Travel::Edge => {
-                let edge = if here < self.max_x() / 2.0 {
-                    0.0
-                } else {
-                    self.max_x()
-                };
+                let edge = if here < self.max_x() / 2.0 { 0.0 } else { self.max_x() };
                 self.walk(now, edge, 0.0, WALK_SPEED * 1.15, After::Nothing);
             }
             Travel::Behind => {
                 let went_right = here >= self.width / 2.0;
                 self.crossing = true;
                 let off = if went_right { self.width } else { -PET_WIDTH };
-                self.walk(
-                    now,
-                    off,
-                    0.0,
-                    WALK_SPEED * 1.6,
-                    After::Reappear { went_right },
-                );
+                self.walk(now, off, 0.0, WALK_SPEED * 1.6, After::Reappear { went_right });
             }
             Travel::Errand => {
                 if now.saturating_sub(self.errand_at) < ERRAND_EVERY && self.errand_at != 0 {
@@ -886,14 +1052,14 @@ impl State {
                 self.errand_at = now;
                 let wanted = self.below(self.max_x().max(1.0) as usize) as f64;
                 // Far enough to be a journey; a step is not an errand.
-                let target = if (wanted - here).abs() < 200.0 {
-                    far
-                } else {
-                    wanted
-                };
+                let target = if (wanted - here).abs() < 200.0 { far } else { wanted };
                 self.walk(now, target, 0.0, WALK_SPEED, After::Arrive);
             }
             Travel::Rocket => {
+                // Announced about half the time: always is a countdown, never a glitch.
+                if self.chance(0.5) {
+                    self.say_from(now, "rocketUp", 2_200, &[]);
+                }
                 self.flying = true;
                 self.react(now, Mood::Wow, None, 2_400);
                 self.walk(now, far, 60.0, 900.0, After::Land { x: far });
@@ -938,16 +1104,44 @@ fn track_app(s: &mut State, now: u64, front: Option<&str>) {
         if s.app.is_some() {
             s.switches.push(now);
         }
-        s.app = front.map(|name| App {
-            name: name.to_string(),
-            since: now,
-        });
+        s.dwell_done.clear();
+        s.unnoticed = true;
+        s.app = front.map(|name| App { name: name.to_string(), since: now });
     }
     s.switches.retain(|at| now - at < SWITCH_WINDOW);
     if let Some(app) = &s.app
         && now.saturating_sub(app.since) >= NEW_FOR
     {
         s.seen.insert(app.name.clone());
+    }
+}
+
+/// The copy's key for a feeling, as written in `companion.ts`.
+fn feeling_key(feeling: Feeling) -> &'static str {
+    use Feeling::*;
+    match feeling {
+        Content => "content",
+        Bored => "bored",
+        Lonely => "lonely",
+        Pleased => "pleased",
+        Worried => "worried",
+        Restless => "restless",
+        Rattled => "rattled",
+        Smug => "smug",
+        Curious => "curious",
+        Sleepy => "sleepy",
+        Festive => "festive",
+        Nostalgic => "nostalgic",
+        Scared => "scared",
+    }
+}
+
+fn tod_key(tod: TimeOfDay) -> &'static str {
+    match tod {
+        TimeOfDay::Dawn => "dawn",
+        TimeOfDay::Day => "day",
+        TimeOfDay::Evening => "evening",
+        TimeOfDay::Night => "night",
     }
 }
 
@@ -972,23 +1166,14 @@ mod tests {
     fn falls_asleep_after_ninety_seconds_and_wakes_happy() {
         let brain = Brain::still();
         assert_eq!(brain.tick(0, senses(0, "Finder")).mood, Mood::Idle);
-        assert_eq!(
-            brain.tick(89_000, senses(89_000, "Finder")).mood,
-            Mood::Idle
-        );
+        assert_eq!(brain.tick(89_000, senses(89_000, "Finder")).mood, Mood::Idle);
         let asleep = brain.tick(91_000, senses(91_000, "Finder"));
         assert_eq!(asleep.mood, Mood::Sleep);
         assert_eq!(asleep.colours.led, SLEEPING_LED);
-        assert_eq!(
-            brain.tick(200_000, senses(200_000, "Finder")).mood,
-            Mood::Sleep
-        );
+        assert_eq!(brain.tick(200_000, senses(200_000, "Finder")).mood, Mood::Sleep);
         // The cursor moves.
         assert_eq!(brain.tick(203_500, senses(500, "Finder")).mood, Mood::Happy);
-        assert_eq!(
-            brain.tick(207_000, senses(4_000, "Finder")).mood,
-            Mood::Idle
-        );
+        assert_eq!(brain.tick(207_000, senses(4_000, "Finder")).mood, Mood::Idle);
     }
 
     #[test]
@@ -996,38 +1181,20 @@ mod tests {
         let brain = Brain::still();
         brain.tick(0, senses(0, "Finder"));
         brain.tick(31_000, senses(0, "Finder"));
-        assert_eq!(
-            brain.tick(40_000, senses(0, "Obsidian")).feeling,
-            Feeling::Curious
-        );
-        assert_eq!(
-            brain.tick(75_000, senses(0, "Obsidian")).feeling,
-            Feeling::Content
-        );
+        assert_eq!(brain.tick(40_000, senses(0, "Obsidian")).feeling, Feeling::Curious);
+        assert_eq!(brain.tick(75_000, senses(0, "Obsidian")).feeling, Feeling::Content);
         // Seen now: coming back to it is not new.
         brain.tick(80_000, senses(0, "Finder"));
-        assert_ne!(
-            brain.tick(85_000, senses(0, "Obsidian")).feeling,
-            Feeling::Curious
-        );
+        assert_ne!(brain.tick(85_000, senses(0, "Obsidian")).feeling, Feeling::Curious);
     }
 
     #[test]
     fn teams_frightens_him_and_the_terminal_takes_him_home() {
         let brain = Brain::still();
-        assert_eq!(
-            brain.tick(0, senses(0, "Microsoft Teams")).feeling,
-            Feeling::Scared
-        );
-        assert_eq!(
-            brain.tick(40_000, senses(0, "Microsoft Teams")).feeling,
-            Feeling::Content
-        );
+        assert_eq!(brain.tick(0, senses(0, "Microsoft Teams")).feeling, Feeling::Scared);
+        assert_eq!(brain.tick(40_000, senses(0, "Microsoft Teams")).feeling, Feeling::Content);
         brain.tick(41_000, senses(0, "Terminal"));
-        assert_eq!(
-            brain.tick(80_000, senses(0, "Terminal")).feeling,
-            Feeling::Nostalgic
-        );
+        assert_eq!(brain.tick(80_000, senses(0, "Terminal")).feeling, Feeling::Nostalgic);
     }
 
     #[test]
@@ -1039,20 +1206,11 @@ mod tests {
         brain.tick(32_000, senses(0, "Notes"));
         brain.tick(63_000, senses(0, "Notes"));
         for i in 0..7u64 {
-            brain.tick(
-                64_000 + i * 1_000,
-                senses(0, if i % 2 == 0 { "Finder" } else { "Notes" }),
-            );
+            brain.tick(64_000 + i * 1_000, senses(0, if i % 2 == 0 { "Finder" } else { "Notes" }));
         }
-        assert_eq!(
-            brain.tick(71_000, senses(0, "Finder")).feeling,
-            Feeling::Restless
-        );
+        assert_eq!(brain.tick(71_000, senses(0, "Finder")).feeling, Feeling::Restless);
         // Two minutes later the switches have aged out.
-        assert_eq!(
-            brain.tick(200_000, senses(0, "Finder")).feeling,
-            Feeling::Content
-        );
+        assert_eq!(brain.tick(200_000, senses(0, "Finder")).feeling, Feeling::Content);
     }
 
     /// Ticks every 250ms for `minutes`, the way the shell does, with the cursor
@@ -1108,10 +1266,7 @@ mod tests {
         // or is the shake of losing the thread halfway through a chain.
         let sleepy = ["yawn", "nod", "twitch", "settle", "shake", "blinkfast"];
         for effect in live(&Brain::seeded(3), 2, None, 60) {
-            assert!(
-                sleepy.contains(&effect.as_str()),
-                "a sleepy pet played {effect}"
-            );
+            assert!(sleepy.contains(&effect.as_str()), "a sleepy pet played {effect}");
         }
     }
 
@@ -1125,26 +1280,10 @@ mod tests {
         };
         let effects = live(&Brain::seeded(5), 10, Some(track), 30);
         // Festive, and `dance_style` makes this one a fast song: pogo and jig.
-        let dances = [
-            "land",
-            "pogo",
-            "jig",
-            "bounce",
-            "hop",
-            "spin",
-            "bow",
-            "shake",
-            "blinkfast",
-        ];
-        assert!(
-            effects.iter().any(|e| e == "pogo" || e == "jig"),
-            "{effects:?}"
-        );
+        let dances = ["land", "pogo", "jig", "bounce", "hop", "spin", "bow", "shake", "blinkfast"];
+        assert!(effects.iter().any(|e| e == "pogo" || e == "jig"), "{effects:?}");
         for effect in &effects {
-            assert!(
-                dances.contains(&effect.as_str()),
-                "festive pet played {effect}"
-            );
+            assert!(dances.contains(&effect.as_str()), "festive pet played {effect}");
         }
     }
 
@@ -1175,12 +1314,8 @@ mod tests {
     #[test]
     fn music_makes_him_sing_but_not_in_his_sleep() {
         let brain = Brain::still();
-        let track = Some(Track {
-            artist: "a".into(),
-            song: "b".into(),
-            genre: String::new(),
-            bpm: 0,
-        });
+        let track =
+            Some(Track { artist: "a".into(), song: "b".into(), genre: String::new(), bpm: 0 });
         assert!(
             brain
                 .tick(
@@ -1248,11 +1383,7 @@ mod tests {
                 last = frame.move_serial;
                 moves += 1;
                 // Off the strip only while going round the back, and then fully.
-                assert!(
-                    frame.x >= -PET_WIDTH && frame.x <= 1512.0,
-                    "x = {}",
-                    frame.x
-                );
+                assert!(frame.x >= -PET_WIDTH && frame.x <= 1512.0, "x = {}", frame.x);
             }
         }
         assert!(moves >= 10, "only {moves} moves in 20 minutes");
@@ -1355,11 +1486,7 @@ mod tests {
         let f = with_cursor(&brain, 0, None);
         brain.press(10, f.x + 40.0, 40.0, f.x, 0.0);
         brain.drag(20, f.x + 42.0, 41.0);
-        assert_eq!(
-            with_cursor(&brain, 25, None).mood,
-            Mood::Idle,
-            "a 2pt wobble is still a click"
-        );
+        assert_eq!(with_cursor(&brain, 25, None).mood, Mood::Idle, "a 2pt wobble is still a click");
         brain.drag(30, f.x + 140.0, 340.0);
         let held = with_cursor(&brain, 40, None);
         assert_eq!(held.mood, Mood::Held);
@@ -1409,9 +1536,82 @@ mod tests {
         assert_eq!(petted.mood, Mood::Love);
         assert_eq!(petted.effect.unwrap().name, "pop");
         // Far away: back to idle.
-        assert_eq!(
-            with_cursor(&brain, 6_000, Some((cx + 900.0, cy))).mood,
-            Mood::Idle
-        );
+        assert_eq!(with_cursor(&brain, 6_000, Some((cx + 900.0, cy))).mood, Mood::Idle);
+    }
+
+    const COPY: &str = include_str!("../../art/copy.json");
+
+    fn talker(language: &str) -> Brain {
+        let brain = Brain::still();
+        brain.set_copy(COPY.into(), language.into());
+        brain
+    }
+
+    fn lines(language: &str, path: &str) -> Vec<String> {
+        let copy = Copy::parse(COPY, language).unwrap();
+        copy.pool(path).iter().filter_map(|l| Copy::render(l, 14, &[])).collect()
+    }
+
+    fn quiet_senses(app: Option<&str>) -> Senses {
+        Senses {
+            idle_ms: 0,
+            hour: 14,
+            front_app: app.map(String::from),
+            music: None,
+            strip_width: 1512.0,
+            strip_height: 900.0,
+            cursor_x: None,
+            cursor_y: None,
+        }
+    }
+
+    #[test]
+    fn he_greets_once_after_launch() {
+        let brain = talker("en");
+        assert!(brain.tick(0, quiet_senses(None)).speech.is_none());
+        let hello = brain.tick(1_700, quiet_senses(None)).speech.expect("a boot line");
+        assert!(lines("en", "boot").contains(&hello.text), "{}", hello.text);
+        // The bubble stays up for its time, then goes.
+        assert_eq!(brain.tick(3_000, quiet_senses(None)).speech.unwrap().serial, hello.serial);
+        assert!(brain.tick(30_000, quiet_senses(None)).speech.is_none());
+    }
+
+    #[test]
+    fn a_click_gets_a_click_line_in_spanish_too() {
+        let brain = talker("es");
+        let f = brain.tick(0, quiet_senses(None));
+        brain.press(10, f.x + 40.0, 40.0, f.x, 0.0);
+        brain.release(20);
+        let said = brain.tick(30, quiet_senses(None)).speech.unwrap();
+        assert!(lines("es", "click").contains(&said.text), "{}", said.text);
+    }
+
+    #[test]
+    fn teams_in_front_frightens_him_out_loud() {
+        let brain = talker("en");
+        brain.tick(0, quiet_senses(None));
+        // The greeting first, and its bubble gone: he does not talk over himself.
+        brain.tick(1_700, quiet_senses(None));
+        brain.tick(20_000, quiet_senses(Some("Microsoft Teams")));
+        let f = brain.tick(22_000, quiet_senses(Some("Microsoft Teams")));
+        assert_eq!(f.mood, Mood::Scared);
+        assert!(lines("en", "fears.meeting").contains(&f.speech.unwrap().text));
+    }
+
+    #[test]
+    fn left_alone_he_talks_now_and_then() {
+        let brain = talker("en");
+        let mut said = 0;
+        let mut last = 0;
+        for i in 0..(10 * 240) {
+            if let Some(s) = brain.tick(i * 250, quiet_senses(Some("Finder"))).speech
+                && s.serial != last
+            {
+                last = s.serial;
+                said += 1;
+            }
+        }
+        // Boot, the app, and chatter at most every 50s: a handful in ten minutes.
+        assert!((4..=14).contains(&said), "{said} lines in ten minutes");
     }
 }

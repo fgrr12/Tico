@@ -149,93 +149,28 @@ pub fn palette(feeling: Feeling) -> Colours {
         Nostalgic => ("#9ece6a", "#0d140f", "#9ece6a"),
         Scared => ("#2a2e3a", "#d9dde8", "#f7768e"),
     };
-    Colours {
-        face: face.into(),
-        screen: screen.into(),
-        led: led.into(),
-    }
+    Colours { face: face.into(), screen: screen.into(), led: led.into() }
 }
 
 /// Lowercased substring, first match wins, so the specific entries come first.
 const APP_PATTERNS: &[(&str, &[&str])] = &[
-    (
-        "sql",
-        &[
-            "beekeeper",
-            "tableplus",
-            "dbeaver",
-            "pgadmin",
-            "azure data studio",
-            "sequel",
-        ],
-    ),
-    (
-        "vscode",
-        &[
-            "visual studio code",
-            "code - insiders",
-            "cursor",
-            "windsurf",
-            "vscodium",
-        ],
-    ),
-    (
-        "visualstudio",
-        &[
-            "visual studio",
-            "rider",
-            "jetbrains",
-            "intellij",
-            "webstorm",
-        ],
-    ),
+    ("sql", &["beekeeper", "tableplus", "dbeaver", "pgadmin", "azure data studio", "sequel"]),
+    ("vscode", &["visual studio code", "code - insiders", "cursor", "windsurf", "vscodium"]),
+    ("visualstudio", &["visual studio", "rider", "jetbrains", "intellij", "webstorm"]),
     ("xcode", &["xcode", "android studio"]),
-    (
-        "terminal",
-        &[
-            "terminal",
-            "iterm",
-            "warp",
-            "ghostty",
-            "alacritty",
-            "kitty",
-            "wezterm",
-        ],
-    ),
-    (
-        "github",
-        &["github desktop", "sourcetree", "fork", "gitkraken"],
-    ),
+    ("terminal", &["terminal", "iterm", "warp", "ghostty", "alacritty", "kitty", "wezterm"]),
+    ("github", &["github desktop", "sourcetree", "fork", "gitkraken"]),
     ("docker", &["docker", "orbstack", "podman"]),
     ("api", &["postman", "insomnia", "bruno", "hoppscotch"]),
     ("figma", &["figma", "sketch", "penpot"]),
-    (
-        "meeting",
-        &["zoom", "microsoft teams", "google meet", "webex"],
-    ),
-    (
-        "chat",
-        &[
-            "slack", "discord", "whatsapp", "telegram", "messages", "signal",
-        ],
-    ),
+    ("meeting", &["zoom", "microsoft teams", "google meet", "webex"]),
+    ("chat", &["slack", "discord", "whatsapp", "telegram", "messages", "signal"]),
     ("music", &["spotify", "music", "tidal", "deezer"]),
-    (
-        "browser",
-        &["chrome", "brave", "safari", "firefox", "arc", "edge", "zen"],
-    ),
-    (
-        "notes",
-        &[
-            "notion", "obsidian", "notes", "bear", "craft", "linear", "clickup",
-        ],
-    ),
+    ("browser", &["chrome", "brave", "safari", "firefox", "arc", "edge", "zen"]),
+    ("notes", &["notion", "obsidian", "notes", "bear", "craft", "linear", "clickup"]),
     ("sheets", &["excel", "numbers", "sheets", "calc"]),
     ("mail", &["mail", "outlook", "spark", "superhuman"]),
-    (
-        "ai",
-        &["claude", "chatgpt", "copilot", "perplexity", "ollama"],
-    ),
+    ("ai", &["claude", "chatgpt", "copilot", "perplexity", "ollama"]),
     ("finder", &["finder", "explorer", "files", "nautilus"]),
 ];
 
@@ -286,54 +221,24 @@ pub enum DanceStyle {
 }
 
 const GENRE_STYLES: &[(DanceStyle, &[&str])] = &[
-    (
-        DanceStyle::Heavy,
-        &["metal", "hard rock", "grunge", "industrial"],
-    ),
+    (DanceStyle::Heavy, &["metal", "hard rock", "grunge", "industrial"]),
     (
         DanceStyle::Fast,
-        &[
-            "punk",
-            "electronic",
-            "techno",
-            "house",
-            "drum",
-            "dance",
-            "ska",
-            "trance",
-        ],
+        &["punk", "electronic", "techno", "house", "drum", "dance", "ska", "trance"],
     ),
     (
         DanceStyle::Smooth,
-        &[
-            "hip", "rap", "r&b", "soul", "funk", "jazz", "reggae", "latin", "salsa", "bossa",
-        ],
+        &["hip", "rap", "r&b", "soul", "funk", "jazz", "reggae", "latin", "salsa", "bossa"],
     ),
     (
         DanceStyle::Slow,
-        &[
-            "classical",
-            "ambient",
-            "acoustic",
-            "folk",
-            "blues",
-            "soundtrack",
-            "piano",
-        ],
+        &["classical", "ambient", "acoustic", "folk", "blues", "soundtrack", "piano"],
     ),
-    (
-        DanceStyle::Bright,
-        &["pop", "indie", "alternative", "country", "rock"],
-    ),
+    (DanceStyle::Bright, &["pop", "indie", "alternative", "country", "rock"]),
 ];
 
-const STYLES: [DanceStyle; 5] = [
-    DanceStyle::Heavy,
-    DanceStyle::Fast,
-    DanceStyle::Smooth,
-    DanceStyle::Slow,
-    DanceStyle::Bright,
-];
+const STYLES: [DanceStyle; 5] =
+    [DanceStyle::Heavy, DanceStyle::Fast, DanceStyle::Smooth, DanceStyle::Slow, DanceStyle::Bright];
 
 /// Tempo, then genre, then a hash of the track so a song always gets the same
 /// dance. The hash is FNV-1a over what JavaScript's `charCodeAt(0)` sees for
@@ -350,9 +255,8 @@ pub fn dance_style(artist: &str, song: &str, genre: &str, bpm: f64) -> DanceStyl
     }
     let needle = genre.to_lowercase();
     if !needle.is_empty()
-        && let Some((style, _)) = GENRE_STYLES
-            .iter()
-            .find(|(_, words)| words.iter().any(|w| needle.contains(w)))
+        && let Some((style, _)) =
+            GENRE_STYLES.iter().find(|(_, words)| words.iter().any(|w| needle.contains(w)))
     {
         return *style;
     }
@@ -410,14 +314,8 @@ impl Where {
 }
 
 /// Back to front.
-pub const WORN_ORDER: [Where; 6] = [
-    Where::Body,
-    Where::Neck,
-    Where::Feet,
-    Where::Head,
-    Where::Face,
-    Where::Hand,
-];
+pub const WORN_ORDER: [Where; 6] =
+    [Where::Body, Where::Neck, Where::Feet, Where::Head, Where::Face, Where::Hand];
 
 #[uniffi::export]
 pub fn wears(kind: &str) -> Option<Where> {
@@ -453,13 +351,7 @@ pub fn worn_from(
         if let Some(at) = wears(&kind)
             && at.key() == place
         {
-            by.insert(
-                at,
-                WornProp {
-                    kind,
-                    leaving: false,
-                },
-            );
+            by.insert(at, WornProp { kind, leaving: false });
         }
     }
     if let Some(kind) = own
@@ -538,20 +430,13 @@ mod tests {
             (Some("● app.rs — tico"), Some("app.rs")),
             (Some("tico — PLAN.md"), Some("PLAN.md")),
             (Some(".env-prod — Condominios"), None),
-            (
-                Some("Fabricio Rojas — Full Stack Developer - Google Chrome"),
-                None,
-            ),
+            (Some("Fabricio Rojas — Full Stack Developer - Google Chrome"), None),
             (Some("github.com/fgrr12 - Brave"), None),
             (Some("Spotify Premium"), None),
             (None, None),
         ];
         for (title, want) in cases {
-            assert_eq!(
-                document_in(title.map(String::from)).as_deref(),
-                want,
-                "{title:?}"
-            );
+            assert_eq!(document_in(title.map(String::from)).as_deref(), want, "{title:?}");
         }
     }
 
@@ -588,11 +473,7 @@ mod tests {
             ("artist 1", "song 1", Slow),
             ("Ünïcødé 🎵", "Émoji ✨", Slow),
         ] {
-            assert_eq!(
-                dance_style(artist, song, "", 0.0),
-                want,
-                "{artist} – {song}"
-            );
+            assert_eq!(dance_style(artist, song, "", 0.0), want, "{artist} – {song}");
         }
         assert_eq!(dance_style("x", "y", "Heavy Metal", 0.0), Heavy);
         assert_eq!(dance_style("x", "y", "Hip-Hop/Rap", 0.0), Smooth);
@@ -610,9 +491,8 @@ mod tests {
 
     #[test]
     fn familiarity_reaches_every_level() {
-        let reached: std::collections::HashSet<_> = [0, 1, 3, 4, 13, 14, 59, 60, 400]
-            .map(familiarity_from)
-            .into();
+        let reached: std::collections::HashSet<_> =
+            [0, 1, 3, 4, 13, 14, 59, 60, 400].map(familiarity_from).into();
         assert_eq!(reached.len(), 4);
         assert_eq!(familiarity_from(3), Familiarity::New);
         assert_eq!(familiarity_from(60), Familiarity::Old);
@@ -621,9 +501,8 @@ mod tests {
     #[test]
     fn worn_things_keep_their_places() {
         let kinds = |w: Vec<WornProp>| w.into_iter().map(|p| p.kind).collect::<Vec<_>>();
-        let pins: HashMap<String, String> = [("hand", "coffee"), ("head", "cap")]
-            .map(|(a, b)| (a.into(), b.into()))
-            .into();
+        let pins: HashMap<String, String> =
+            [("hand", "coffee"), ("head", "cap")].map(|(a, b)| (a.into(), b.into())).into();
         assert!(
             kinds(worn_from(pins.clone(), None, false)).contains(&"coffee".into()),
             "a pinned coffee is not held"
@@ -642,14 +521,8 @@ mod tests {
             [("hand", "coffee"), ("body", "cape"), ("head", "cap")]
                 .map(|(a, b)| (a.into(), b.into()))
                 .into();
-        assert_eq!(
-            kinds(worn_from(order, None, false)),
-            ["cape", "cap", "coffee"]
-        );
+        assert_eq!(kinds(worn_from(order, None, false)), ["cape", "cap", "coffee"]);
         let wrong: HashMap<String, String> = [("head".to_string(), "coffee".to_string())].into();
-        assert!(
-            worn_from(wrong, None, false).is_empty(),
-            "a coffee was worn as a hat"
-        );
+        assert!(worn_from(wrong, None, false).is_empty(), "a coffee was worn as a hat");
     }
 }

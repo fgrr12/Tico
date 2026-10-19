@@ -5,6 +5,7 @@
 //!
 //! - [`data`]: the pure functions of `src/data/companion.ts` (time, energy,
 //!   feelings, palette, apps, dances, familiarity, what he wears).
+//! - [`copy`]: what he says, in both languages, from `art/copy.json`.
 //! - [`brain`]: the poll that decides on its own — sleep, waking, feelings,
 //!   and which [`moments`] he has unprompted.
 
@@ -13,6 +14,7 @@ use std::sync::Arc;
 uniffi::setup_scaffolding!("tico");
 
 pub mod brain;
+pub mod copy;
 pub mod data;
 pub mod moments;
 

@@ -58,10 +58,14 @@ pub enum Step {
         scale: f64,
     },
     Go(Travel),
-    /// Walk to `x` (the second leg of a pace, the way back from behind).
+    /// Walk to `x` (the second leg of a pace).
     WalkTo {
         x: f64,
         speed: f64,
+    },
+    /// Walk back in to `x` from behind the screen.
+    ComeBack {
+        x: f64,
     },
 }
 
@@ -77,19 +81,11 @@ use Mood::*;
 use Step::*;
 
 const fn react(mood: Mood, effect: &'static str, ms: u64) -> Step {
-    React {
-        mood,
-        effect: Some(effect),
-        ms,
-    }
+    React { mood, effect: Some(effect), ms }
 }
 
 const fn hold(mood: Mood, ms: u64) -> Step {
-    React {
-        mood,
-        effect: None,
-        ms,
-    }
+    React { mood, effect: None, ms }
 }
 
 macro_rules! moment {
@@ -162,16 +158,14 @@ pub fn by_feeling(feeling: Feeling) -> Option<&'static [&'static str]> {
             "pace", "stare", "ceiling", "scan", "lean", "sit", "hiccup", "edge", "peekover",
             "inspect", "groom", "behind", "house", "climb", "sneeze",
         ],
-        Lonely => &[
-            "stare", "watchyou", "sit", "slump", "ceiling", "edge", "settle", "wave", "house",
-        ],
+        Lonely => {
+            &["stare", "watchyou", "sit", "slump", "ceiling", "edge", "settle", "wave", "house"]
+        }
         Pleased => &[
             "hop", "bounce", "dance", "jig", "showoff", "spin", "stretch", "bow", "skip", "wave",
             "rocket",
         ],
-        Worried => &[
-            "watchyou", "stare", "lean", "sit", "scan", "settle", "groom",
-        ],
+        Worried => &["watchyou", "stare", "lean", "sit", "scan", "settle", "groom"],
         Restless => &[
             "pace",
             "shake",
@@ -185,18 +179,8 @@ pub fn by_feeling(feeling: Feeling) -> Option<&'static [&'static str]> {
             "skip",
             "errand",
         ],
-        Rattled => &[
-            "shake",
-            "stare",
-            "sit",
-            "blinkfast",
-            "lean",
-            "settle",
-            "startle",
-        ],
-        Smug => &[
-            "showoff", "spin", "stretch", "dance", "watchyou", "bow", "admire", "adjust",
-        ],
+        Rattled => &["shake", "stare", "sit", "blinkfast", "lean", "settle", "startle"],
+        Smug => &["showoff", "spin", "stretch", "dance", "watchyou", "bow", "admire", "adjust"],
         Curious => &[
             "ceiling",
             "scan",
@@ -210,24 +194,10 @@ pub fn by_feeling(feeling: Feeling) -> Option<&'static [&'static str]> {
             "climb",
             "errand",
         ],
-        Sleepy => &[
-            "yawn", "nod", "slump", "sit", "stare", "dream", "settle", "house",
-        ],
-        Festive => &[
-            "dance", "jig", "bounce", "hop", "spin", "skip", "bow", "wave", "rocket",
-        ],
-        Nostalgic => &[
-            "stare", "ceiling", "sit", "scan", "lean", "settle", "inspect", "sneeze",
-        ],
-        Scared => &[
-            "flee",
-            "cower",
-            "startle",
-            "shake",
-            "stare",
-            "blinkfast",
-            "house",
-        ],
+        Sleepy => &["yawn", "nod", "slump", "sit", "stare", "dream", "settle", "house"],
+        Festive => &["dance", "jig", "bounce", "hop", "spin", "skip", "bow", "wave", "rocket"],
+        Nostalgic => &["stare", "ceiling", "sit", "scan", "lean", "settle", "inspect", "sneeze"],
+        Scared => &["flee", "cower", "startle", "shake", "stare", "blinkfast", "house"],
     })
 }
 
@@ -264,11 +234,7 @@ mod tests {
             Bored, Lonely, Pleased, Worried, Restless, Rattled, Smug, Curious, Sleepy, Festive,
             Nostalgic, Scared,
         ] {
-            let here = by_feeling(feeling)
-                .unwrap()
-                .iter()
-                .filter(|k| moment(k).is_some())
-                .count();
+            let here = by_feeling(feeling).unwrap().iter().filter(|k| moment(k).is_some()).count();
             assert!(here >= 3, "{feeling:?} has only {here}");
         }
     }

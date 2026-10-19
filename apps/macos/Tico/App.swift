@@ -30,6 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		if let art = try? Art.load(), let screen = NSScreen.main {
+			// What he says, in the language macOS is set to: Spanish or English.
+			if let url = Bundle.main.url(forResource: "copy", withExtension: "json"), let json = try? String(contentsOf: url, encoding: .utf8) {
+				let spanish = Locale.preferredLanguages.first?.lowercased().hasPrefix("es") == true
+				brain.setCopy(json: json, language: spanish ? "es" : "en")
+			}
 			let panel = PetPanel(screen: screen)
 			self.screen = screen
 			think(art: art, panel: panel)
@@ -142,7 +147,7 @@ final class Demo {
 		var frame = Frame(
 			mood: .idle, feeling: .content, colours: palette(feeling: .content),
 			effect: nil, sitting: false, look: nil, singing: false,
-			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true
+			x: 240, lift: 0, moveMs: 0, moveSerial: 0, walking: false, flying: false, facingRight: true, speech: nil
 		)
 		if step != shown {
 			shown = step

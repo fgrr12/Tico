@@ -15,6 +15,7 @@ license = "MIT"
 [workspace.dependencies]
 tico-core = { path = "core" }
 uniffi = "0.32.2"
+serde_json = "1.0.154"
 
 [profile.release]
 lto = true

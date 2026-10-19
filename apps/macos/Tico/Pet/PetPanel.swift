@@ -27,6 +27,9 @@ final class PetPanel: NSPanel {
 	var onRelease: (() -> Void)?
 	private var pressed = false
 
+	/// Travels: what moves along the strip, carrying him and what he says.
+	private let walker = CALayer()
+	private let bubble = Bubble()
 	private let body = CALayer()
 	private let anim = CALayer()
 	private let svg = CALayer()
@@ -77,7 +80,8 @@ final class PetPanel: NSPanel {
 		contentView = view
 
 		let box = CGRect(x: 0, y: Self.below, width: Self.petWidth, height: Self.petWidth)
-		body.frame = box
+		walker.frame = box
+		body.frame = CGRect(origin: .zero, size: box.size)
 		anim.frame = CGRect(origin: .zero, size: box.size)
 		// `transform-origin: 50% 90%`, measured from the top.
 		anim.anchorPoint = CGPoint(x: 0.5, y: 0.1)
@@ -90,7 +94,9 @@ final class PetPanel: NSPanel {
 		svg.addSublayer(host)
 		anim.addSublayer(svg)
 		body.addSublayer(anim)
-		view.layer?.addSublayer(body)
+		walker.addSublayer(body)
+		walker.addSublayer(bubble.layer)
+		view.layer?.addSublayer(walker)
 	}
 
 	override var canBecomeKey: Bool { false }
@@ -116,7 +122,7 @@ final class PetPanel: NSPanel {
 
 	/// Where he visibly is right now, mid-walk included: (x, lift).
 	var standing: CGPoint {
-		let p = body.presentation()?.position ?? body.position
+		let p = walker.presentation()?.position ?? walker.position
 		return CGPoint(x: p.x - Self.petWidth / 2, y: p.y - Self.below - Self.petWidth / 2)
 	}
 
@@ -125,7 +131,7 @@ final class PetPanel: NSPanel {
 	/// whole of a press, or a fast drag would outrun it and drop him.
 	func hitTest(cursor: NSPoint) {
 		guard !pressed else { return }
-		let box = (body.presentation() ?? body).frame.offsetBy(dx: frame.minX, dy: frame.minY)
+		let box = (walker.presentation() ?? walker).frame.offsetBy(dx: frame.minX, dy: frame.minY)
 		let over = box.contains(cursor)
 		if ignoresMouseEvents == over { ignoresMouseEvents = !over }
 	}
@@ -147,10 +153,10 @@ final class PetPanel: NSPanel {
 			let first = moveSerial == nil
 			moveSerial = frame.moveSerial
 			let to = CGPoint(x: frame.x + Self.petWidth / 2, y: Self.below + frame.lift + Self.petWidth / 2)
-			let from = body.presentation()?.position ?? body.position
+			let from = walker.presentation()?.position ?? walker.position
 			CATransaction.begin()
 			CATransaction.setDisableActions(true)
-			body.position = to
+			walker.position = to
 			CATransaction.commit()
 			if frame.moveMs > 0, !first {
 				let a = CABasicAnimation(keyPath: "position")
@@ -159,9 +165,12 @@ final class PetPanel: NSPanel {
 				a.duration = Double(frame.moveMs) / 1000
 				a.timingFunction = CSSMotion.timing(motion.base.travel)
 				a.preferredFrameRateRange = Motion.liveRate
-				body.add(a, forKey: "travel")
+				walker.add(a, forKey: "travel")
 			}
 		}
+
+		// What he is saying, on whichever side of him keeps it on screen.
+		bubble.show(frame.speech, width: Self.petWidth, onLeft: frame.x + Self.petWidth / 2 < self.frame.width / 2)
 
 		// The drawing: rebuilt when the face, the colours or the singing change.
 		// Landing, or stopping a walk while singing, redraws to restore what

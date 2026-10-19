@@ -25,6 +25,8 @@ targets:
       # build never needs Node.
       - path: ../../art/tico.json
         buildPhase: resources
+      - path: ../../art/copy.json
+        buildPhase: resources
     dependencies:
       - framework: build/TicoCore.xcframework
         embed: false

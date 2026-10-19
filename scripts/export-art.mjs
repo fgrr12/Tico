@@ -138,6 +138,8 @@ try {
 	const classStyles = { 'companion-hand': declarations, 'companion-foot': declarations }
 
 	const motion = motionFrom(css, readFileSync(`${root}src/companion/Companion.tsx`, 'utf8'))
+	const { companionCopy } = await server.ssrLoadModule('/src/data/companion.ts')
+	const copy = Object.fromEntries(Object.entries(companionCopy).map(([language, lines]) => [language, copyFrom(lines, language)]))
 	const art = { version: 2, viewBox: [0, 0, 96, 96], tokens: Object.values(TOKENS), palette, defs, classStyles, slots, props, faces, motion }
 
 	// ── The proof ─────────────────────────────────────────────────────────────
@@ -201,7 +203,11 @@ try {
 	if (!failed) {
 		mkdirSync(`${root}art`, { recursive: true })
 		writeFileSync(`${root}art/tico.json`, `${JSON.stringify(art)}\n`)
+		writeFileSync(`${root}art/copy.json`, `${JSON.stringify(copy)}\n`)
 		const count = (o) => Object.values(o).reduce((n, v) => n + Object.keys(v).length, 0)
+		const leaf = (o) => typeof o === 'string' || typeof o.t === 'string' || (Array.isArray(o.hours) && typeof o.hours[0] === 'string')
+		const lines = (o) => (leaf(o) ? 1 : (Array.isArray(o) ? o : Object.values(o)).reduce((n, v) => n + lines(v), 0))
+		console.log(`✓ art/copy.json: ${Object.entries(copy).map(([l, c]) => `${lines(c)} ${l}`).join(', ')} lines`)
 		console.log(
 			`✓ art/tico.json: ${count(slots)} slot variants, ${Object.keys(props).length} props, ${MOODS.length} moods, ${Object.keys(motion.effects).length} effects; ${compared} drawings match React`
 		)
@@ -210,6 +216,58 @@ try {
 	await server.close()
 }
 process.exit(failed ? 1 : 0)
+
+/**
+ * What he says, out of `src/data/copy/{en,es}.ts`, for the core to pick from.
+ *
+ * Most lines are strings. The rest are functions, and a function cannot be
+ * JSON, so each is run instead of copied:
+ *
+ * - A line about the hour (`(hour) => …`) is run for all 24 and stored as
+ *   `{ "hours": [24 strings] }` — `spoken(hour)` has real logic in it
+ *   ("Es la una", "Son las tres de la madrugada") and only running it keeps it.
+ * - Anything else is run twice with two different sentinel values per
+ *   parameter and stored as `{ "t": "… {0} … {1} …" }`. Both runs must come
+ *   back as the same template: a line that branches on its argument (a plural,
+ *   say) would differ, and this throws rather than export half of it.
+ */
+function copyFrom(lines, language) {
+	const params = (fn) => (fn.toString().match(/^\(?([^)=]*)\)?\s*=>/)?.[1] ?? '').split(',').map((p) => p.trim()).filter(Boolean)
+	const template = (fn, where) => {
+		const names = params(fn)
+		if (names.length === 0) return fn()
+		if (names.length === 1 && names[0] === 'hour') return { hours: Array.from({ length: 24 }, (_, h) => fn(h)) }
+		const numeric = (name) => ['days', 'minutes', 'hour', 'n'].includes(name)
+		const run = (a, b) => {
+			const args = names.map((name, i) => (numeric(name) ? [7771, 8882][i] + (a ? 0 : 1000) : `${a ? '⟦' : '⟪'}${i}${a ? '⟧' : '⟫'}`))
+			let out = fn(...args)
+			names.forEach((name, i) => {
+				out = out.replaceAll(String(args[i]), `{${i}}`)
+			})
+			return out
+		}
+		const first = run(true)
+		if (first !== run(false)) throw new Error(`${language}.${where}: a line that branches on its argument cannot be a template`)
+		// Numbers can change the words around them ("1 day"): check a small one too.
+		names.forEach((name, i) => {
+			if (!numeric(name)) return
+			const args = names.map((n, j) => (j === i ? 1 : numeric(n) ? 7771 + j : `⟦${j}⟧`))
+			let one = fn(...args)
+			names.forEach((n, j) => {
+				one = one.replaceAll(j === i ? '1' : String(args[j]), `{${j}}`)
+			})
+			if (one !== first) console.warn(`  ! ${language}.${where}: differs for 1 — "${one}" against "${first}"`)
+		})
+		return { t: first }
+	}
+	const walk = (value, where) => {
+		if (typeof value === 'string') return value
+		if (typeof value === 'function') return template(value, where)
+		if (Array.isArray(value)) return value.map((v, i) => walk(v, `${where}[${i}]`))
+		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, walk(v, where ? `${where}.${k}` : k)]))
+	}
+	return walk(lines, '')
+}
 
 /**
  * How he moves, out of companion.css: the keyframes, which effect plays which
